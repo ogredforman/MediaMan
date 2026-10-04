@@ -101,9 +101,9 @@ The design must not preclude:
 | Title | A movie or show | id, kind (Movie/Show), name, year, overview, genres[], rating, runtime, externalIds (tmdb, imdb, tvdb, anilist), artwork refs |
 | Season | A season of a show | id, titleId, number, name, overview, poster |
 | Episode | One episode | id, seasonId, number, absoluteNumber?, name, overview, airDate, still |
-| Playable | A movie Title or an Episode: the thing a user watches | (polymorphic: Title of kind Movie, or Episode) |
+| Playable | A movie Title or an Episode: the thing a user watches | id, kind (Movie/Episode), titleId?, episodeId? (exactly one set; ADR 0002) |
 | FileLink | Links a MediaFile to the Playables it contains | mediaFileId, playableId, part (for multi-episode files) |
-| Artwork | A cached image | id, ownerRef, type (poster/backdrop/logo/still), url, localPath, dominantColor |
+| Artwork | A cached image | id, titleId? / seasonId? / episodeId? (exactly one owner; ADR 0002), type (poster/backdrop/logo/still), url, localPath, dominantColor |
 | MatchReview | A low-confidence or failed match awaiting a user | id, mediaFileId, candidates[] (titleRef, score), reason |
 | User | An account | id, username, passwordHash, roleId, isSuperadmin, totpSecret?, disabled, createdAt |
 | Role | A named bundle of permissions | id, name, permissions[], isPreset |
@@ -116,7 +116,7 @@ The design must not preclude:
 | ReleaseResult | A search result (transient, cached briefly) | indexerId, title, magnet/torrentUrl, sizeBytes, seeders, leechers, publishDate, parsed (ParsedRelease), dangerousFiles?, quality (derived) |
 | QualityFilter | The chip selection on a "Get" | resolution[], dynamicRange[], bitrateTier[], codec[], source[], audio[], language[] |
 | SavedQualityProfile | A named QualityFilter | id, userId, name, filter |
-| Download | A torrent being downloaded or seeded | id, infoHash, name, state, progress, savePath, targetTitleRef?, requestedBy, seedRatioLimit?, seedTimeLimit? |
+| Download | A torrent being downloaded or seeded | id, infoHash, name, state, progress, savePath, targetTitleId? (FK to Title), requestedBy, seedRatioLimit?, seedTimeLimit? |
 | DownloadFile | A file inside a Download | downloadId, path, sizeBytes, priority, skipped, dangerous |
 | DownloadRequest | A user asking for a download | id, userId, titleRef, release, filter, status (Pending/Approved/Denied), decidedBy |
 | VpnConfig | The torrent network path | mode (Interface/Socks5/None-Accepted), interfaceId?, socksHost/Port/creds?, leakCheckIntervalSeconds |
@@ -460,7 +460,7 @@ interface ISubtitleProvider {                           // OpenSubtitles
 interface IMediaProbe { Task<ProbeResult> ProbeAsync(string path, CancellationToken ct); }
 interface ITranscoder {
   Task<StreamSession> StartAsync(StreamPlan plan, CancellationToken ct);   // remux or transcode to HLS
-  Task StopAsync(string sessionId);
+  Task StopAsync(string sessionId, CancellationToken ct);
   IReadOnlyList<HwEncoder> DetectEncoders();
 }
 
@@ -471,10 +471,10 @@ interface IFileWatcher { IDisposable Watch(string root, Action<FileChange> onCha
 interface ITorrentEngine {
   Task StartAsync(TorrentNetworkConfig net, CancellationToken ct);         // binds to interface or SOCKS5
   Task<TorrentHandle> AddAsync(TorrentSource src, AddOptions opts, CancellationToken ct);
-  Task PauseAsync(InfoHash h); Task ResumeAsync(InfoHash h);
-  Task PauseAllAsync(); Task ResumeAllAsync();
-  Task RemoveAsync(InfoHash h, bool deleteData);
-  Task SetFilePriorityAsync(InfoHash h, int fileIndex, FilePriority p);
+  Task PauseAsync(InfoHash h, CancellationToken ct); Task ResumeAsync(InfoHash h, CancellationToken ct);
+  Task PauseAllAsync(CancellationToken ct); Task ResumeAllAsync(CancellationToken ct);
+  Task RemoveAsync(InfoHash h, bool deleteData, CancellationToken ct);
+  Task SetFilePriorityAsync(InfoHash h, int fileIndex, FilePriority p, CancellationToken ct);
   IReadOnlyList<TorrentStatus> GetAll();
   event EventHandler<TorrentEvent> Changed;            // progress, completed, error
 }

@@ -11,3 +11,4 @@ old one's status is changed to `Superseded by NNNN`.
 | # | Title | Status |
 |---|---|---|
 | 0001 | [Server test stack: xUnit v3 on MTP, AwesomeAssertions, Verify deferred](0001-server-test-stack.md) | Accepted |
+| 0002 | [Entity ids are UUIDv7; Playable and Artwork owners use explicit FKs](0002-entity-ids-and-playable.md) | Accepted |
