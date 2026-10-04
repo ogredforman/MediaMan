@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MediaMan.Indexers\MediaMan.Indexers.csproj" />
+  </ItemGroup>
+
+</Project>

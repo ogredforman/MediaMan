@@ -1,0 +1,35 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.received.*
+
+# Node / web / desktop
+node_modules/
+dist/
+dist-electron/
+out/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+
+# Local data
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json

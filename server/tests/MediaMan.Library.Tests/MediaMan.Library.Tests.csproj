@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MediaMan.Library\MediaMan.Library.csproj" />
+  </ItemGroup>
+
+</Project>

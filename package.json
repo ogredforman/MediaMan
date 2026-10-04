@@ -1,0 +1,14 @@
+{
+  "name": "mediaman",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "workspaces": [],
+  "scripts": {
+    "build": "dotnet build server/MediaMan.sln -c Release",
+    "test": "dotnet test server/MediaMan.sln",
+    "lint": "dotnet format server/MediaMan.sln --verify-no-changes"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

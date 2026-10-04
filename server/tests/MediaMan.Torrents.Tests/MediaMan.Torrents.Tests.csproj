@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MediaMan.Torrents\MediaMan.Torrents.csproj" />
+  </ItemGroup>
+
+</Project>

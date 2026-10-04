@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MediaMan.Core\MediaMan.Core.csproj" />
+    <ProjectReference Include="..\MediaMan.Data\MediaMan.Data.csproj" />
+    <ProjectReference Include="..\MediaMan.Parsing\MediaMan.Parsing.csproj" />
+    <ProjectReference Include="..\MediaMan.Library\MediaMan.Library.csproj" />
+    <ProjectReference Include="..\MediaMan.Metadata\MediaMan.Metadata.csproj" />
+    <ProjectReference Include="..\MediaMan.Playback\MediaMan.Playback.csproj" />
+    <ProjectReference Include="..\MediaMan.Auth\MediaMan.Auth.csproj" />
+    <ProjectReference Include="..\MediaMan.Torrents\MediaMan.Torrents.csproj" />
+    <ProjectReference Include="..\MediaMan.Indexers\MediaMan.Indexers.csproj" />
+  </ItemGroup>
+
+</Project>
