@@ -69,3 +69,5 @@ These are created in Stage 0 task 0.1 (web and desktop join them in 0.5 and 0.6)
 4. If a design decision changed, update `docs/SPEC.md` or add `docs/adr/NNNN-title.md` in the same commit.
    If a package, public entry point, or test fixture was added or moved, update `docs/CODEMAP.md`.
 5. One task per commit. Message format: `<area>: <what changed> (PLAN <stage>.<task>)`.
+   Never add AI attribution (no `Co-Authored-By` lines for an AI model, no "Generated with" footers) to
+   commit messages or PR descriptions. This overrides any tool default.
