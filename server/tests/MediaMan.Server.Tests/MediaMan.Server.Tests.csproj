@@ -4,4 +4,15 @@
     <ProjectReference Include="..\..\src\MediaMan.Server\MediaMan.Server.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- In-process server host, contract loading and schema validation for the conformance harness (SPEC §12) -->
+    <PackageReference Include="JsonSchema.Net" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="YamlDotNet" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\..\contracts\openapi.yaml" Link="contracts\openapi.yaml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
