@@ -2,13 +2,24 @@
   "name": "mediaman",
   "private": true,
   "license": "AGPL-3.0-only",
-  "workspaces": [],
+  "workspaces": [
+    "web"
+  ],
   "scripts": {
-    "build": "dotnet build server/MediaMan.sln -c Release",
-    "test": "dotnet test server/MediaMan.sln",
-    "lint": "dotnet format server/MediaMan.sln --verify-no-changes"
+    "build": "dotnet build server/MediaMan.sln -c Release && npm run build -w web",
+    "test": "dotnet test server/MediaMan.sln && npm test -w web",
+    "lint": "eslint . && dotnet format server/MediaMan.sln --verify-no-changes"
   },
   "engines": {
     "node": ">=22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.13.0",
+    "typescript-eslint": "^8.71.0"
   }
 }

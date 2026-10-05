@@ -23,6 +23,7 @@ test-results/
 *.db-wal
 .env
 .env.*
+!web/.env.mock
 
 # Editors / OS
 .idea/

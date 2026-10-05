@@ -1,0 +1,36 @@
+@import 'tailwindcss';
+
+/*
+ * MediaMan theme tokens (SPEC §11). The default Tailwind palette is cleared so only these
+ * colours exist; add a token here rather than using an ad-hoc hex value in a component.
+ */
+@theme {
+  --color-*: initial;
+  --color-bg: #0e0b14;
+  --color-surface: #17121f;
+  --color-accent: #8b5cf6;
+  --color-highlight: #c4b5fd;
+  /* Text on bg/surface; both meet WCAG AA contrast against either (SPEC §9). */
+  --color-fg: #f4f1fa;
+  --color-fg-muted: #a79fb8;
+
+  --radius-card: 0.75rem;
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 0.35);
+
+  /* Motion stays within 150–250 ms (SPEC §11). Use as duration-(--motion-fast) etc. */
+  --motion-fast: 150ms;
+  --motion-normal: 200ms;
+  --motion-slow: 250ms;
+  --default-transition-duration: 200ms;
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-bg text-fg antialiased;
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-highlight;
+  }
+}
