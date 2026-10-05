@@ -1,0 +1,3 @@
+-- MediaMan on-screen controller (placeholder, PLAN 0.6).
+-- The purple OSC (SPEC §7.4, §11) lands with the playback workstream. It talks to the desktop main
+-- process only through MPV script messages and properties (.claude/rules/desktop.md).

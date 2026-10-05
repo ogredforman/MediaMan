@@ -22,7 +22,7 @@ export default tseslint.config(
   },
   js.configs.recommended,
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['**/*.{ts,tsx,cts}'],
     extends: [tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
@@ -44,6 +44,10 @@ export default tseslint.config(
     // Route files export `Route` plus local components; the router plugin's code splitting handles their HMR.
     files: ['web/src/routes/**/*.tsx'],
     rules: { 'react-refresh/only-export-components': 'off' },
+  },
+  {
+    files: ['desktop/**/*.{ts,cts}'],
+    languageOptions: { globals: globals.node },
   },
   {
     files: ['**/*.{js,mjs}'],

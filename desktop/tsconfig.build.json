@@ -1,0 +1,13 @@
+{
+  // Emits the main process (ESM) and the preload (.cts -> CommonJS, required by the sandbox) to dist/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.build.tsbuildinfo"
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"]
+}
