@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MediaMan.Core\MediaMan.Core.csproj" />
+    <ProjectReference Include="..\..\src\MediaMan.Data\MediaMan.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>

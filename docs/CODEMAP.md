@@ -45,7 +45,8 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - **MediaMan.Parsing**: `ReleaseParser.Parse(fileName, parentDirs)` (pure; `parentDirs` outermost first) → `ParsedRelease`, including quality tags with canonical values (`_sources`, `_codecs`, `_hdrFormats`, `_audio` tables) and anime absolute numbers.
 - **MediaMan.Playback**: `Probing/FfprobeMediaProbe` (real `IMediaProbe`, runs ffprobe as a process; `FfprobeOptions` path + timeout) and
   `Probing/FfprobeOutputParser.Parse(json)` (pure; HDR names match `ReleaseParser`). Dev wiring reads `MediaMan:Tools:FfprobePath`.
-- **MediaMan.Auth, .Library, .Metadata, .Indexers, .Torrents**: empty, filled from Stage 1 on.
+- **MediaMan.Library**: `Scanning/LibraryScanner.ScanAsync(libraryId, ct)` → `ScanResult` (enumerate roots, probe + parse new/changed files as `Pending`, unreadable → `NeedsAttention`, missing → `Missing` with `MissingSince`, purge after 30 days); `Scanning/ScanRules` (pure: video extensions, samples, extras folders). Not yet registered in DI (PLAN 1.9).
+- **MediaMan.Auth, .Metadata, .Indexers, .Torrents**: empty, filled from Stage 1 on.
 
 ## Frontend
 
@@ -66,7 +67,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - `server/tests/corpus/release-names.json`: parser corpus (`path` with `/`, partial `expected` fields, `baseline` accuracy), copied to `corpus/` in `MediaMan.Parsing.Tests` output; `ReleaseParserCorpusTests` enforces the baseline and lists failing cases.
 - `server/tests/fixtures/ffprobe/*.json`: saved ffprobe outputs (1080p MKV, HDR10, Dolby Vision, HLG, cover art), copied to `fixtures/ffprobe` in
   `MediaMan.Playback.Tests` output. `FfprobeMediaProbeIntegrationTests` generates samples with ffmpeg and skips when ffmpeg/ffprobe are absent.
-- `MediaMan.Data.Tests/TempDatabase.cs`: per-test SQLite file (`CreateMigratedAsync`, `CreateEmpty`, `CreateContext`, `OpenRawConnection`).
+- `MediaMan.Fakes/TempDatabase.cs` (shared by every test project): per-test SQLite file (`CreateMigratedAsync`, `CreateEmpty`, `CreateContext`, `OpenRawConnection`).
 - `MediaMan.Server.Tests/MediaManFactory.cs`: in-process host on a per-test temp `DataDirectory`; optional environment and settings, `KeepDataDirectory` for restarts.
 - `MediaMan.Server.Tests/Conformance/ContractDocument.cs`: loads the contract; `AssertConformsAsync(response, ct)` validates a response.
   `ContractCoverageTests` checks routes against contract operations.

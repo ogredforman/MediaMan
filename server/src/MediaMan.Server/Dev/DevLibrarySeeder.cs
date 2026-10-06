@@ -39,7 +39,7 @@ public sealed partial class DevLibrarySeeder(
             return;
         }
 
-        db.Libraries.Add(new Library
+        db.Libraries.Add(new Core.Domain.Library
         {
             Id = Ids.New(clock),
             Name = string.IsNullOrWhiteSpace(dev.LibraryName) ? Path.GetFileName(mediaPath) : dev.LibraryName,

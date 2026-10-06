@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using MediaMan.Core;
 using MediaMan.Core.Domain;
+using MediaMan.Fakes;
 using Microsoft.EntityFrameworkCore;
 
 namespace MediaMan.Data.Tests;
