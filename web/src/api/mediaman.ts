@@ -13,6 +13,8 @@
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
  *   alongside `PageInfo`. Pass `nextCursor` back as `cursor` to get the next page; it's absent on the last page.
+ *   An invalid `cursor` or `limit` returns `400` with code `pagination.invalid`.
+ * - **Absent values:** an optional property with no value is omitted, never sent as `null`.
  * - **Real-time updates:** `GET /events` is a Server-Sent Events stream. Each SSE frame's `event:` is the
  *   envelope `type`, `id:` is the envelope `id`, and `data:` is the `EventEnvelope` as JSON. The server also sends
  *   SSE comment lines (starting with `:`) when the stream opens and as keep-alives; clients ignore them.
@@ -37,7 +39,12 @@ import type {
 import type {
   EventEnvelope,
   Health,
-  ProblemResponse
+  LibraryPage,
+  ListLibrariesParams,
+  ListTitlesParams,
+  ProblemResponse,
+  TitleDetail,
+  TitlePage
 } from './mediaman.schemas';
 
 import { apiFetch } from '../lib/http';
@@ -253,6 +260,323 @@ export function useGetEvents<TData = Awaited<ReturnType<typeof getEvents>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListLibrariesUrl = (params?: ListLibrariesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/libraries?${stringifiedParams}` : `/libraries`
+}
+
+/**
+ * @summary Lists the libraries, sorted by name.
+ */
+export const listLibraries = async (params?: ListLibrariesParams, options?: Parameters<typeof apiFetch>[1]): Promise<LibraryPage> => {
+
+  return apiFetch<LibraryPage>(getListLibrariesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListLibrariesQueryKey = (params?: ListLibrariesParams,) => {
+    return [
+    `/libraries`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListLibrariesQueryOptions = <TData = Awaited<ReturnType<typeof listLibraries>>, TError = ErrorType<ProblemResponse>>(params?: ListLibrariesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listLibraries>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListLibrariesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listLibraries>>> = ({ signal }) => listLibraries(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listLibraries>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListLibrariesQueryResult = NonNullable<Awaited<ReturnType<typeof listLibraries>>>
+export type ListLibrariesQueryError = ErrorType<ProblemResponse>
+
+
+export function useListLibraries<TData = Awaited<ReturnType<typeof listLibraries>>, TError = ErrorType<ProblemResponse>>(
+ params: undefined |  ListLibrariesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listLibraries>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listLibraries>>,
+          TError,
+          Awaited<ReturnType<typeof listLibraries>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListLibraries<TData = Awaited<ReturnType<typeof listLibraries>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListLibrariesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listLibraries>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listLibraries>>,
+          TError,
+          Awaited<ReturnType<typeof listLibraries>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListLibraries<TData = Awaited<ReturnType<typeof listLibraries>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListLibrariesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listLibraries>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Lists the libraries, sorted by name.
+ */
+
+export function useListLibraries<TData = Awaited<ReturnType<typeof listLibraries>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListLibrariesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listLibraries>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListLibrariesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListTitlesUrl = (params?: ListTitlesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/titles?${stringifiedParams}` : `/titles`
+}
+
+/**
+ * @summary Browses the movies and shows that have at least one matched file, sorted by name.
+ */
+export const listTitles = async (params?: ListTitlesParams, options?: Parameters<typeof apiFetch>[1]): Promise<TitlePage> => {
+
+  return apiFetch<TitlePage>(getListTitlesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTitlesQueryKey = (params?: ListTitlesParams,) => {
+    return [
+    `/titles`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListTitlesQueryOptions = <TData = Awaited<ReturnType<typeof listTitles>>, TError = ErrorType<ProblemResponse>>(params?: ListTitlesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTitles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTitlesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTitles>>> = ({ signal }) => listTitles(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTitles>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTitlesQueryResult = NonNullable<Awaited<ReturnType<typeof listTitles>>>
+export type ListTitlesQueryError = ErrorType<ProblemResponse>
+
+
+export function useListTitles<TData = Awaited<ReturnType<typeof listTitles>>, TError = ErrorType<ProblemResponse>>(
+ params: undefined |  ListTitlesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTitles>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTitles>>,
+          TError,
+          Awaited<ReturnType<typeof listTitles>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTitles<TData = Awaited<ReturnType<typeof listTitles>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListTitlesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTitles>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTitles>>,
+          TError,
+          Awaited<ReturnType<typeof listTitles>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTitles<TData = Awaited<ReturnType<typeof listTitles>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListTitlesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTitles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Browses the movies and shows that have at least one matched file, sorted by name.
+ */
+
+export function useListTitles<TData = Awaited<ReturnType<typeof listTitles>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListTitlesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTitles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTitlesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTitleUrl = (titleId: string,) => {
+
+
+
+
+  return `/titles/${titleId}`
+}
+
+/**
+ * @summary A title's detail. A movie has its versions; a show has its seasons and episodes with their versions.
+ */
+export const getTitle = async (titleId: string, options?: Parameters<typeof apiFetch>[1]): Promise<TitleDetail> => {
+
+  return apiFetch<TitleDetail>(getGetTitleUrl(titleId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTitleQueryKey = (titleId: string,) => {
+    return [
+    `/titles/${titleId}`
+    ] as const;
+    }
+
+
+export const getGetTitleQueryOptions = <TData = Awaited<ReturnType<typeof getTitle>>, TError = ErrorType<ProblemResponse>>(titleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTitle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTitleQueryKey(titleId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTitle>>> = ({ signal }) => getTitle(titleId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: titleId !== null && titleId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTitle>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTitleQueryResult = NonNullable<Awaited<ReturnType<typeof getTitle>>>
+export type GetTitleQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError = ErrorType<ProblemResponse>>(
+ titleId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTitle>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTitle>>,
+          TError,
+          Awaited<ReturnType<typeof getTitle>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError = ErrorType<ProblemResponse>>(
+ titleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTitle>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTitle>>,
+          TError,
+          Awaited<ReturnType<typeof getTitle>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError = ErrorType<ProblemResponse>>(
+ titleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTitle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary A title's detail. A movie has its versions; a show has its seasons and episodes with their versions.
+ */
+
+export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError = ErrorType<ProblemResponse>>(
+ titleId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTitle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTitleQueryOptions(titleId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

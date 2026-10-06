@@ -13,6 +13,8 @@
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
  *   alongside `PageInfo`. Pass `nextCursor` back as `cursor` to get the next page; it's absent on the last page.
+ *   An invalid `cursor` or `limit` returns `400` with code `pagination.invalid`.
+ * - **Absent values:** an optional property with no value is omitted, never sent as `null`.
  * - **Real-time updates:** `GET /events` is a Server-Sent Events stream. Each SSE frame's `event:` is the
  *   envelope `type`, `id:` is the envelope `id`, and `data:` is the `EventEnvelope` as JSON. The server also sends
  *   SSE comment lines (starting with `:`) when the stream opens and as keep-alives; clients ignore them.
@@ -29,15 +31,21 @@ import type {
 
 import {
   getGetEventsResponseMock,
-  getGetHealthResponseMock
+  getGetHealthResponseMock,
+  getGetTitleResponseMock,
+  getListLibrariesResponseMock,
+  getListTitlesResponseMock
 } from './mediaman.faker';
 
 import type {
   EventEnvelope,
-  Health
+  Health,
+  LibraryPage,
+  TitleDetail,
+  TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getGetEventsResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -63,7 +71,46 @@ export const getGetEventsMockHandler = (overrideResponse?: EventEnvelope | ((inf
       })
   }, options)
 }
+
+export const getListLibrariesMockHandler = (overrideResponse?: LibraryPage | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<LibraryPage> | LibraryPage), options?: RequestHandlerOptions) => {
+  return http.get('*/libraries', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListLibrariesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getListTitlesMockHandler = (overrideResponse?: TitlePage | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TitlePage> | TitlePage), options?: RequestHandlerOptions) => {
+  return http.get('*/titles', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListTitlesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getGetTitleMockHandler = (overrideResponse?: TitleDetail | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TitleDetail> | TitleDetail), options?: RequestHandlerOptions) => {
+  return http.get('*/titles/:titleId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetTitleResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
 export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
-  getGetEventsMockHandler()
+  getGetEventsMockHandler(),
+  getListLibrariesMockHandler(),
+  getListTitlesMockHandler(),
+  getGetTitleMockHandler()
 ]

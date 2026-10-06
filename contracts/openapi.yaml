@@ -15,6 +15,8 @@ info:
       `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
     - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
       alongside `PageInfo`. Pass `nextCursor` back as `cursor` to get the next page; it's absent on the last page.
+      An invalid `cursor` or `limit` returns `400` with code `pagination.invalid`.
+    - **Absent values:** an optional property with no value is omitted, never sent as `null`.
     - **Real-time updates:** `GET /events` is a Server-Sent Events stream. Each SSE frame's `event:` is the
       envelope `type`, `id:` is the envelope `id`, and `data:` is the `EventEnvelope` as JSON. The server also sends
       SSE comment lines (starting with `:`) when the stream opens and as keep-alives; clients ignore them.
@@ -56,6 +58,86 @@ paths:
             text/event-stream:
               schema:
                 $ref: '#/components/schemas/EventEnvelope'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /libraries:
+    get:
+      operationId: listLibraries
+      summary: Lists the libraries, sorted by name.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of libraries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibraryPage'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /titles:
+    get:
+      operationId: listTitles
+      summary: Browses the movies and shows that have at least one matched file, sorted by name.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Only movies or only shows. Omit for both.
+          schema:
+            $ref: '#/components/schemas/TitleKind'
+        - name: libraryId
+          in: query
+          required: false
+          description: Only titles with a matched file in this library.
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of titles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitlePage'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /titles/{titleId}:
+    get:
+      operationId: getTitle
+      summary: A title's detail. A movie has its versions; a show has its seasons and episodes with their versions.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - name: titleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The title.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TitleDetail'
+        '404':
+          $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
 
@@ -172,3 +254,269 @@ components:
           format: date-time
         data:
           description: Event payload; its shape is defined per event type.
+
+    LibraryKind:
+      type: string
+      description: External libraries are only read; Managed libraries are where downloads are imported (SPEC §5).
+      enum: [external, managed]
+
+    ContentType:
+      type: string
+      enum: [movies, shows, anime, mixed]
+
+    Library:
+      type: object
+      required: [id, name, kind, contentType, rootPaths, scanIntervalMinutes]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/LibraryKind'
+        contentType:
+          $ref: '#/components/schemas/ContentType'
+        rootPaths:
+          type: array
+          items:
+            type: string
+        scanIntervalMinutes:
+          type: integer
+          minimum: 0
+
+    LibraryPage:
+      type: object
+      required: [items, pageInfo]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Library'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    TitleKind:
+      type: string
+      enum: [movie, show]
+
+    MediaFileStatus:
+      type: string
+      enum: [pending, matched, needsAttention, ignored, missing]
+
+    ArtworkRef:
+      type: object
+      description: An image of a title, season or episode.
+      required: [url]
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+        dominantColor:
+          type: string
+          description: The image's dominant color as `#RRGGBB`, for tinting heroes (SPEC §11).
+
+    ExternalIds:
+      type: object
+      description: The title's ids at metadata providers. Any may be absent.
+      additionalProperties: false
+      properties:
+        tmdb:
+          type: string
+        imdb:
+          type: string
+        tvdb:
+          type: string
+        anilist:
+          type: string
+
+    TitleSummary:
+      type: object
+      required: [id, kind, name, genres]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/TitleKind'
+        name:
+          type: string
+        year:
+          type: integer
+        rating:
+          type: number
+          description: Provider rating, 0 to 10.
+        genres:
+          type: array
+          items:
+            type: string
+        poster:
+          $ref: '#/components/schemas/ArtworkRef'
+
+    TitlePage:
+      type: object
+      required: [items, pageInfo]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TitleSummary'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    TitleDetail:
+      type: object
+      description: A title with everything the detail page shows. `playable` is set for movies, `seasons` for shows.
+      required: [id, kind, name, genres, externalIds]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/TitleKind'
+        name:
+          type: string
+        year:
+          type: integer
+        rating:
+          type: number
+        genres:
+          type: array
+          items:
+            type: string
+        poster:
+          $ref: '#/components/schemas/ArtworkRef'
+        overview:
+          type: string
+        runtimeMinutes:
+          type: integer
+        externalIds:
+          $ref: '#/components/schemas/ExternalIds'
+        backdrop:
+          $ref: '#/components/schemas/ArtworkRef'
+        logo:
+          $ref: '#/components/schemas/ArtworkRef'
+        playable:
+          $ref: '#/components/schemas/MoviePlayable'
+        seasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/Season'
+
+    MoviePlayable:
+      type: object
+      required: [id, versions]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The Playable to start playback of.
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaVersion'
+
+    Season:
+      type: object
+      required: [id, number, episodes]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+          minimum: 0
+          description: Season number; 0 holds specials.
+        name:
+          type: string
+        overview:
+          type: string
+        poster:
+          $ref: '#/components/schemas/ArtworkRef'
+        episodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Episode'
+
+    Episode:
+      type: object
+      description: One episode. `playableId` is absent and `versions` is empty when no file holds it.
+      required: [id, number, versions]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        absoluteNumber:
+          type: integer
+        name:
+          type: string
+        overview:
+          type: string
+        airDate:
+          type: string
+          format: date
+        still:
+          $ref: '#/components/schemas/ArtworkRef'
+        playableId:
+          type: string
+          format: uuid
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MediaVersion'
+
+    MediaVersion:
+      type: object
+      description: |
+        One file holding a Playable. A multi-episode file is a version of each episode it holds, with `part`
+        counting from 1. A `missing` file keeps its version for 30 days in case its drive comes back (SPEC §7.2).
+      required: [mediaFileId, fileName, sizeBytes, status, part]
+      additionalProperties: false
+      properties:
+        mediaFileId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+          description: The file's name, without its folder.
+        sizeBytes:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/MediaFileStatus'
+        part:
+          type: integer
+          minimum: 1
+        container:
+          type: string
+        durationSeconds:
+          type: number
+          minimum: 0
+        width:
+          type: integer
+        height:
+          type: integer
+        videoCodec:
+          type: string
+        hdrFormat:
+          type: string
+          description: e.g. `HDR10`, `HLG`, `Dolby Vision`. Absent for SDR.
+        audioCodec:
+          type: string
+        audioChannels:
+          type: integer
+        source:
+          type: string
+          description: Release source parsed from the name, e.g. `BluRay`, `WEB-DL`.
+        releaseGroup:
+          type: string

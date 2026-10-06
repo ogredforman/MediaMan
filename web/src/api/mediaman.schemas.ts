@@ -13,6 +13,8 @@
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
  *   alongside `PageInfo`. Pass `nextCursor` back as `cursor` to get the next page; it's absent on the last page.
+ *   An invalid `cursor` or `limit` returns `400` with code `pagination.invalid`.
+ * - **Absent values:** an optional property with no value is omitted, never sent as `null`.
  * - **Real-time updates:** `GET /events` is a Server-Sent Events stream. Each SSE frame's `event:` is the
  *   envelope `type`, `id:` is the envelope `id`, and `data:` is the `EventEnvelope` as JSON. The server also sends
  *   SSE comment lines (starting with `:`) when the stream opens and as keep-alives; clients ignore them.
@@ -92,6 +94,178 @@ export interface EventEnvelope {
 }
 
 /**
+ * External libraries are only read; Managed libraries are where downloads are imported (SPEC §5).
+ */
+export type LibraryKind = typeof LibraryKind[keyof typeof LibraryKind];
+
+
+export const LibraryKind = {
+  external: 'external',
+  managed: 'managed',
+} as const;
+
+export type ContentType = typeof ContentType[keyof typeof ContentType];
+
+
+export const ContentType = {
+  movies: 'movies',
+  shows: 'shows',
+  anime: 'anime',
+  mixed: 'mixed',
+} as const;
+
+export interface Library {
+  id: string;
+  name: string;
+  kind: LibraryKind;
+  contentType: ContentType;
+  rootPaths: string[];
+  /** @minimum 0 */
+  scanIntervalMinutes: number;
+}
+
+export interface LibraryPage {
+  items: Library[];
+  pageInfo: PageInfo;
+}
+
+export type TitleKind = typeof TitleKind[keyof typeof TitleKind];
+
+
+export const TitleKind = {
+  movie: 'movie',
+  show: 'show',
+} as const;
+
+export type MediaFileStatus = typeof MediaFileStatus[keyof typeof MediaFileStatus];
+
+
+export const MediaFileStatus = {
+  pending: 'pending',
+  matched: 'matched',
+  needsAttention: 'needsAttention',
+  ignored: 'ignored',
+  missing: 'missing',
+} as const;
+
+/**
+ * An image of a title, season or episode.
+ */
+export interface ArtworkRef {
+  url: string;
+  /** The image's dominant color as `#RRGGBB`, for tinting heroes (SPEC §11). */
+  dominantColor?: string;
+}
+
+/**
+ * The title's ids at metadata providers. Any may be absent.
+ */
+export interface ExternalIds {
+  tmdb?: string;
+  imdb?: string;
+  tvdb?: string;
+  anilist?: string;
+}
+
+export interface TitleSummary {
+  id: string;
+  kind: TitleKind;
+  name: string;
+  year?: number;
+  /** Provider rating, 0 to 10. */
+  rating?: number;
+  genres: string[];
+  poster?: ArtworkRef;
+}
+
+export interface TitlePage {
+  items: TitleSummary[];
+  pageInfo: PageInfo;
+}
+
+/**
+ * One file holding a Playable. A multi-episode file is a version of each episode it holds, with `part`
+ * counting from 1. A `missing` file keeps its version for 30 days in case its drive comes back (SPEC §7.2).
+ */
+export interface MediaVersion {
+  mediaFileId: string;
+  /** The file's name, without its folder. */
+  fileName: string;
+  /** @minimum 0 */
+  sizeBytes: number;
+  status: MediaFileStatus;
+  /** @minimum 1 */
+  part: number;
+  container?: string;
+  /** @minimum 0 */
+  durationSeconds?: number;
+  width?: number;
+  height?: number;
+  videoCodec?: string;
+  /** e.g. `HDR10`, `HLG`, `Dolby Vision`. Absent for SDR. */
+  hdrFormat?: string;
+  audioCodec?: string;
+  audioChannels?: number;
+  /** Release source parsed from the name, e.g. `BluRay`, `WEB-DL`. */
+  source?: string;
+  releaseGroup?: string;
+}
+
+export interface MoviePlayable {
+  /** The Playable to start playback of. */
+  id: string;
+  versions: MediaVersion[];
+}
+
+/**
+ * One episode. `playableId` is absent and `versions` is empty when no file holds it.
+ */
+export interface Episode {
+  id: string;
+  number: number;
+  absoluteNumber?: number;
+  name?: string;
+  overview?: string;
+  airDate?: string;
+  still?: ArtworkRef;
+  playableId?: string;
+  versions: MediaVersion[];
+}
+
+export interface Season {
+  id: string;
+  /**
+     * Season number; 0 holds specials.
+     * @minimum 0
+     */
+  number: number;
+  name?: string;
+  overview?: string;
+  poster?: ArtworkRef;
+  episodes: Episode[];
+}
+
+/**
+ * A title with everything the detail page shows. `playable` is set for movies, `seasons` for shows.
+ */
+export interface TitleDetail {
+  id: string;
+  kind: TitleKind;
+  name: string;
+  year?: number;
+  rating?: number;
+  genres: string[];
+  poster?: ArtworkRef;
+  overview?: string;
+  runtimeMinutes?: number;
+  externalIds: ExternalIds;
+  backdrop?: ArtworkRef;
+  logo?: ArtworkRef;
+  playable?: MoviePlayable;
+  seasons?: Season[];
+}
+
+/**
  * The request failed. The body says what happened and what to do next.
  */
 export type ProblemResponse = Problem;
@@ -105,4 +279,38 @@ export type LimitParameter = number;
  * Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
  */
 export type CursorParameter = string;
+
+export type ListLibrariesParams = {
+/**
+ * Maximum number of items to return.
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: LimitParameter;
+/**
+ * Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
+ */
+cursor?: CursorParameter;
+};
+
+export type ListTitlesParams = {
+/**
+ * Only movies or only shows. Omit for both.
+ */
+kind?: TitleKind;
+/**
+ * Only titles with a matched file in this library.
+ */
+libraryId?: string;
+/**
+ * Maximum number of items to return.
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: LimitParameter;
+/**
+ * Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
+ */
+cursor?: CursorParameter;
+};
 
