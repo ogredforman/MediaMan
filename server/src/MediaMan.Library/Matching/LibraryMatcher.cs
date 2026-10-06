@@ -23,7 +23,7 @@ public sealed record MatcherOptions
         [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(15)];
 }
 
-/// <summary>A confident match, for the importer to turn into Titles and FileLinks (PLAN 1.8).</summary>
+/// <summary>A confident match, for <see cref="Importing.MetadataImporter"/> to turn into Titles and FileLinks.</summary>
 public sealed record MatchDecision(
     Guid MediaFileId,
     ExternalId TitleRef,
@@ -64,7 +64,7 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
             .Where(r => fileIds.Contains(r.MediaFileId))
             .ToDictionaryAsync(r => r.MediaFileId, ct);
 
-        var run = new Run(provider, options);
+        var run = new ProviderSession(provider, options);
         var decisions = new List<MatchDecision>();
         var reviewed = 0;
         var deferred = 0;
@@ -147,7 +147,7 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
     }
 
     /// <summary>The scored candidates, best first.</summary>
-    private async Task<List<MatchCandidate>> RankAsync(Run run, ParsedRelease? parsed, CancellationToken ct)
+    private async Task<List<MatchCandidate>> RankAsync(ProviderSession run, ParsedRelease? parsed, CancellationToken ct)
     {
         if (parsed?.Title is not { Length: > 0 } title)
         {
@@ -168,62 +168,4 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
         // OrderByDescending is stable, so equal scores keep the provider's order.
         return [.. ranked.OrderByDescending(c => c.Score)];
     }
-
-    /// <summary>Per-run provider access: caches searches and titles, retries errors with backoff, and trips when they persist.</summary>
-    private sealed class Run(IMetadataProvider provider, MatcherOptions options)
-    {
-        private readonly Dictionary<TitleQuery, IReadOnlyList<TitleCandidate>> _searches = [];
-        private readonly Dictionary<ExternalId, TitleDetails> _titles = [];
-
-        public bool ProviderDown { get; private set; }
-
-        public async Task<IReadOnlyList<TitleCandidate>> SearchAsync(TitleQuery query, CancellationToken ct)
-        {
-            if (!_searches.TryGetValue(query, out var results))
-            {
-                results = await CallAsync(c => provider.SearchAsync(query, c), ct);
-                _searches[query] = results;
-            }
-
-            return results;
-        }
-
-        public async Task<TitleDetails> GetTitleAsync(ExternalId id, CancellationToken ct)
-        {
-            if (!_titles.TryGetValue(id, out var details))
-            {
-                details = await CallAsync(c => provider.GetTitleAsync(id, c), ct);
-                _titles[id] = details;
-            }
-
-            return details;
-        }
-
-        private async Task<T> CallAsync<T>(Func<CancellationToken, Task<T>> call, CancellationToken ct)
-        {
-            for (var attempt = 0; ; attempt++)
-            {
-                try
-                {
-                    return await call(ct);
-                }
-                catch (Exception e) when (IsProviderError(e, ct) && attempt < options.RetryDelays.Count)
-                {
-                    await Task.Delay(options.RetryDelays[attempt], ct);
-                }
-                catch (Exception e) when (IsProviderError(e, ct))
-                {
-                    ProviderDown = true;
-                    throw new ProviderUnavailableException(e);
-                }
-            }
-        }
-
-        // HttpClient reports its own timeout as a cancellation the caller didn't ask for.
-        private static bool IsProviderError(Exception e, CancellationToken ct) =>
-            e is TimeoutException or HttpRequestException || (e is OperationCanceledException && !ct.IsCancellationRequested);
-    }
-
-    private sealed class ProviderUnavailableException(Exception inner)
-        : Exception("The metadata provider kept failing; matching resumes on the next scan.", inner);
 }

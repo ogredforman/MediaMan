@@ -46,7 +46,8 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - **MediaMan.Playback**: `Probing/FfprobeMediaProbe` (real `IMediaProbe`, runs ffprobe as a process; `FfprobeOptions` path + timeout) and
   `Probing/FfprobeOutputParser.Parse(json)` (pure; HDR names match `ReleaseParser`). Dev wiring reads `MediaMan:Tools:FfprobePath`.
 - **MediaMan.Library**: `Scanning/LibraryScanner.ScanAsync(libraryId, ct)` → `ScanResult` (enumerate roots, probe + parse new/changed files as `Pending`, unreadable → `NeedsAttention`, missing → `Missing` with `MissingSince`, purge after 30 days); `Scanning/ScanRules` (pure: video extensions, samples, extras folders). Not yet registered in DI (PLAN 1.9).
-  `Matching/LibraryMatcher.MatchPendingAsync(libraryId, ct)` → `MatchRunResult` (`MatchDecision`s for the importer at ≥ `MatcherOptions.Threshold` with a clear lead; otherwise MatchReview + `NeedsAttention` with `no-match`/`low-confidence`/`ambiguous`; provider errors retried then left `Pending`); `Matching/MatchScorer` and `TitleSimilarity` (pure scoring).
+  `Matching/LibraryMatcher.MatchPendingAsync(libraryId, ct)` → `MatchRunResult` (`MatchDecision`s for the importer at ≥ `MatcherOptions.Threshold` with a clear lead; otherwise MatchReview + `NeedsAttention` with `no-match`/`low-confidence`/`ambiguous`; provider errors retried then left `Pending`); `Matching/MatchScorer` and `TitleSimilarity` (pure scoring); `Matching/ProviderSession` (internal: per-run provider cache, retry/backoff, trip).
+  `Importing/MetadataImporter.ImportAsync(decisions, ct)` → `ImportResult` (Title by provider id, Seasons holding linked files with full episode lists, one Artwork ref per type per owner, Playables for linked files only, FileLinks with `Part` from 1, file → `Matched`; absolute numbers resolved over seasons > 0; provider errors → stays `Pending`; unknown episode → `NeedsAttention` `episode-not-found`).
 - **MediaMan.Auth, .Metadata, .Indexers, .Torrents**: empty, filled from Stage 1 on.
 
 ## Frontend
@@ -61,7 +62,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 ## Tests and fixtures
 
 - One test project per module in `server/tests/MediaMan.<Module>.Tests`; every one references `server/tests/MediaMan.Fakes`:
-  `FakeClock` (`Advance`), `FakeMetadataProvider` (fixtures, `FailNext`, `SearchQueries`/`TitleRequests`/`SeasonRequests`),
+  `FakeClock` (`Advance`), `FakeMetadataProvider` (fixtures, `FailNext`, `FailNextSeason`, `SearchQueries`/`TitleRequests`/`SeasonRequests`),
   `FakeArtworkProvider` (`Add`), `FakeMediaProbe` (`Map`/`Fail` file-name globs, presets `Hd1080`/`Uhd2160Hdr10`/`DolbyVision`),
   `FakeFileWatcher` (`Raise`). Fake tests are in `MediaMan.Core.Tests/Fakes/`.
 - `server/tests/fixtures/metadata/tmdb-<id>.json`: 33 provider titles (remakes, same-name shows, specials, anime absolute numbers), copied to `fixtures/metadata` in test output.
