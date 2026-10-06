@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:8587",
+  "kind": "movie",
+  "name": "The Lion King",
+  "year": 1994,
+  "overview": "A young lion prince flees his kingdom after his father is killed.",
+  "genres": [
+    "Animation",
+    "Family",
+    "Drama"
+  ],
+  "rating": 8.3,
+  "runtimeMinutes": 89,
+  "externalIds": [
+    "imdb:tt0110357"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/8587/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/8587/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/8587/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

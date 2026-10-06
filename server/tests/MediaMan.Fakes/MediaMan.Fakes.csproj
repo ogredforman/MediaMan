@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\MediaMan.Core\MediaMan.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../fixtures/metadata/*.json" LinkBase="fixtures/metadata" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

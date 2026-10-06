@@ -1,0 +1,34 @@
+{
+  "id": "tmdb:43074",
+  "kind": "movie",
+  "name": "Ghostbusters",
+  "year": 2016,
+  "overview": "Four scientists team up to stop a paranormal invasion of Manhattan.",
+  "genres": [
+    "Comedy",
+    "Fantasy"
+  ],
+  "rating": 5.3,
+  "runtimeMinutes": 116,
+  "externalIds": [
+    "imdb:tt1289401"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/43074/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/43074/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/43074/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

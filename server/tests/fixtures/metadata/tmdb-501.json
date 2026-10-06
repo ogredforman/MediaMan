@@ -1,0 +1,91 @@
+{
+  "id": "tmdb:501",
+  "kind": "show",
+  "name": "Battlestar Galactica",
+  "year": 1978,
+  "overview": "The last battlestar leads a ragtag fleet in search of Earth.",
+  "genres": [
+    "Science Fiction",
+    "Adventure"
+  ],
+  "rating": 7.2,
+  "runtimeMinutes": 60,
+  "externalIds": [
+    "tvdb:71173"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/501/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/501/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/501/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/501/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Episode 1",
+          "overview": null,
+          "airDate": "1978-09-17",
+          "stillUrl": "https://images.invalid/tmdb/501/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Episode 2",
+          "overview": null,
+          "airDate": "1978-09-24",
+          "stillUrl": "https://images.invalid/tmdb/501/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Episode 3",
+          "overview": null,
+          "airDate": "1978-10-01",
+          "stillUrl": "https://images.invalid/tmdb/501/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Episode 4",
+          "overview": null,
+          "airDate": "1978-10-08",
+          "stillUrl": "https://images.invalid/tmdb/501/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Episode 5",
+          "overview": null,
+          "airDate": "1978-10-15",
+          "stillUrl": "https://images.invalid/tmdb/501/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Episode 6",
+          "overview": null,
+          "airDate": "1978-10-22",
+          "stillUrl": "https://images.invalid/tmdb/501/s1e6.jpg"
+        }
+      ]
+    }
+  ]
+}

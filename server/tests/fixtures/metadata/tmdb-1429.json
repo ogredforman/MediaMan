@@ -1,0 +1,164 @@
+{
+  "id": "tmdb:1429",
+  "kind": "show",
+  "name": "Attack on Titan",
+  "year": 2013,
+  "overview": "Humanity fights for survival against man-eating giants.",
+  "genres": [
+    "Animation",
+    "Action",
+    "Drama"
+  ],
+  "rating": 8.7,
+  "runtimeMinutes": 24,
+  "externalIds": [
+    "tvdb:267440"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/1429/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/1429/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/1429/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 0,
+      "name": "Specials",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1429/season-0.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Ilse's Notebook",
+          "overview": null,
+          "airDate": "2013-12-09",
+          "stillUrl": "https://images.invalid/tmdb/1429/s0e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "The Sudden Visitor",
+          "overview": null,
+          "airDate": "2013-12-16",
+          "stillUrl": "https://images.invalid/tmdb/1429/s0e2.jpg"
+        }
+      ]
+    },
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1429/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": 1,
+          "name": "To You, in 2000 Years",
+          "overview": null,
+          "airDate": "2013-04-07",
+          "stillUrl": "https://images.invalid/tmdb/1429/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": 2,
+          "name": "That Day",
+          "overview": null,
+          "airDate": "2013-04-14",
+          "stillUrl": "https://images.invalid/tmdb/1429/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": 3,
+          "name": "A Dim Light Amid Despair",
+          "overview": null,
+          "airDate": "2013-04-21",
+          "stillUrl": "https://images.invalid/tmdb/1429/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": 4,
+          "name": "The Night of the Closing Ceremony",
+          "overview": null,
+          "airDate": "2013-04-28",
+          "stillUrl": "https://images.invalid/tmdb/1429/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": 5,
+          "name": "First Battle",
+          "overview": null,
+          "airDate": "2013-05-05",
+          "stillUrl": "https://images.invalid/tmdb/1429/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": 6,
+          "name": "The World the Girl Saw",
+          "overview": null,
+          "airDate": "2013-05-12",
+          "stillUrl": "https://images.invalid/tmdb/1429/s1e6.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1429/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": 7,
+          "name": "Beast Titan",
+          "overview": null,
+          "airDate": "2017-04-01",
+          "stillUrl": "https://images.invalid/tmdb/1429/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": 8,
+          "name": "I'm Home",
+          "overview": null,
+          "airDate": "2017-04-08",
+          "stillUrl": "https://images.invalid/tmdb/1429/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": 9,
+          "name": "Southwestward",
+          "overview": null,
+          "airDate": "2017-04-15",
+          "stillUrl": "https://images.invalid/tmdb/1429/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": 10,
+          "name": "Soldier",
+          "overview": null,
+          "airDate": "2017-04-22",
+          "stillUrl": "https://images.invalid/tmdb/1429/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": 11,
+          "name": "Historia",
+          "overview": null,
+          "airDate": "2017-04-29",
+          "stillUrl": "https://images.invalid/tmdb/1429/s2e5.jpg"
+        }
+      ]
+    }
+  ]
+}

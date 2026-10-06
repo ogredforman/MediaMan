@@ -1,0 +1,220 @@
+{
+  "id": "tmdb:37854",
+  "kind": "show",
+  "name": "One Piece",
+  "year": 1999,
+  "overview": "Monkey D. Luffy sets out to find the legendary treasure One Piece.",
+  "genres": [
+    "Animation",
+    "Action",
+    "Adventure"
+  ],
+  "rating": 8.7,
+  "runtimeMinutes": 24,
+  "externalIds": [
+    "tvdb:81797"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/37854/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/37854/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/37854/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/37854/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": 1,
+          "name": "Episode 1",
+          "overview": null,
+          "airDate": "1999-10-20",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": 2,
+          "name": "Episode 2",
+          "overview": null,
+          "airDate": "1999-10-27",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": 3,
+          "name": "Episode 3",
+          "overview": null,
+          "airDate": "1999-11-03",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": 4,
+          "name": "Episode 4",
+          "overview": null,
+          "airDate": "1999-11-10",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": 5,
+          "name": "Episode 5",
+          "overview": null,
+          "airDate": "1999-11-17",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": 6,
+          "name": "Episode 6",
+          "overview": null,
+          "airDate": "1999-11-24",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e6.jpg"
+        },
+        {
+          "number": 7,
+          "absoluteNumber": 7,
+          "name": "Episode 7",
+          "overview": null,
+          "airDate": "1999-12-01",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e7.jpg"
+        },
+        {
+          "number": 8,
+          "absoluteNumber": 8,
+          "name": "Episode 8",
+          "overview": null,
+          "airDate": "1999-12-08",
+          "stillUrl": "https://images.invalid/tmdb/37854/s1e8.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/37854/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": 9,
+          "name": "Episode 1",
+          "overview": null,
+          "airDate": "2000-01-26",
+          "stillUrl": "https://images.invalid/tmdb/37854/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": 10,
+          "name": "Episode 2",
+          "overview": null,
+          "airDate": "2000-02-02",
+          "stillUrl": "https://images.invalid/tmdb/37854/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": 11,
+          "name": "Episode 3",
+          "overview": null,
+          "airDate": "2000-02-09",
+          "stillUrl": "https://images.invalid/tmdb/37854/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": 12,
+          "name": "Episode 4",
+          "overview": null,
+          "airDate": "2000-02-16",
+          "stillUrl": "https://images.invalid/tmdb/37854/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": 13,
+          "name": "Episode 5",
+          "overview": null,
+          "airDate": "2000-02-23",
+          "stillUrl": "https://images.invalid/tmdb/37854/s2e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": 14,
+          "name": "Episode 6",
+          "overview": null,
+          "airDate": "2000-03-01",
+          "stillUrl": "https://images.invalid/tmdb/37854/s2e6.jpg"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "name": "Season 3",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/37854/season-3.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": 15,
+          "name": "Episode 1",
+          "overview": null,
+          "airDate": "2000-04-26",
+          "stillUrl": "https://images.invalid/tmdb/37854/s3e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": 16,
+          "name": "Episode 2",
+          "overview": null,
+          "airDate": "2000-05-03",
+          "stillUrl": "https://images.invalid/tmdb/37854/s3e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": 17,
+          "name": "Episode 3",
+          "overview": null,
+          "airDate": "2000-05-10",
+          "stillUrl": "https://images.invalid/tmdb/37854/s3e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": 18,
+          "name": "Episode 4",
+          "overview": null,
+          "airDate": "2000-05-17",
+          "stillUrl": "https://images.invalid/tmdb/37854/s3e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": 19,
+          "name": "Episode 5",
+          "overview": null,
+          "airDate": "2000-05-24",
+          "stillUrl": "https://images.invalid/tmdb/37854/s3e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": 20,
+          "name": "Episode 6",
+          "overview": null,
+          "airDate": "2000-05-31",
+          "stillUrl": "https://images.invalid/tmdb/37854/s3e6.jpg"
+        }
+      ]
+    }
+  ]
+}

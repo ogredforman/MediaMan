@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:5548",
+  "kind": "movie",
+  "name": "RoboCop",
+  "year": 1987,
+  "overview": "A murdered police officer is rebuilt as a cyborg.",
+  "genres": [
+    "Action",
+    "Crime",
+    "Science Fiction"
+  ],
+  "rating": 7.3,
+  "runtimeMinutes": 102,
+  "externalIds": [
+    "imdb:tt0093870"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/5548/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/5548/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/5548/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

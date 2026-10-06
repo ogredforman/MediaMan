@@ -1,0 +1,99 @@
+{
+  "id": "tmdb:1906",
+  "kind": "show",
+  "name": "Shameless",
+  "year": 2004,
+  "overview": "The chaotic Gallagher family lives on a Manchester council estate.",
+  "genres": [
+    "Comedy",
+    "Drama"
+  ],
+  "rating": 7.6,
+  "runtimeMinutes": 50,
+  "externalIds": [
+    "tvdb:79170"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/1906/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/1906/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/1906/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1906/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Episode 1",
+          "overview": null,
+          "airDate": "2004-01-13",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Episode 2",
+          "overview": null,
+          "airDate": "2004-01-20",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Episode 3",
+          "overview": null,
+          "airDate": "2004-01-27",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Episode 4",
+          "overview": null,
+          "airDate": "2004-02-03",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Episode 5",
+          "overview": null,
+          "airDate": "2004-02-10",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Episode 6",
+          "overview": null,
+          "airDate": "2004-02-17",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e6.jpg"
+        },
+        {
+          "number": 7,
+          "absoluteNumber": null,
+          "name": "Episode 7",
+          "overview": null,
+          "airDate": "2004-02-24",
+          "stillUrl": "https://images.invalid/tmdb/1906/s1e7.jpg"
+        }
+      ]
+    }
+  ]
+}

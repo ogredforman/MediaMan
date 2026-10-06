@@ -1,0 +1,188 @@
+{
+  "id": "tmdb:57243",
+  "kind": "show",
+  "name": "Doctor Who",
+  "year": 2005,
+  "overview": "The Doctor, a Time Lord, travels through time and space.",
+  "genres": [
+    "Science Fiction",
+    "Adventure",
+    "Drama"
+  ],
+  "rating": 7.5,
+  "runtimeMinutes": 45,
+  "externalIds": [
+    "tvdb:78804"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/57243/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/57243/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/57243/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 0,
+      "name": "Specials",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/57243/season-0.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "The Christmas Invasion",
+          "overview": null,
+          "airDate": "2005-12-25",
+          "stillUrl": "https://images.invalid/tmdb/57243/s0e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "The Runaway Bride",
+          "overview": null,
+          "airDate": "2006-01-01",
+          "stillUrl": "https://images.invalid/tmdb/57243/s0e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Voyage of the Damned",
+          "overview": null,
+          "airDate": "2006-01-08",
+          "stillUrl": "https://images.invalid/tmdb/57243/s0e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "The Next Doctor",
+          "overview": null,
+          "airDate": "2006-01-15",
+          "stillUrl": "https://images.invalid/tmdb/57243/s0e4.jpg"
+        }
+      ]
+    },
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/57243/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Rose",
+          "overview": null,
+          "airDate": "2005-03-26",
+          "stillUrl": "https://images.invalid/tmdb/57243/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "The End of the World",
+          "overview": null,
+          "airDate": "2005-04-02",
+          "stillUrl": "https://images.invalid/tmdb/57243/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "The Unquiet Dead",
+          "overview": null,
+          "airDate": "2005-04-09",
+          "stillUrl": "https://images.invalid/tmdb/57243/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Aliens of London",
+          "overview": null,
+          "airDate": "2005-04-16",
+          "stillUrl": "https://images.invalid/tmdb/57243/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "World War Three",
+          "overview": null,
+          "airDate": "2005-04-23",
+          "stillUrl": "https://images.invalid/tmdb/57243/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Dalek",
+          "overview": null,
+          "airDate": "2005-04-30",
+          "stillUrl": "https://images.invalid/tmdb/57243/s1e6.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/57243/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "New Earth",
+          "overview": null,
+          "airDate": "2006-04-15",
+          "stillUrl": "https://images.invalid/tmdb/57243/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Tooth and Claw",
+          "overview": null,
+          "airDate": "2006-04-22",
+          "stillUrl": "https://images.invalid/tmdb/57243/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "School Reunion",
+          "overview": null,
+          "airDate": "2006-04-29",
+          "stillUrl": "https://images.invalid/tmdb/57243/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "The Girl in the Fireplace",
+          "overview": null,
+          "airDate": "2006-05-06",
+          "stillUrl": "https://images.invalid/tmdb/57243/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Rise of the Cybermen",
+          "overview": null,
+          "airDate": "2006-05-13",
+          "stillUrl": "https://images.invalid/tmdb/57243/s2e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "The Age of Steel",
+          "overview": null,
+          "airDate": "2006-05-20",
+          "stillUrl": "https://images.invalid/tmdb/57243/s2e6.jpg"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:129",
+  "kind": "movie",
+  "name": "Spirited Away",
+  "year": 2001,
+  "overview": "A girl wanders into a world ruled by gods, witches and spirits.",
+  "genres": [
+    "Animation",
+    "Family",
+    "Fantasy"
+  ],
+  "rating": 8.5,
+  "runtimeMinutes": 125,
+  "externalIds": [
+    "imdb:tt0245429"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/129/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/129/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/129/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:679",
+  "kind": "movie",
+  "name": "Aliens",
+  "year": 1986,
+  "overview": "Ripley returns to the planet where her crew met the alien.",
+  "genres": [
+    "Action",
+    "Horror",
+    "Science Fiction"
+  ],
+  "rating": 7.9,
+  "runtimeMinutes": 137,
+  "externalIds": [
+    "imdb:tt0090605"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/679/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/679/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/679/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

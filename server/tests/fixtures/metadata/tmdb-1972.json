@@ -1,0 +1,147 @@
+{
+  "id": "tmdb:1972",
+  "kind": "show",
+  "name": "Battlestar Galactica",
+  "year": 2004,
+  "overview": "Survivors of a Cylon attack search for a mythical planet called Earth.",
+  "genres": [
+    "Science Fiction",
+    "Drama"
+  ],
+  "rating": 8.2,
+  "runtimeMinutes": 44,
+  "externalIds": [
+    "tvdb:73545"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/1972/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/1972/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/1972/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1972/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "33",
+          "overview": null,
+          "airDate": "2004-10-18",
+          "stillUrl": "https://images.invalid/tmdb/1972/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Water",
+          "overview": null,
+          "airDate": "2004-10-25",
+          "stillUrl": "https://images.invalid/tmdb/1972/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Bastille Day",
+          "overview": null,
+          "airDate": "2004-11-01",
+          "stillUrl": "https://images.invalid/tmdb/1972/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Act of Contrition",
+          "overview": null,
+          "airDate": "2004-11-08",
+          "stillUrl": "https://images.invalid/tmdb/1972/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "You Can't Go Home Again",
+          "overview": null,
+          "airDate": "2004-11-15",
+          "stillUrl": "https://images.invalid/tmdb/1972/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Litmus",
+          "overview": null,
+          "airDate": "2004-11-22",
+          "stillUrl": "https://images.invalid/tmdb/1972/s1e6.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1972/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Scattered",
+          "overview": null,
+          "airDate": "2005-07-15",
+          "stillUrl": "https://images.invalid/tmdb/1972/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Valley of Darkness",
+          "overview": null,
+          "airDate": "2005-07-22",
+          "stillUrl": "https://images.invalid/tmdb/1972/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Fragged",
+          "overview": null,
+          "airDate": "2005-07-29",
+          "stillUrl": "https://images.invalid/tmdb/1972/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Resistance",
+          "overview": null,
+          "airDate": "2005-08-05",
+          "stillUrl": "https://images.invalid/tmdb/1972/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "The Farm",
+          "overview": null,
+          "airDate": "2005-08-12",
+          "stillUrl": "https://images.invalid/tmdb/1972/s2e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Home (1)",
+          "overview": null,
+          "airDate": "2005-08-19",
+          "stillUrl": "https://images.invalid/tmdb/1972/s2e6.jpg"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "id": "tmdb:121",
+  "kind": "show",
+  "name": "Doctor Who",
+  "year": 1963,
+  "overview": "A time-travelling alien explores the universe in the TARDIS.",
+  "genres": [
+    "Science Fiction",
+    "Adventure"
+  ],
+  "rating": 7.6,
+  "runtimeMinutes": 25,
+  "externalIds": [
+    "tvdb:76107"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/121/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/121/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/121/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/121/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "An Unearthly Child",
+          "overview": null,
+          "airDate": "1963-11-23",
+          "stillUrl": "https://images.invalid/tmdb/121/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "The Cave of Skulls",
+          "overview": null,
+          "airDate": "1963-11-30",
+          "stillUrl": "https://images.invalid/tmdb/121/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "The Forest of Fear",
+          "overview": null,
+          "airDate": "1963-12-07",
+          "stillUrl": "https://images.invalid/tmdb/121/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "The Firemaker",
+          "overview": null,
+          "airDate": "1963-12-14",
+          "stillUrl": "https://images.invalid/tmdb/121/s1e4.jpg"
+        }
+      ]
+    }
+  ]
+}

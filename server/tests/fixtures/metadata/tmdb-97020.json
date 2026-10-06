@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:97020",
+  "kind": "movie",
+  "name": "RoboCop",
+  "year": 2014,
+  "overview": "A critically injured officer becomes part man, part machine.",
+  "genres": [
+    "Action",
+    "Crime",
+    "Science Fiction"
+  ],
+  "rating": 5.9,
+  "runtimeMinutes": 117,
+  "externalIds": [
+    "imdb:tt1234721"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/97020/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/97020/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/97020/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

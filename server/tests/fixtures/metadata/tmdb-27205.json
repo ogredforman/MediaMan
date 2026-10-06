@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:27205",
+  "kind": "movie",
+  "name": "Inception",
+  "year": 2010,
+  "overview": "A thief who steals secrets from dreams is asked to plant an idea instead.",
+  "genres": [
+    "Action",
+    "Science Fiction",
+    "Thriller"
+  ],
+  "rating": 8.4,
+  "runtimeMinutes": 148,
+  "externalIds": [
+    "imdb:tt1375666"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/27205/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/27205/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/27205/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}
