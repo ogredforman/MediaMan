@@ -22,26 +22,34 @@
  * OpenAPI spec version: 0.1.0
  */
 import {
+  useMutation,
   useQuery
 } from '@tanstack/react-query';
 import type {
   DataTag,
   DefinedInitialDataOptions,
   DefinedUseQueryResult,
+  MutationFunction,
   QueryClient,
   QueryFunction,
   QueryKey,
   UndefinedInitialDataOptions,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult
 } from '@tanstack/react-query';
 
 import type {
+  AttentionFilePage,
   EventEnvelope,
   Health,
+  Library,
   LibraryPage,
+  ListAttentionFilesParams,
   ListLibrariesParams,
   ListTitlesParams,
+  Problem,
   ProblemResponse,
   TitleDetail,
   TitlePage
@@ -368,6 +376,202 @@ export function useListLibraries<TData = Awaited<ReturnType<typeof listLibraries
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getListLibrariesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartLibraryScanUrl = (libraryId: string,) => {
+
+
+
+
+  return `/libraries/${libraryId}/scan`
+}
+
+/**
+ * A background worker scans the library's roots, matches new files against the metadata provider and imports
+ * the matches (SPEC §7.2). Libraries scan one at a time. Progress arrives on `GET /events` as `scan.progress`
+ * events whose `data` is a `ScanProgressEvent`. Asking again while the library's scan is queued or running
+ * changes nothing and returns the current state.
+ * @summary Queues a scan of the library (scan, match, import) and returns at once.
+ */
+export const startLibraryScan = async (libraryId: string, options?: Parameters<typeof apiFetch>[1]): Promise<Library> => {
+
+  return apiFetch<Library>(getStartLibraryScanUrl(libraryId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getStartLibraryScanMutationKey = () => ['startLibraryScan'] as const;
+
+export const getStartLibraryScanMutationOptions = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startLibraryScan>>, TError,StartLibraryScanMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startLibraryScan>>, TError,StartLibraryScanMutationVariables, TContext> => {
+
+const mutationKey = getStartLibraryScanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startLibraryScan>>, StartLibraryScanMutationVariables> = (props) => {
+          const {libraryId} = props ?? {};
+
+          return  startLibraryScan(libraryId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartLibraryScanMutationResult = NonNullable<Awaited<ReturnType<typeof startLibraryScan>>>
+
+    export type StartLibraryScanMutationError = ErrorType<ProblemResponse | Problem>
+    export type StartLibraryScanMutationVariables = {libraryId: string}
+
+    /**
+ * @summary Queues a scan of the library (scan, match, import) and returns at once.
+ */
+export const useStartLibraryScan = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startLibraryScan>>, TError,StartLibraryScanMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startLibraryScan>>,
+        TError,
+        StartLibraryScanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartLibraryScanMutationOptions(options), queryClient);
+    }
+
+export const getListAttentionFilesUrl = (libraryId: string,
+    params?: ListAttentionFilesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/libraries/${libraryId}/attention?${stringifiedParams}` : `/libraries/${libraryId}/attention`
+}
+
+/**
+ * Files the scan couldn't link on its own: unreadable files, files with no confident match (with their
+ * MatchReview candidates) and files whose episode the provider doesn't know (SPEC §7.2, §11 "Needs attention").
+ * @summary Lists the library's files that need attention, sorted by path.
+ */
+export const listAttentionFiles = async (libraryId: string,
+    params?: ListAttentionFilesParams, options?: Parameters<typeof apiFetch>[1]): Promise<AttentionFilePage> => {
+
+  return apiFetch<AttentionFilePage>(getListAttentionFilesUrl(libraryId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAttentionFilesQueryKey = (libraryId: string,
+    params?: ListAttentionFilesParams,) => {
+    return [
+    `/libraries/${libraryId}/attention`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAttentionFilesQueryOptions = <TData = Awaited<ReturnType<typeof listAttentionFiles>>, TError = ErrorType<ProblemResponse>>(libraryId: string,
+    params?: ListAttentionFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAttentionFiles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAttentionFilesQueryKey(libraryId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAttentionFiles>>> = ({ signal }) => listAttentionFiles(libraryId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: libraryId !== null && libraryId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAttentionFiles>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListAttentionFilesQueryResult = NonNullable<Awaited<ReturnType<typeof listAttentionFiles>>>
+export type ListAttentionFilesQueryError = ErrorType<ProblemResponse>
+
+
+export function useListAttentionFiles<TData = Awaited<ReturnType<typeof listAttentionFiles>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string,
+    params: undefined |  ListAttentionFilesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAttentionFiles>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAttentionFiles>>,
+          TError,
+          Awaited<ReturnType<typeof listAttentionFiles>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAttentionFiles<TData = Awaited<ReturnType<typeof listAttentionFiles>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string,
+    params?: ListAttentionFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAttentionFiles>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAttentionFiles>>,
+          TError,
+          Awaited<ReturnType<typeof listAttentionFiles>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAttentionFiles<TData = Awaited<ReturnType<typeof listAttentionFiles>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string,
+    params?: ListAttentionFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAttentionFiles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Lists the library's files that need attention, sorted by path.
+ */
+
+export function useListAttentionFiles<TData = Awaited<ReturnType<typeof listAttentionFiles>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string,
+    params?: ListAttentionFilesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAttentionFiles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListAttentionFilesQueryOptions(libraryId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

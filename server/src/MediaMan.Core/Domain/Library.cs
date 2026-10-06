@@ -70,4 +70,11 @@ public class MatchReview
     public required string Reason { get; set; }
 }
 
-public sealed record MatchCandidate(ExternalId TitleRef, double Score);
+/// <summary>A scored candidate. Kind, name, year and poster are the provider's, kept so a review can show them without a lookup.</summary>
+public sealed record MatchCandidate(
+    ExternalId TitleRef,
+    double Score,
+    TitleKind? Kind = null,
+    string? Name = null,
+    int? Year = null,
+    string? PosterUrl = null);

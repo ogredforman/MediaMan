@@ -33,19 +33,23 @@ import {
   getGetEventsResponseMock,
   getGetHealthResponseMock,
   getGetTitleResponseMock,
+  getListAttentionFilesResponseMock,
   getListLibrariesResponseMock,
-  getListTitlesResponseMock
+  getListTitlesResponseMock,
+  getStartLibraryScanResponseMock
 } from './mediaman.faker';
 
 import type {
+  AttentionFilePage,
   EventEnvelope,
   Health,
+  Library,
   LibraryPage,
   TitleDetail,
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -84,6 +88,30 @@ export const getListLibrariesMockHandler = (overrideResponse?: LibraryPage | ((i
   }, options)
 }
 
+export const getStartLibraryScanMockHandler = (overrideResponse?: Library | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<Library> | Library), options?: RequestHandlerOptions) => {
+  return http.post('*/libraries/:libraryId/scan', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getStartLibraryScanResponseMock(),
+      { status: 202
+      })
+  }, options)
+}
+
+export const getListAttentionFilesMockHandler = (overrideResponse?: AttentionFilePage | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<AttentionFilePage> | AttentionFilePage), options?: RequestHandlerOptions) => {
+  return http.get('*/libraries/:libraryId/attention', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListAttentionFilesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getListTitlesMockHandler = (overrideResponse?: TitlePage | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TitlePage> | TitlePage), options?: RequestHandlerOptions) => {
   return http.get('*/titles', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -111,6 +139,8 @@ export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
   getGetEventsMockHandler(),
   getListLibrariesMockHandler(),
+  getStartLibraryScanMockHandler(),
+  getListAttentionFilesMockHandler(),
   getListTitlesMockHandler(),
   getGetTitleMockHandler()
 ]

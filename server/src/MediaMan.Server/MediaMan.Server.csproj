@@ -10,6 +10,7 @@
     <ProjectReference Include="..\MediaMan.Auth\MediaMan.Auth.csproj" />
     <ProjectReference Include="..\MediaMan.Torrents\MediaMan.Torrents.csproj" />
     <ProjectReference Include="..\MediaMan.Indexers\MediaMan.Indexers.csproj" />
+    <InternalsVisibleTo Include="MediaMan.Server.Tests" />
   </ItemGroup>
 
   <!-- Dev configuration (SPEC §8 setup [P]): Debug builds can run on the fakes; Release builds never contain them. -->

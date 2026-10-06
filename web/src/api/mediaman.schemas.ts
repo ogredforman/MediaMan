@@ -114,6 +114,105 @@ export const ContentType = {
   mixed: 'mixed',
 } as const;
 
+export type ScanStateState = typeof ScanStateState[keyof typeof ScanStateState];
+
+
+export const ScanStateState = {
+  idle: 'idle',
+  queued: 'queued',
+  running: 'running',
+} as const;
+
+/**
+ * Scanning finds and probes files, matching searches the provider, importing links the matches.
+ */
+export type ScanStatePhase = typeof ScanStatePhase[keyof typeof ScanStatePhase];
+
+
+export const ScanStatePhase = {
+  scanning: 'scanning',
+  matching: 'matching',
+  importing: 'importing',
+} as const;
+
+export type ScanSummaryOutcome = typeof ScanSummaryOutcome[keyof typeof ScanSummaryOutcome];
+
+
+export const ScanSummaryOutcome = {
+  succeeded: 'succeeded',
+  failed: 'failed',
+} as const;
+
+export interface ScanCounts {
+  /** @minimum 0 */
+  added: number;
+  /** @minimum 0 */
+  changed: number;
+  /** @minimum 0 */
+  unchanged: number;
+  /**
+     * Missing files that came back.
+     * @minimum 0
+     */
+  restored: number;
+  /** @minimum 0 */
+  missing: number;
+  /** @minimum 0 */
+  unreadable: number;
+  /**
+     * Files missing for longer than the 30-day retention, removed with their links.
+     * @minimum 0
+     */
+  purged: number;
+  /**
+     * Files matched and linked to their Playables.
+     * @minimum 0
+     */
+  linked: number;
+  /**
+     * Files sent to review or otherwise left needing attention by matching and importing.
+     * @minimum 0
+     */
+  needsAttention: number;
+  /**
+     * Files left `pending` after provider errors; the next scan retries them.
+     * @minimum 0
+     */
+  deferred: number;
+}
+
+/**
+ * Why a scan failed. The server log has the details.
+ */
+export interface ScanError {
+  /** @pattern ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$ */
+  code: string;
+  detail: string;
+}
+
+/**
+ * The most recent finished scan. A failed scan's counts cover the phases that finished.
+ */
+export interface ScanSummary {
+  startedAt: string;
+  finishedAt: string;
+  outcome: ScanSummaryOutcome;
+  counts: ScanCounts;
+  error?: ScanError;
+}
+
+/**
+ * The library's scan right now. `phase` and `startedAt` are present while `running`. Scan state is kept in
+ * memory, so `lastScan` covers scans since the server started.
+ */
+export interface ScanState {
+  state: ScanStateState;
+  /** Scanning finds and probes files, matching searches the provider, importing links the matches. */
+  phase?: ScanStatePhase;
+  startedAt?: string;
+  lastScan?: ScanSummary;
+}
+
 export interface Library {
   id: string;
   name: string;
@@ -122,11 +221,47 @@ export interface Library {
   rootPaths: string[];
   /** @minimum 0 */
   scanIntervalMinutes: number;
+  scan: ScanState;
 }
 
 export interface LibraryPage {
   items: Library[];
   pageInfo: PageInfo;
+}
+
+/**
+ * The `data` of a `scan.progress` event, sent on every change to a library's scan state.
+ */
+export interface ScanProgressEvent {
+  libraryId: string;
+  scan: ScanState;
+}
+
+export type ParsedGuessResolution = typeof ParsedGuessResolution[keyof typeof ParsedGuessResolution];
+
+
+export const ParsedGuessResolution = {
+  '720p': '720p',
+  '1080p': '1080p',
+  '1440p': '1440p',
+  '2160p': '2160p',
+} as const;
+
+/**
+ * What the release parser read from the file name and its folders.
+ */
+export interface ParsedGuess {
+  title?: string;
+  year?: number;
+  season?: number;
+  episodes: number[];
+  absoluteEpisode?: number;
+  resolution?: ParsedGuessResolution;
+  source?: string;
+  codec?: string;
+  hdrFormat?: string;
+  audio?: string;
+  releaseGroup?: string;
 }
 
 export type TitleKind = typeof TitleKind[keyof typeof TitleKind];
@@ -136,6 +271,51 @@ export const TitleKind = {
   movie: 'movie',
   show: 'show',
 } as const;
+
+export interface MatchCandidate {
+  /** The candidate's provider id as `provider:value`, e.g. `tmdb:603`. */
+  titleRef: string;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  score: number;
+  kind?: TitleKind;
+  name?: string;
+  year?: number;
+  posterUrl?: string;
+}
+
+/**
+ * A low-confidence or failed match awaiting a user (SPEC §7.3). `candidates` is best first and may be empty.
+ */
+export interface MatchReview {
+  id: string;
+  reason: string;
+  candidates: MatchCandidate[];
+}
+
+/**
+ * A file the scan couldn't link on its own.
+ */
+export interface AttentionFile {
+  mediaFileId: string;
+  path: string;
+  /** The file's name, without its folder. */
+  fileName: string;
+  /**
+     * Why it needs attention: `unreadable`, `no-match`, `low-confidence`, `ambiguous` or `episode-not-found`.
+     * New reasons may be added.
+     */
+  reason: string;
+  parsed?: ParsedGuess;
+  review?: MatchReview;
+}
+
+export interface AttentionFilePage {
+  items: AttentionFile[];
+  pageInfo: PageInfo;
+}
 
 export type MediaFileStatus = typeof MediaFileStatus[keyof typeof MediaFileStatus];
 
@@ -281,6 +461,19 @@ export type LimitParameter = number;
 export type CursorParameter = string;
 
 export type ListLibrariesParams = {
+/**
+ * Maximum number of items to return.
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: LimitParameter;
+/**
+ * Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
+ */
+cursor?: CursorParameter;
+};
+
+export type ListAttentionFilesParams = {
 /**
  * Maximum number of items to return.
  * @minimum 1

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace MediaMan.Server.Tests;
 
@@ -13,6 +15,9 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
     /// <summary>Keeps the data directory on dispose, so a second factory can restart on the same database.</summary>
     public bool KeepDataDirectory { get; init; }
 
+    /// <summary>Extra service registrations applied after the server's own, e.g. fakes for the scan pipeline.</summary>
+    public Action<IServiceCollection>? ConfigureServices { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
@@ -20,6 +25,11 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
         foreach (var (key, value) in settings ?? new Dictionary<string, string>())
         {
             builder.UseSetting(key, value);
+        }
+
+        if (ConfigureServices is not null)
+        {
+            builder.ConfigureTestServices(ConfigureServices);
         }
     }
 

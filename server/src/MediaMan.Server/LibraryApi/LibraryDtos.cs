@@ -16,7 +16,49 @@ public sealed record LibraryDto(
     string Kind,
     string ContentType,
     IReadOnlyList<string> RootPaths,
-    int ScanIntervalMinutes);
+    int ScanIntervalMinutes,
+    ScanState Scan);
+
+public sealed record ScanState(string State, string? Phase, DateTimeOffset? StartedAt, ScanSummary? LastScan);
+
+public sealed record ScanSummary(DateTimeOffset StartedAt, DateTimeOffset FinishedAt, string Outcome, ScanCounts Counts, ScanError? Error);
+
+public sealed record ScanCounts(
+    int Added,
+    int Changed,
+    int Unchanged,
+    int Restored,
+    int Missing,
+    int Unreadable,
+    int Purged,
+    int Linked,
+    int NeedsAttention,
+    int Deferred);
+
+public sealed record ScanError(string Code, string Detail);
+
+public sealed record ScanProgressEvent(Guid LibraryId, ScanState Scan);
+
+public sealed record AttentionFilePage(IReadOnlyList<AttentionFile> Items, PageInfo PageInfo);
+
+public sealed record AttentionFile(Guid MediaFileId, string Path, string FileName, string Reason, ParsedGuess? Parsed, MatchReviewDto? Review);
+
+public sealed record ParsedGuess(
+    string? Title,
+    int? Year,
+    int? Season,
+    IReadOnlyList<int> Episodes,
+    int? AbsoluteEpisode,
+    string? Resolution,
+    string? Source,
+    string? Codec,
+    string? HdrFormat,
+    string? Audio,
+    string? ReleaseGroup);
+
+public sealed record MatchReviewDto(Guid Id, string Reason, IReadOnlyList<MatchCandidateDto> Candidates);
+
+public sealed record MatchCandidateDto(string TitleRef, double Score, string? Kind, string? Name, int? Year, string? PosterUrl);
 
 public sealed record ArtworkRef(string Url, string? DominantColor);
 

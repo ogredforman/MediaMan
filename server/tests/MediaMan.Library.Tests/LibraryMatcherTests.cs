@@ -126,6 +126,23 @@ public sealed class LibraryMatcherTests : IAsyncLifetime
         review!.Reason.Should().Be(reason);
         review.Candidates.Select(c => c.TitleRef.Value).Should().BeEquivalentTo(candidateIds);
         review.Candidates.Select(c => c.Score).Should().BeInDescendingOrder();
+        review.Candidates.Should().AllSatisfy(c =>
+        {
+            c.Name.Should().NotBeNullOrWhiteSpace("a review shows each candidate's name without a provider lookup");
+            c.Kind.Should().NotBeNull();
+        });
+    }
+
+    [Fact]
+    public async Task Review_candidates_keep_the_providers_kind_name_and_year()
+    {
+        var file = await AddFileAsync("Movies/Dune.mkv");
+
+        await MatchAsync();
+
+        var review = await ReviewAsync(file);
+        review!.Candidates.Select(c => (c.Kind, c.Name, c.Year)).Should().BeEquivalentTo(
+            [(TitleKind.Movie, "Dune", 2021), (TitleKind.Movie, "Dune", 1984)]);
     }
 
     [Fact]

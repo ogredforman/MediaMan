@@ -82,6 +82,64 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /libraries/{libraryId}/scan:
+    post:
+      operationId: startLibraryScan
+      summary: Queues a scan of the library (scan, match, import) and returns at once.
+      description: |
+        A background worker scans the library's roots, matches new files against the metadata provider and imports
+        the matches (SPEC §7.2). Libraries scan one at a time. Progress arrives on `GET /events` as `scan.progress`
+        events whose `data` is a `ScanProgressEvent`. Asking again while the library's scan is queued or running
+        changes nothing and returns the current state.
+      tags: [library]
+      x-permission: library.manage
+      parameters:
+        - $ref: '#/components/parameters/LibraryId'
+      responses:
+        '202':
+          description: The scan is queued or already running. The body is the library with its scan state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '503':
+          description: Scanning isn't available because no metadata provider or media probe is configured (`scan.unavailable`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /libraries/{libraryId}/attention:
+    get:
+      operationId: listAttentionFiles
+      summary: Lists the library's files that need attention, sorted by path.
+      description: |
+        Files the scan couldn't link on its own: unreadable files, files with no confident match (with their
+        MatchReview candidates) and files whose episode the provider doesn't know (SPEC §7.2, §11 "Needs attention").
+      tags: [library]
+      x-permission: library.manage
+      parameters:
+        - $ref: '#/components/parameters/LibraryId'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: One page of files that need attention.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttentionFilePage'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /titles:
     get:
       operationId: listTitles
@@ -160,6 +218,13 @@ components:
         minimum: 1
         maximum: 200
         default: 50
+    LibraryId:
+      name: libraryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     Cursor:
       name: cursor
       in: query
@@ -266,7 +331,7 @@ components:
 
     Library:
       type: object
-      required: [id, name, kind, contentType, rootPaths, scanIntervalMinutes]
+      required: [id, name, kind, contentType, rootPaths, scanIntervalMinutes, scan]
       additionalProperties: false
       properties:
         id:
@@ -285,6 +350,8 @@ components:
         scanIntervalMinutes:
           type: integer
           minimum: 0
+        scan:
+          $ref: '#/components/schemas/ScanState'
 
     LibraryPage:
       type: object
@@ -297,6 +364,217 @@ components:
             $ref: '#/components/schemas/Library'
         pageInfo:
           $ref: '#/components/schemas/PageInfo'
+
+    ScanState:
+      type: object
+      description: |
+        The library's scan right now. `phase` and `startedAt` are present while `running`. Scan state is kept in
+        memory, so `lastScan` covers scans since the server started.
+      required: [state]
+      additionalProperties: false
+      properties:
+        state:
+          type: string
+          enum: [idle, queued, running]
+        phase:
+          type: string
+          description: Scanning finds and probes files, matching searches the provider, importing links the matches.
+          enum: [scanning, matching, importing]
+        startedAt:
+          type: string
+          format: date-time
+        lastScan:
+          $ref: '#/components/schemas/ScanSummary'
+
+    ScanSummary:
+      type: object
+      description: The most recent finished scan. A failed scan's counts cover the phases that finished.
+      required: [startedAt, finishedAt, outcome, counts]
+      additionalProperties: false
+      properties:
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        outcome:
+          type: string
+          enum: [succeeded, failed]
+        counts:
+          $ref: '#/components/schemas/ScanCounts'
+        error:
+          $ref: '#/components/schemas/ScanError'
+
+    ScanCounts:
+      type: object
+      required: [added, changed, unchanged, restored, missing, unreadable, purged, linked, needsAttention, deferred]
+      additionalProperties: false
+      properties:
+        added:
+          type: integer
+          minimum: 0
+        changed:
+          type: integer
+          minimum: 0
+        unchanged:
+          type: integer
+          minimum: 0
+        restored:
+          type: integer
+          minimum: 0
+          description: Missing files that came back.
+        missing:
+          type: integer
+          minimum: 0
+        unreadable:
+          type: integer
+          minimum: 0
+        purged:
+          type: integer
+          minimum: 0
+          description: Files missing for longer than the 30-day retention, removed with their links.
+        linked:
+          type: integer
+          minimum: 0
+          description: Files matched and linked to their Playables.
+        needsAttention:
+          type: integer
+          minimum: 0
+          description: Files sent to review or otherwise left needing attention by matching and importing.
+        deferred:
+          type: integer
+          minimum: 0
+          description: Files left `pending` after provider errors; the next scan retries them.
+
+    ScanError:
+      type: object
+      description: Why a scan failed. The server log has the details.
+      required: [code, detail]
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+          pattern: '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$'
+        detail:
+          type: string
+
+    ScanProgressEvent:
+      type: object
+      description: The `data` of a `scan.progress` event, sent on every change to a library's scan state.
+      required: [libraryId, scan]
+      additionalProperties: false
+      properties:
+        libraryId:
+          type: string
+          format: uuid
+        scan:
+          $ref: '#/components/schemas/ScanState'
+
+    AttentionFile:
+      type: object
+      description: A file the scan couldn't link on its own.
+      required: [mediaFileId, path, fileName, reason]
+      additionalProperties: false
+      properties:
+        mediaFileId:
+          type: string
+          format: uuid
+        path:
+          type: string
+        fileName:
+          type: string
+          description: The file's name, without its folder.
+        reason:
+          type: string
+          description: |
+            Why it needs attention: `unreadable`, `no-match`, `low-confidence`, `ambiguous` or `episode-not-found`.
+            New reasons may be added.
+        parsed:
+          $ref: '#/components/schemas/ParsedGuess'
+        review:
+          $ref: '#/components/schemas/MatchReview'
+
+    AttentionFilePage:
+      type: object
+      required: [items, pageInfo]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttentionFile'
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    ParsedGuess:
+      type: object
+      description: What the release parser read from the file name and its folders.
+      required: [episodes]
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+        year:
+          type: integer
+        season:
+          type: integer
+        episodes:
+          type: array
+          items:
+            type: integer
+        absoluteEpisode:
+          type: integer
+        resolution:
+          type: string
+          enum: [720p, 1080p, 1440p, 2160p]
+        source:
+          type: string
+        codec:
+          type: string
+        hdrFormat:
+          type: string
+        audio:
+          type: string
+        releaseGroup:
+          type: string
+
+    MatchReview:
+      type: object
+      description: A low-confidence or failed match awaiting a user (SPEC §7.3). `candidates` is best first and may be empty.
+      required: [id, reason, candidates]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchCandidate'
+
+    MatchCandidate:
+      type: object
+      required: [titleRef, score]
+      additionalProperties: false
+      properties:
+        titleRef:
+          type: string
+          description: The candidate's provider id as `provider:value`, e.g. `tmdb:603`.
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        kind:
+          $ref: '#/components/schemas/TitleKind'
+        name:
+          type: string
+        year:
+          type: integer
+        posterUrl:
+          type: string
 
     TitleKind:
       type: string
