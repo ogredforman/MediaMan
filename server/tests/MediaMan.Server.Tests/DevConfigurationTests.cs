@@ -2,6 +2,7 @@ using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Fakes;
+using MediaMan.Playback.Probing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -91,12 +92,20 @@ public sealed class DevConfigurationTests : IDisposable
     [Fact]
     public async Task Choosing_a_real_provider_that_does_not_exist_yet_fails_with_the_fix()
     {
-        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:Providers:MediaProbe"] = "Real" });
+        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:Providers:Metadata"] = "Real" });
 
         var start = () => factory.Services;
 
         start.Should().Throw<InvalidOperationException>()
-            .WithMessage("*MediaProbe*PLAN 1.5*Set MediaMan:Dev:Providers:MediaProbe to Fake*");
+            .WithMessage("*Metadata*PLAN 2.1*Set MediaMan:Dev:Providers:Metadata to Fake*");
+    }
+
+    [Fact]
+    public async Task Choosing_the_real_media_probe_registers_ffprobe()
+    {
+        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:Providers:MediaProbe"] = "Real" });
+
+        factory.Services.GetRequiredService<IMediaProbe>().Should().BeOfType<FfprobeMediaProbe>();
     }
 
     [Fact]
