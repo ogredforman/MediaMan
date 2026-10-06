@@ -258,7 +258,7 @@ User 1─* SavedQualityProfile
 - [M] Multiple libraries, each with several root paths and a content type.
 - [M] File watcher plus periodic full scan.
 - [M] External libraries are never written to (enforced by a test that scans a read-only temp folder).
-- [L] Managed libraries with the hardlink/move layout (7.7 step 3).
+- [M] Managed libraries with the hardlink/move layout (7.7 step 3).
 
 **Parsing and matching**
 - [P] `ReleaseParser` extracts title, year, season, episode(s), absolute episode, resolution, source, codec,
@@ -281,7 +281,7 @@ User 1─* SavedQualityProfile
 - [M] Home: hero banner, Continue Watching, Recently Added, Next Up, rows by genre.
 - [M] Instant search across the library (results as you type).
 - [M] Watched markers and mark watched/unwatched.
-- [L] Catalog search of TMDB for titles not in the library.
+- [M] Catalog search of TMDB for titles not in the library.
 
 **Playback**
 - [P] Pressing Play launches MPV on the local file. Prototype only: the server launches MPV on its own host through a dev-only endpoint.
@@ -289,16 +289,17 @@ User 1─* SavedQualityProfile
 - [M] Custom purple Lua OSC for MPV.
 - [M] Resume after 2 minutes; watched at 90%; "Up next" with a 10 s countdown.
 - [M] Per-profile audio and subtitle language preferences applied at playback.
-- [L] Browser playback with direct play, remux and transcode decision (7.5), including hardware encoders (NVENC, QSV, VAAPI, AMF, VideoToolbox) with software fallback.
-- [L] HDR → SDR tone mapping and bitrate limits for remote clients.
-- [L] JASSUB rendering of styled subtitles in the browser.
+- [M] Browser playback with direct play, remux and transcode decision (7.5), including hardware encoders (NVENC, QSV, VAAPI, AMF, VideoToolbox) with software fallback.
+- [M] HDR → SDR tone mapping and bitrate limits for remote clients.
+- [M] JASSUB rendering of styled subtitles in the browser.
 
 **Accounts, roles and profiles**
 - [M] Single Superadmin login with refresh tokens; the desktop app stays signed in.
 - [M] Profiles with the profile picker.
 - [L] Multiple users, invites (7.10), and Admin/User presets plus custom roles built from the permission list.
 - [L] Admin-configurable default role for new accounts.
-- [L] Session list and revocation, optional TOTP, rate limiting and lockout (7.11).
+- [M] Session list and revocation, rate limiting and lockout (7.11).
+- [L] Optional TOTP.
 - [L] Profile PIN and maximum content rating.
 - [L] Audit log of security-relevant actions.
 
@@ -308,24 +309,24 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
 `server.control` and deleting libraries, users or content. The User preset has `library.view` and `downloads.request`.
 
 **Torrents and VPN**
-- [L] Torrent engine behind `ITorrentEngine`: add by magnet or .torrent, pause, resume, remove (with or without data), per-file priority and skip, global and per-torrent speed limits, seeding ratio and time limits.
-- [L] Downloads page: progress, speed, peers, ETA, seeding status.
-- [L] "Prioritize first episodes" for season packs.
-- [L] VPN gate (7.8): interface binding or SOCKS5, kill switch, leak check, status badge, opt-out recorded only by the Superadmin.
-- [L] Dangerous files skipped and flagged.
-- [L] Import on completion (7.7).
+- [M] Torrent engine behind `ITorrentEngine`: add by magnet or .torrent, pause, resume, remove (with or without data), per-file priority and skip, global and per-torrent speed limits, seeding ratio and time limits.
+- [M] Downloads page: progress, speed, peers, ETA, seeding status.
+- [M] "Prioritize first episodes" for season packs.
+- [M] VPN gate (7.8): interface binding or SOCKS5, kill switch, leak check, status badge, opt-out recorded only by the Superadmin.
+- [M] Dangerous files skipped and flagged.
+- [M] Import on completion (7.7).
 
 **Indexers and search**
-- [L] Import Cardigann YAML definitions from a URL (one-click on first setup), and update them.
-- [L] Torznab indexers (Jackett/Prowlarr).
-- [L] Optional FlareSolverr per indexer.
-- [L] Advanced raw search across indexers.
-- [L] Indexer health shown (last success, last error).
+- [M] Import Cardigann YAML definitions from a URL (one-click on first setup), and update them.
+- [M] Torznab indexers (Jackett/Prowlarr).
+- [M] Optional FlareSolverr per indexer.
+- [M] Advanced raw search across indexers.
+- [M] Indexer health shown (last success, last error).
 
 **Catalog "Get" and quality**
-- [L] "Get" flow with quality chips (7.6): resolution (720p/1080p/1440p/2160p), dynamic range (SDR/HDR/Dolby Vision), bitrate tier (Low/Medium/High/Max), codec, source, audio, language.
-- [L] Saved quality profiles; last-used chips remembered per user.
-- [L] Bitrate tiers in GB per hour of runtime (editable in settings):
+- [M] "Get" flow with quality chips (7.6): resolution (720p/1080p/1440p/2160p), dynamic range (SDR/HDR/Dolby Vision), bitrate tier (Low/Medium/High/Max), codec, source, audio, language.
+- [M] Saved quality profiles; last-used chips remembered per user.
+- [M] Bitrate tiers in GB per hour of runtime (editable in settings):
 
   | Resolution | Low | Medium | High | Max |
   |---|---|---|---|---|
@@ -336,9 +337,9 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
 - [L] Download requests and the approval queue (7.9).
 
 **Remote access**
-- [L] HTTPS required for non-LAN clients (behind a reverse proxy, via `X-Forwarded-Proto` from configured trusted proxies).
-- [L] In-app guides for Tailscale, Cloudflare Tunnel and Caddy.
-- [L] Desktop app connects to a remote server by URL.
+- [M] HTTPS required for non-LAN clients (behind a reverse proxy, via `X-Forwarded-Proto` from configured trusted proxies).
+- [M] In-app guides for Tailscale, Cloudflare Tunnel and Caddy.
+- [M] Desktop app connects to a remote server by URL.
 
 **Later automation (parked)**
 - [L] Follow a show and auto-download new episodes; watchlist movies; upgrade to better releases.
@@ -559,12 +560,12 @@ soft shadows, subtle motion (150–250 ms). Every interactive element is reachab
 - **Home:** hero banner (backdrop, logo or title, overview, Play and More info), then rows: Continue Watching, Next Up, Recently Added, genres.
 - **Movies / Shows:** poster grid with filters (genre, year, watched, resolution) and sort options.
 - **Title detail:** backdrop hero, metadata, Play/Resume, version picker, season tabs with an episode list (stills, progress bars), Fix match, Get (for missing episodes or titles).
-- **Search:** instant results from the library; a "Not in library" section from the catalog ([L]).
-- **Get dialog ([L]):** quality chips across the top, a live-ranked result list (quality badges, size, seeders, indexer), dangerous-release flags, failed-source notice.
-- **Downloads ([L]):** active, seeding and completed lists; VPN status badge always visible; requests tab for approvers.
+- **Search:** instant results from the library; a "Not in library" section from the catalog.
+- **Get dialog:** quality chips across the top, a live-ranked result list (quality badges, size, seeders, indexer), dangerous-release flags, failed-source notice.
+- **Downloads:** active, seeding and completed lists; VPN status badge always visible; requests tab for approvers ([L], with multiple users).
 - **Needs attention:** cards with the file name, parsed guess and candidate posters; one-click confirm or search.
 - **Player (desktop):** MPV with the purple Lua OSC (title, progress bar with chapters, audio and subtitle menus, Up next).
-- **Player (browser, [L]):** custom HTML5 player matching the OSC look.
+- **Player (browser):** custom HTML5 player matching the OSC look.
 - **Settings:** Libraries, Playback, Torrents and VPN, Indexers, Quality (tier table, saved profiles), Users and roles, Remote access, About and licences.
 
 UX rules:
@@ -593,10 +594,10 @@ UX rules:
 ## 13. Open questions
 
 - **MonoTorrent may fail the Phase 0 test build.** Required: VPN binding of all traffic including DHT and trackers, hundreds of seeding torrents,
-  magnet links, throughput. Blocks the torrent workstream. Assumption: MonoTorrent passes; otherwise a qBittorrent-nox sidecar is used behind `ITorrentEngine`.
+  magnet links, throughput. Blocks the torrent workstream; settled by PLAN 3.1. Assumption: MonoTorrent passes; otherwise a qBittorrent-nox sidecar is used behind `ITorrentEngine`.
 - **Assumed: match confidence threshold of 0.85.** Blocks matcher tuning. To be tuned against the corpus.
 - **Assumed: seeding defaults of ratio 2.0 or 7 days, whichever comes first.** Blocks managed-import timing.
-- **Assumed: transcode cache in a temp folder capped at 10 GB, oldest evicted first.** Blocks the [L] browser playback design.
+- **Assumed: transcode cache in a temp folder capped at 10 GB, oldest evicted first.** Blocks the browser playback design (PLAN Stage 5).
 - **Assumed: the prototype launches MPV from the server host via a dev-only endpoint.** It's removed when the Electron app lands in the MVP.
   Blocks nothing, but must not ship.
 - **Assumed: the leak check uses a public "what is my IP" endpoint, configurable in settings.** Which service to use by default is undecided. Blocks VPN gate implementation.
