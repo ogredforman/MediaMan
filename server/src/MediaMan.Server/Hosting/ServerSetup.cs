@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MediaMan.Core;
 using MediaMan.Data;
 #if MEDIAMAN_DEV
@@ -5,6 +6,7 @@ using MediaMan.Server.Dev;
 #endif
 using MediaMan.Server.Endpoints;
 using MediaMan.Server.Events;
+using MediaMan.Server.LibraryApi;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -29,7 +31,9 @@ public static class ServerSetup
             MediaManDb.Configure((DbContextOptionsBuilder<MediaManDbContext>)builder, options.DatabasePath);
         });
 
+        services.ConfigureHttpJsonOptions(o => o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
+        services.AddScoped<LibraryQueries>();
 
         // Hosted services start in registration order: the schema exists before anything seeds it.
         services.AddHostedService<DatabaseMigrator>();
@@ -69,6 +73,7 @@ public static class ServerSetup
     {
         app.MapHealthEndpoints();
         app.MapEventEndpoints();
+        app.MapLibraryEndpoints();
         return app;
     }
 }

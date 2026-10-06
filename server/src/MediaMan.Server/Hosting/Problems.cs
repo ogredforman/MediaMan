@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Http.HttpResults;
+
 namespace MediaMan.Server.Hosting;
 
 /// <summary>Fills in the contract's <c>Problem</c> extensions: a stable <c>code</c> and the user's next <c>action</c> (SPEC §11).</summary>
@@ -16,6 +18,14 @@ public static class Problems
         problem.Extensions.TryAdd(CodeKey, CodeFor(status));
         problem.Extensions.TryAdd(ActionKey, ActionFor(status));
     }
+
+    /// <summary>A problem response with a specific <paramref name="code"/> and <paramref name="action"/>.</summary>
+    public static ProblemHttpResult Result(int status, string code, string title, string detail, string action) =>
+        TypedResults.Problem(detail, statusCode: status, title: title, extensions: new Dictionary<string, object?>
+        {
+            [CodeKey] = code,
+            [ActionKey] = action,
+        });
 
     public static string CodeFor(int status) => status switch
     {
