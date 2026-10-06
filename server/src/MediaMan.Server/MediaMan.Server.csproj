@@ -12,4 +12,15 @@
     <ProjectReference Include="..\MediaMan.Indexers\MediaMan.Indexers.csproj" />
   </ItemGroup>
 
+  <!-- Dev configuration (SPEC §8 setup [P]): Debug builds can run on the fakes; Release builds never contain them. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>$(DefineConstants);MEDIAMAN_DEV</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Debug'">
+    <ProjectReference Include="..\..\tests\MediaMan.Fakes\MediaMan.Fakes.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Dev\**" />
+  </ItemGroup>
+
 </Project>

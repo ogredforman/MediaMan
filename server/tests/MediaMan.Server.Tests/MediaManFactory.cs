@@ -1,23 +1,33 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
 
 namespace MediaMan.Server.Tests;
 
 /// <summary>Hosts the real server in-process with its data directory in a per-test temp folder.</summary>
-public sealed class MediaManFactory : WebApplicationFactory<Program>
+public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDictionary<string, string>? settings = null)
+    : WebApplicationFactory<Program>
 {
-    public string DataDirectory { get; } = Path.Combine(Path.GetTempPath(), "mediaman-tests", Guid.NewGuid().ToString("N"));
+    public string DataDirectory { get; init; } = Path.Combine(Path.GetTempPath(), "mediaman-tests", Guid.NewGuid().ToString("N"));
+
+    /// <summary>Keeps the data directory on dispose, so a second factory can restart on the same database.</summary>
+    public bool KeepDataDirectory { get; init; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Testing");
+        builder.UseEnvironment(environment);
         builder.UseSetting("MediaMan:DataDirectory", DataDirectory);
+        foreach (var (key, value) in settings ?? new Dictionary<string, string>())
+        {
+            builder.UseSetting(key, value);
+        }
     }
 
     public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
-        if (Directory.Exists(DataDirectory))
+        SqliteConnection.ClearAllPools(); // pooled connections keep the database file open
+        if (!KeepDataDirectory && Directory.Exists(DataDirectory))
         {
             Directory.Delete(DataDirectory, recursive: true);
         }

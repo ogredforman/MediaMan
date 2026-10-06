@@ -32,7 +32,8 @@ so timestamps, enums and nested value objects need a fixed storage shape before 
 
 ## Consequences
 
-- PLAN 2.3 creates the per-install key (generated on first run, stored next to the database) and builds the `AesGcmSecretProtector` from it. Until then only tests construct the context.
+- PLAN 2.3 creates the per-install key (generated on first run, stored next to the database) and builds the `AesGcmSecretProtector` from it. Until then the server registers `UnavailableSecretProtector`, which throws if anything tries to store a secret (PLAN 1.2).
+- The server applies pending migrations on startup (`DatabaseMigrator`), before any other hosted service runs.
 - Backup and restore copy the key file along with the database and artwork cache. Without the key, encrypted secrets are unreadable and must be re-entered.
 - Encrypted columns can't be queried by value; nothing needs to.
 - JSON column shapes are part of the schema: renaming a property in those records needs a data migration.
