@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using MediaMan.Fakes;
 
 namespace MediaMan.Data.Tests;
 

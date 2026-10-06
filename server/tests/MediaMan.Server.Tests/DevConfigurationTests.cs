@@ -30,7 +30,7 @@ public sealed class DevConfigurationTests : IDisposable
             : new MediaManFactory("Development", settings) { DataDirectory = dataDirectory, KeepDataDirectory = true };
     }
 
-    private static async Task<List<Library>> LibrariesAsync(MediaManFactory factory, CancellationToken ct)
+    private static async Task<List<Core.Domain.Library>> LibrariesAsync(MediaManFactory factory, CancellationToken ct)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<MediaManDbContext>();

@@ -16,6 +16,7 @@ public enum ContentType
 
 public enum MediaFileStatus
 {
+    Pending,
     Matched,
     NeedsAttention,
     Ignored,
@@ -44,6 +45,12 @@ public class MediaFile
     public ProbeResult? Probe { get; set; }
     public ParsedRelease? Parsed { get; set; }
     public MediaFileStatus Status { get; set; }
+
+    /// <summary>Why the file is <see cref="MediaFileStatus.NeedsAttention"/>, e.g. <c>unreadable</c>; null otherwise.</summary>
+    public string? AttentionReason { get; set; }
+
+    /// <summary>When the file was first found missing; FileLinks are kept for 30 days from then (SPEC §7.2 step 6).</summary>
+    public DateTimeOffset? MissingSince { get; set; }
 }
 
 /// <summary>Links a MediaFile to a Playable it contains; <see cref="Part"/> orders multi-episode files.</summary>

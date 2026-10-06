@@ -411,8 +411,14 @@ namespace MediaMan.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AttentionReason")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("LibraryId")
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("MissingSince")
+                        .HasColumnType("INTEGER");
 
                     b.Property<long>("Mtime")
                         .HasColumnType("INTEGER");

@@ -2,10 +2,10 @@ using MediaMan.Data;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
-namespace MediaMan.Data.Tests;
+namespace MediaMan.Fakes;
 
 /// <summary>A migrated SQLite file in a per-test temp directory, deleted on dispose.</summary>
-internal sealed class TempDatabase : IAsyncDisposable
+public sealed class TempDatabase : IAsyncDisposable
 {
     public static readonly byte[] TestKey = [.. Enumerable.Range(0, AesGcmSecretProtector.KeySizeBytes).Select(i => (byte)i)];
 

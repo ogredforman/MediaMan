@@ -2,5 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MediaMan.Core\MediaMan.Core.csproj" />
+    <ProjectReference Include="..\MediaMan.Data\MediaMan.Data.csproj" />
+    <ProjectReference Include="..\MediaMan.Parsing\MediaMan.Parsing.csproj" />
   </ItemGroup>
 </Project>

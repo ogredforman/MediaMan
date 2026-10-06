@@ -97,7 +97,7 @@ The design must not preclude:
 | Entity | Purpose | Key fields |
 |---|---|---|
 | Library | A set of root folders scanned as one library | id, name, kind (External/Managed), contentType (Movies/Shows/Anime/Mixed), rootPaths[], scanIntervalMinutes |
-| MediaFile | A video file found on disk | id, libraryId, path, sizeBytes, mtime, probe (container, streams, duration, HDR format), parsed (ParsedRelease), status (Matched/NeedsAttention/Ignored/Missing) |
+| MediaFile | A video file found on disk | id, libraryId, path, sizeBytes, mtime, probe (container, streams, duration, HDR format), parsed (ParsedRelease), status (Pending/Matched/NeedsAttention/Ignored/Missing), attentionReason (e.g. unreadable), missingSince |
 | Title | A movie or show | id, kind (Movie/Show), name, year, overview, genres[], rating, runtime, externalIds (tmdb, imdb, tvdb, anilist), artwork refs |
 | Season | A season of a show | id, titleId, number, name, overview, poster |
 | Episode | One episode | id, seasonId, number, absoluteNumber?, name, overview, airDate, still |
