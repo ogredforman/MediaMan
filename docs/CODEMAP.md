@@ -42,7 +42,8 @@ Server projects live in `server/src/`; most are empty shells until their stage.
   `SqlitePragmaInterceptor`), `ISecretProtector`/`AesGcmSecretProtector`, migrations in `Migrations/`.
 - **MediaMan.Server**: host and endpoints. `Endpoints/HealthEndpoints.cs`, `RequiresPermission(...)` in `Endpoints/PermissionMetadata.cs`,
   `Events/EventBroadcaster` (`Publish`, `Subscribe`) + `EventEnvelope`, `Hosting/Problems.cs` (error model).
-- **MediaMan.Auth, .Library, .Metadata, .Parsing, .Playback, .Indexers, .Torrents**: empty, filled from Stage 1 on.
+- **MediaMan.Parsing**: `ReleaseParser.Parse(fileName, parentDirs)` (pure; `parentDirs` outermost first) → `ParsedRelease`.
+- **MediaMan.Auth, .Library, .Metadata, .Playback, .Indexers, .Torrents**: empty, filled from Stage 1 on.
 
 ## Frontend
 
@@ -60,6 +61,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
   `FakeArtworkProvider` (`Add`), `FakeMediaProbe` (`Map`/`Fail` file-name globs, presets `Hd1080`/`Uhd2160Hdr10`/`DolbyVision`),
   `FakeFileWatcher` (`Raise`). Fake tests are in `MediaMan.Core.Tests/Fakes/`.
 - `server/tests/fixtures/metadata/tmdb-<id>.json`: 33 provider titles (remakes, same-name shows, specials, anime absolute numbers), copied to `fixtures/metadata` in test output.
+- `server/tests/corpus/release-names.json`: parser corpus (`path` with `/`, partial `expected` fields), copied to `corpus/` in `MediaMan.Parsing.Tests` output; run by `ReleaseParserCorpusTests`.
 - `MediaMan.Data.Tests/TempDatabase.cs`: per-test SQLite file (`CreateMigratedAsync`, `CreateEmpty`, `CreateContext`, `OpenRawConnection`).
 - `MediaMan.Server.Tests/MediaManFactory.cs`: in-process host on a per-test temp `DataDirectory`; optional environment and settings, `KeepDataDirectory` for restarts.
 - `MediaMan.Server.Tests/Conformance/ContractDocument.cs`: loads the contract; `AssertConformsAsync(response, ct)` validates a response.

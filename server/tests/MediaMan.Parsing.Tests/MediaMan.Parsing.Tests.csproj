@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\MediaMan.Parsing\MediaMan.Parsing.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../corpus/*.json" LinkBase="corpus" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
