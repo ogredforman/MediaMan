@@ -1,0 +1,29 @@
+{
+  "streams": [
+    {
+      "index": 0, "codec_name": "h264", "codec_type": "video", "width": 1920, "height": 1080, "pix_fmt": "yuv420p",
+      "color_transfer": "bt709",
+      "disposition": { "default": 1, "forced": 0, "attached_pic": 0 },
+      "tags": { "BPS": "8123456", "DURATION": "00:44:59.987000000" }
+    },
+    {
+      "index": 1, "codec_name": "eac3", "codec_type": "audio", "channels": 6, "channel_layout": "5.1(side)",
+      "disposition": { "default": 1, "forced": 0, "attached_pic": 0 },
+      "tags": { "language": "eng", "title": "Surround 5.1", "BPS-eng": "640000" }
+    },
+    {
+      "index": 2, "codec_name": "subrip", "codec_type": "subtitle",
+      "disposition": { "default": 0, "forced": 1, "attached_pic": 0 },
+      "tags": { "language": "fre", "title": "Forced" }
+    },
+    {
+      "index": 3, "codec_type": "attachment", "codec_tag_string": "[0][0][0][0]",
+      "disposition": { "default": 0, "forced": 0, "attached_pic": 0 },
+      "tags": { "filename": "Arial.ttf", "mimetype": "application/x-truetype-font" }
+    }
+  ],
+  "format": {
+    "filename": "Show.S01E01.mkv", "nb_streams": 4, "format_name": "matroska,webm", "duration": "2699.987000",
+    "size": "2741234567", "bit_rate": "8122000"
+  }
+}

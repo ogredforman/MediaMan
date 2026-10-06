@@ -1,6 +1,8 @@
 using MediaMan.Core.Modules;
 using MediaMan.Fakes;
+using MediaMan.Playback.Probing;
 using MediaMan.Server.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace MediaMan.Server.Dev;
 
@@ -15,7 +17,11 @@ public static class DevConfiguration
         var providers = dev.Providers;
         AddProvider<IMetadataProvider>(services, providers.Metadata, "Metadata", "PLAN 2.1", () => new FakeMetadataProvider());
         AddProvider<IArtworkProvider>(services, providers.Artwork, "Artwork", "PLAN 2.2", () => new FakeArtworkProvider());
-        AddProvider<IMediaProbe>(services, providers.MediaProbe, "MediaProbe", "PLAN 1.5", () => new FakeMediaProbe());
+        AddProvider<IMediaProbe>(services, providers.MediaProbe, "MediaProbe", "PLAN 1.5", () => new FakeMediaProbe(),
+            sp => new FfprobeMediaProbe(new FfprobeOptions
+            {
+                ExecutablePath = sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
+            }));
         AddProvider<IFileWatcher>(services, providers.FileWatcher, "FileWatcher", "PLAN 2.8", () => new FakeFileWatcher());
 
         services.AddHostedService<DevLibrarySeeder>();
@@ -24,9 +30,20 @@ public static class DevConfiguration
 
     // Real implementations register here as their PLAN tasks land; until then choosing Real fails at startup.
     private static void AddProvider<TService>(
-        IServiceCollection services, ProviderSource source, string name, string realArrivesIn, Func<TService> fake)
+        IServiceCollection services,
+        ProviderSource source,
+        string name,
+        string realArrivesIn,
+        Func<TService> fake,
+        Func<IServiceProvider, TService>? real = null)
         where TService : class
     {
+        if (source == ProviderSource.Real && real is not null)
+        {
+            services.AddSingleton(real);
+            return;
+        }
+
         if (source == ProviderSource.Real)
         {
             throw new InvalidOperationException(

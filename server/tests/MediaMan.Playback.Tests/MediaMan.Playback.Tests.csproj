@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\MediaMan.Playback\MediaMan.Playback.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../fixtures/ffprobe/*.json" LinkBase="fixtures/ffprobe" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

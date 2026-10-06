@@ -16,6 +16,14 @@ public sealed class MediaManOptions
 
     /// <summary>Dev configuration (SPEC §8 setup [P]); honoured only in the Development environment of a Debug build.</summary>
     public DevOptions Dev { get; set; } = new();
+
+    public ToolsOptions Tools { get; set; } = new();
+}
+
+/// <summary>Where the external media tools live (SPEC §10.1). Bare names are looked up on PATH.</summary>
+public sealed class ToolsOptions
+{
+    public string FfprobePath { get; set; } = "ffprobe";
 }
 
 /// <summary>Where an external dependency comes from in the dev configuration.</summary>
