@@ -1,14 +1,18 @@
 using MediaMan.Core.Domain;
 using MediaMan.Data;
+using MediaMan.Server.Scanning;
 using Microsoft.EntityFrameworkCore;
 
 namespace MediaMan.Server.LibraryApi;
 
-/// <summary>Read-only queries behind the library browse endpoints. Writes nothing.</summary>
-public sealed class LibraryQueries(MediaManDbContext db)
+/// <summary>Read-only queries behind the library endpoints. Writes nothing.</summary>
+public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans)
 {
     // Names sort case-insensitively, so "alien" files next to "Aliens".
     private const string NameCollation = "NOCASE";
+
+    // Every NeedsAttention file should have a reason; this covers rows written before reasons were recorded.
+    private const string UnknownReason = "unknown";
 
     public async Task<LibraryPage> ListLibrariesAsync(PageRequest page, CancellationToken ct)
     {
@@ -21,10 +25,71 @@ public sealed class LibraryQueries(MediaManDbContext db)
 
         var (items, info) = Paging.Page(rows, page);
         return new LibraryPage(
-            [.. items.Select(l => new LibraryDto(
-                l.Id, l.Name, Wire.Name(l.Kind), Wire.Name(l.ContentType), l.RootPaths, l.ScanIntervalMinutes))],
+            [.. items.Select(ToDto)],
             info);
     }
+
+    /// <summary>The library with its scan state, or null when it doesn't exist.</summary>
+    public async Task<LibraryDto?> GetLibraryAsync(Guid libraryId, CancellationToken ct)
+    {
+        var library = await db.Libraries.AsNoTracking().FirstOrDefaultAsync(l => l.Id == libraryId, ct);
+        return library is null ? null : ToDto(library);
+    }
+
+    /// <summary>The library's NeedsAttention files with their MatchReviews, sorted by path; null when the library doesn't exist.</summary>
+    public async Task<AttentionFilePage?> ListAttentionAsync(Guid libraryId, PageRequest page, CancellationToken ct)
+    {
+        if (!await db.Libraries.AnyAsync(l => l.Id == libraryId, ct))
+        {
+            return null;
+        }
+
+        var rows = await db.MediaFiles.AsNoTracking()
+            .Where(f => f.LibraryId == libraryId && f.Status == MediaFileStatus.NeedsAttention)
+            .OrderBy(f => f.Path)
+            .ThenBy(f => f.Id)
+            .Skip(page.Offset)
+            .Take(page.Limit + 1)
+            .ToListAsync(ct);
+
+        var (items, info) = Paging.Page(rows, page);
+        var ids = items.Select(f => f.Id).ToList();
+        var reviews = await db.MatchReviews.AsNoTracking().Where(r => ids.Contains(r.MediaFileId)).ToListAsync(ct);
+        var reviewByFile = reviews.ToDictionary(r => r.MediaFileId);
+
+        return new AttentionFilePage(
+            [.. items.Select(f => new AttentionFile(
+                f.Id,
+                f.Path,
+                Path.GetFileName(f.Path),
+                f.AttentionReason ?? UnknownReason,
+                ToGuess(f.Parsed),
+                ToReview(reviewByFile.GetValueOrDefault(f.Id))))],
+            info);
+    }
+
+    private LibraryDto ToDto(Core.Domain.Library l) =>
+        new(l.Id, l.Name, Wire.Name(l.Kind), Wire.Name(l.ContentType), l.RootPaths, l.ScanIntervalMinutes, scans.Get(l.Id));
+
+    private static ParsedGuess? ToGuess(ParsedRelease? p) => p is null
+        ? null
+        : new ParsedGuess(p.Title, p.Year, p.Season, p.Episodes, p.AbsoluteEpisode, ResolutionName(p.Resolution),
+            p.Source, p.Codec, p.HdrFormat, p.Audio, p.Group);
+
+    private static string? ResolutionName(Resolution? resolution) => resolution switch
+    {
+        null => null,
+        Resolution.P720 => "720p",
+        Resolution.P1080 => "1080p",
+        Resolution.P1440 => "1440p",
+        Resolution.P2160 => "2160p",
+        _ => throw new ArgumentOutOfRangeException(nameof(resolution), resolution, "Add the contract's name for this resolution."),
+    };
+
+    private static MatchReviewDto? ToReview(MatchReview? review) => review is null
+        ? null
+        : new MatchReviewDto(review.Id, review.Reason, [.. review.Candidates.Select(c => new MatchCandidateDto(
+            c.TitleRef.ToString(), c.Score, c.Kind is { } k ? Wire.Name(k) : null, c.Name, c.Year, c.PosterUrl))]);
 
     /// <summary>Titles with at least one Matched file (optionally in <paramref name="libraryId"/>), sorted by name.</summary>
     public async Task<TitlePage> ListTitlesAsync(TitleKind? kind, Guid? libraryId, PageRequest page, CancellationToken ct)

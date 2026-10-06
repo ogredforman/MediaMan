@@ -1,12 +1,16 @@
 using System.Text.Json.Serialization;
 using MediaMan.Core;
 using MediaMan.Data;
+using MediaMan.Library.Importing;
+using MediaMan.Library.Matching;
+using MediaMan.Library.Scanning;
 #if MEDIAMAN_DEV
 using MediaMan.Server.Dev;
 #endif
 using MediaMan.Server.Endpoints;
 using MediaMan.Server.Events;
 using MediaMan.Server.LibraryApi;
+using MediaMan.Server.Scanning;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -34,11 +38,26 @@ public static class ServerSetup
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
         services.AddScoped<LibraryQueries>();
+        AddScanning(services);
 
         // Hosted services start in registration order: the schema exists before anything seeds it.
         services.AddHostedService<DatabaseMigrator>();
         AddDevConfiguration(services, section.Get<MediaManOptions>()?.Dev ?? new DevOptions(), environment);
+        services.AddHostedService<ScanWorker>();
         return services;
+    }
+
+    /// <summary>
+    /// The scan pipeline. Its providers are registered only by the dev configuration until Stage 2, so the pipeline is
+    /// built through factories, which DI's build-time validation skips; <see cref="ScanCoordinator.IsAvailable"/> gates use.
+    /// </summary>
+    private static void AddScanning(IServiceCollection services)
+    {
+        services.AddSingleton(new MatcherOptions());
+        services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryScanner>(sp));
+        services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryMatcher>(sp));
+        services.AddScoped(sp => ActivatorUtilities.CreateInstance<MetadataImporter>(sp));
+        services.AddSingleton<ScanCoordinator>();
     }
 
     /// <summary>

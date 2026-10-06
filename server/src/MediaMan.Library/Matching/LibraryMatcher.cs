@@ -162,7 +162,13 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
             var details = kind == TitleKind.Show && candidate.Kind == TitleKind.Show
                 ? await run.GetTitleAsync(candidate.Id, ct)
                 : null;
-            ranked.Add(new MatchCandidate(candidate.Id, Math.Round(MatchScorer.Score(parsed, candidate, details), 4)));
+            ranked.Add(new MatchCandidate(
+                candidate.Id,
+                Math.Round(MatchScorer.Score(parsed, candidate, details), 4),
+                candidate.Kind,
+                candidate.Name,
+                candidate.Year,
+                candidate.PosterUrl));
         }
 
         // OrderByDescending is stable, so equal scores keep the provider's order.
