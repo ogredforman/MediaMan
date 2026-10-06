@@ -1,0 +1,116 @@
+{
+  "id": "tmdb:19885",
+  "kind": "show",
+  "name": "Sherlock",
+  "year": 2010,
+  "overview": "A modern update finds the famous detective in 21st-century London.",
+  "genres": [
+    "Crime",
+    "Drama",
+    "Mystery"
+  ],
+  "rating": 8.5,
+  "runtimeMinutes": 88,
+  "externalIds": [
+    "tvdb:176941"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/19885/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/19885/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/19885/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 0,
+      "name": "Specials",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/19885/season-0.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "The Abominable Bride",
+          "overview": null,
+          "airDate": "2016-01-01",
+          "stillUrl": "https://images.invalid/tmdb/19885/s0e1.jpg"
+        }
+      ]
+    },
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/19885/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "A Study in Pink",
+          "overview": null,
+          "airDate": "2010-07-25",
+          "stillUrl": "https://images.invalid/tmdb/19885/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "The Blind Banker",
+          "overview": null,
+          "airDate": "2010-08-01",
+          "stillUrl": "https://images.invalid/tmdb/19885/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "The Great Game",
+          "overview": null,
+          "airDate": "2010-08-08",
+          "stillUrl": "https://images.invalid/tmdb/19885/s1e3.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/19885/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "A Scandal in Belgravia",
+          "overview": null,
+          "airDate": "2012-01-01",
+          "stillUrl": "https://images.invalid/tmdb/19885/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "The Hounds of Baskerville",
+          "overview": null,
+          "airDate": "2012-01-08",
+          "stillUrl": "https://images.invalid/tmdb/19885/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "The Reichenbach Fall",
+          "overview": null,
+          "airDate": "2012-01-15",
+          "stillUrl": "https://images.invalid/tmdb/19885/s2e3.jpg"
+        }
+      ]
+    }
+  ]
+}

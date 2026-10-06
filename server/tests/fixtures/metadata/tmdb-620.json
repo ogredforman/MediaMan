@@ -1,0 +1,34 @@
+{
+  "id": "tmdb:620",
+  "kind": "movie",
+  "name": "Ghostbusters",
+  "year": 1984,
+  "overview": "Three parapsychologists start a ghost-catching business in New York.",
+  "genres": [
+    "Comedy",
+    "Fantasy"
+  ],
+  "rating": 7.4,
+  "runtimeMinutes": 105,
+  "externalIds": [
+    "imdb:tt0087332"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/620/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/620/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/620/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

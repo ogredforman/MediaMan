@@ -1,0 +1,155 @@
+{
+  "id": "tmdb:1396",
+  "kind": "show",
+  "name": "Breaking Bad",
+  "year": 2008,
+  "overview": "A chemistry teacher turns to making methamphetamine.",
+  "genres": [
+    "Drama",
+    "Crime"
+  ],
+  "rating": 8.9,
+  "runtimeMinutes": 47,
+  "externalIds": [
+    "tvdb:81189"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/1396/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/1396/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/1396/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1396/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Pilot",
+          "overview": null,
+          "airDate": "2008-01-20",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Cat's in the Bag...",
+          "overview": null,
+          "airDate": "2008-01-27",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "...And the Bag's in the River",
+          "overview": null,
+          "airDate": "2008-02-03",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Cancer Man",
+          "overview": null,
+          "airDate": "2008-02-10",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Gray Matter",
+          "overview": null,
+          "airDate": "2008-02-17",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Crazy Handful of Nothin'",
+          "overview": null,
+          "airDate": "2008-02-24",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e6.jpg"
+        },
+        {
+          "number": 7,
+          "absoluteNumber": null,
+          "name": "A No-Rough-Stuff-Type Deal",
+          "overview": null,
+          "airDate": "2008-03-02",
+          "stillUrl": "https://images.invalid/tmdb/1396/s1e7.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/1396/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Seven Thirty-Seven",
+          "overview": null,
+          "airDate": "2009-03-08",
+          "stillUrl": "https://images.invalid/tmdb/1396/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Grilled",
+          "overview": null,
+          "airDate": "2009-03-15",
+          "stillUrl": "https://images.invalid/tmdb/1396/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Bit by a Dead Bee",
+          "overview": null,
+          "airDate": "2009-03-22",
+          "stillUrl": "https://images.invalid/tmdb/1396/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Down",
+          "overview": null,
+          "airDate": "2009-03-29",
+          "stillUrl": "https://images.invalid/tmdb/1396/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Breakage",
+          "overview": null,
+          "airDate": "2009-04-05",
+          "stillUrl": "https://images.invalid/tmdb/1396/s2e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Peekaboo",
+          "overview": null,
+          "airDate": "2009-04-12",
+          "stillUrl": "https://images.invalid/tmdb/1396/s2e6.jpg"
+        }
+      ]
+    }
+  ]
+}

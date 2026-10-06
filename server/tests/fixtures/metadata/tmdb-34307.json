@@ -1,0 +1,91 @@
+{
+  "id": "tmdb:34307",
+  "kind": "show",
+  "name": "Shameless",
+  "year": 2011,
+  "overview": "A Chicago family of six children fend for themselves around their alcoholic father.",
+  "genres": [
+    "Comedy",
+    "Drama"
+  ],
+  "rating": 8.1,
+  "runtimeMinutes": 55,
+  "externalIds": [
+    "tvdb:161511"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/34307/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/34307/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/34307/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/34307/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Pilot",
+          "overview": null,
+          "airDate": "2011-01-09",
+          "stillUrl": "https://images.invalid/tmdb/34307/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Frank the Plank",
+          "overview": null,
+          "airDate": "2011-01-16",
+          "stillUrl": "https://images.invalid/tmdb/34307/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Aunt Ginger",
+          "overview": null,
+          "airDate": "2011-01-23",
+          "stillUrl": "https://images.invalid/tmdb/34307/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Three Boys",
+          "overview": null,
+          "airDate": "2011-01-30",
+          "stillUrl": "https://images.invalid/tmdb/34307/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Frank Gallagher: Loving Husband, Devoted Father",
+          "overview": null,
+          "airDate": "2011-02-06",
+          "stillUrl": "https://images.invalid/tmdb/34307/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Daddyz Girl",
+          "overview": null,
+          "airDate": "2011-02-13",
+          "stillUrl": "https://images.invalid/tmdb/34307/s1e6.jpg"
+        }
+      ]
+    }
+  ]
+}

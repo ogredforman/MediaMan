@@ -52,7 +52,11 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 
 ## Tests and fixtures
 
-- One test project per module in `server/tests/MediaMan.<Module>.Tests`; shared fakes go in `server/tests/MediaMan.Fakes` (empty until PLAN 1.1).
+- One test project per module in `server/tests/MediaMan.<Module>.Tests`; every one references `server/tests/MediaMan.Fakes`:
+  `FakeClock` (`Advance`), `FakeMetadataProvider` (fixtures, `FailNext`, `SearchQueries`/`TitleRequests`/`SeasonRequests`),
+  `FakeArtworkProvider` (`Add`), `FakeMediaProbe` (`Map`/`Fail` file-name globs, presets `Hd1080`/`Uhd2160Hdr10`/`DolbyVision`),
+  `FakeFileWatcher` (`Raise`). Fake tests are in `MediaMan.Core.Tests/Fakes/`.
+- `server/tests/fixtures/metadata/tmdb-<id>.json`: 33 provider titles (remakes, same-name shows, specials, anime absolute numbers), copied to `fixtures/metadata` in test output.
 - `MediaMan.Data.Tests/TempDatabase.cs`: per-test SQLite file (`CreateMigratedAsync`, `CreateEmpty`, `CreateContext`, `OpenRawConnection`).
 - `MediaMan.Server.Tests/MediaManFactory.cs`: in-process host on a per-test temp `DataDirectory`.
 - `MediaMan.Server.Tests/Conformance/ContractDocument.cs`: loads the contract; `AssertConformsAsync(response, ct)` validates a response.

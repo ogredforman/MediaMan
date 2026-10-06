@@ -1,0 +1,34 @@
+{
+  "id": "tmdb:861",
+  "kind": "movie",
+  "name": "Total Recall",
+  "year": 1990,
+  "overview": "A construction worker discovers his memories of Mars may be real.",
+  "genres": [
+    "Action",
+    "Science Fiction"
+  ],
+  "rating": 7.3,
+  "runtimeMinutes": 113,
+  "externalIds": [
+    "imdb:tt0100802"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/861/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/861/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/861/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

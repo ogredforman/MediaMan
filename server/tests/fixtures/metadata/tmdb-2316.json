@@ -1,0 +1,146 @@
+{
+  "id": "tmdb:2316",
+  "kind": "show",
+  "name": "The Office",
+  "year": 2005,
+  "overview": "A mockumentary on a group of office workers in Scranton.",
+  "genres": [
+    "Comedy"
+  ],
+  "rating": 8.6,
+  "runtimeMinutes": 22,
+  "externalIds": [
+    "tvdb:73244"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/2316/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/2316/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/2316/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/2316/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Pilot",
+          "overview": null,
+          "airDate": "2005-03-24",
+          "stillUrl": "https://images.invalid/tmdb/2316/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Diversity Day",
+          "overview": null,
+          "airDate": "2005-03-31",
+          "stillUrl": "https://images.invalid/tmdb/2316/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Health Care",
+          "overview": null,
+          "airDate": "2005-04-07",
+          "stillUrl": "https://images.invalid/tmdb/2316/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "The Alliance",
+          "overview": null,
+          "airDate": "2005-04-14",
+          "stillUrl": "https://images.invalid/tmdb/2316/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Basketball",
+          "overview": null,
+          "airDate": "2005-04-21",
+          "stillUrl": "https://images.invalid/tmdb/2316/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Hot Girl",
+          "overview": null,
+          "airDate": "2005-04-28",
+          "stillUrl": "https://images.invalid/tmdb/2316/s1e6.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/2316/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "The Dundies",
+          "overview": null,
+          "airDate": "2005-09-20",
+          "stillUrl": "https://images.invalid/tmdb/2316/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Sexual Harassment",
+          "overview": null,
+          "airDate": "2005-09-27",
+          "stillUrl": "https://images.invalid/tmdb/2316/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Office Olympics",
+          "overview": null,
+          "airDate": "2005-10-04",
+          "stillUrl": "https://images.invalid/tmdb/2316/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "The Fire",
+          "overview": null,
+          "airDate": "2005-10-11",
+          "stillUrl": "https://images.invalid/tmdb/2316/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Halloween",
+          "overview": null,
+          "airDate": "2005-10-18",
+          "stillUrl": "https://images.invalid/tmdb/2316/s2e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "The Fight",
+          "overview": null,
+          "airDate": "2005-10-25",
+          "stillUrl": "https://images.invalid/tmdb/2316/s2e6.jpg"
+        }
+      ]
+    }
+  ]
+}

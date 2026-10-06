@@ -1,0 +1,34 @@
+{
+  "id": "tmdb:603",
+  "kind": "movie",
+  "name": "The Matrix",
+  "year": 1999,
+  "overview": "A hacker learns that the world he lives in is a simulation.",
+  "genres": [
+    "Action",
+    "Science Fiction"
+  ],
+  "rating": 8.2,
+  "runtimeMinutes": 136,
+  "externalIds": [
+    "imdb:tt0133093"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/603/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/603/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/603/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

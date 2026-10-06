@@ -1,0 +1,170 @@
+{
+  "id": "tmdb:2996",
+  "kind": "show",
+  "name": "The Office",
+  "year": 2001,
+  "overview": "A documentary crew follows the staff of a paper merchant in Slough.",
+  "genres": [
+    "Comedy"
+  ],
+  "rating": 8,
+  "runtimeMinutes": 30,
+  "externalIds": [
+    "tvdb:78107"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/2996/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/2996/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/2996/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 0,
+      "name": "Specials",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/2996/season-0.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Christmas Special Part 1",
+          "overview": null,
+          "airDate": "2003-12-26",
+          "stillUrl": "https://images.invalid/tmdb/2996/s0e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Christmas Special Part 2",
+          "overview": null,
+          "airDate": "2004-01-02",
+          "stillUrl": "https://images.invalid/tmdb/2996/s0e2.jpg"
+        }
+      ]
+    },
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/2996/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Downsize",
+          "overview": null,
+          "airDate": "2001-07-09",
+          "stillUrl": "https://images.invalid/tmdb/2996/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Work Experience",
+          "overview": null,
+          "airDate": "2001-07-16",
+          "stillUrl": "https://images.invalid/tmdb/2996/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "The Quiz",
+          "overview": null,
+          "airDate": "2001-07-23",
+          "stillUrl": "https://images.invalid/tmdb/2996/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Training",
+          "overview": null,
+          "airDate": "2001-07-30",
+          "stillUrl": "https://images.invalid/tmdb/2996/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "New Girl",
+          "overview": null,
+          "airDate": "2001-08-06",
+          "stillUrl": "https://images.invalid/tmdb/2996/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Judgement",
+          "overview": null,
+          "airDate": "2001-08-13",
+          "stillUrl": "https://images.invalid/tmdb/2996/s1e6.jpg"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Season 2",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/2996/season-2.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": null,
+          "name": "Merger",
+          "overview": null,
+          "airDate": "2002-09-30",
+          "stillUrl": "https://images.invalid/tmdb/2996/s2e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": null,
+          "name": "Appraisals",
+          "overview": null,
+          "airDate": "2002-10-07",
+          "stillUrl": "https://images.invalid/tmdb/2996/s2e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": null,
+          "name": "Party",
+          "overview": null,
+          "airDate": "2002-10-14",
+          "stillUrl": "https://images.invalid/tmdb/2996/s2e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": null,
+          "name": "Motivation",
+          "overview": null,
+          "airDate": "2002-10-21",
+          "stillUrl": "https://images.invalid/tmdb/2996/s2e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": null,
+          "name": "Charity",
+          "overview": null,
+          "airDate": "2002-10-28",
+          "stillUrl": "https://images.invalid/tmdb/2996/s2e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": null,
+          "name": "Interview",
+          "overview": null,
+          "airDate": "2002-11-04",
+          "stillUrl": "https://images.invalid/tmdb/2996/s2e6.jpg"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "id": "tmdb:30991",
+  "kind": "show",
+  "name": "Cowboy Bebop",
+  "year": 1998,
+  "overview": "A crew of bounty hunters chases criminals across the solar system.",
+  "genres": [
+    "Animation",
+    "Action",
+    "Science Fiction"
+  ],
+  "rating": 8.8,
+  "runtimeMinutes": 25,
+  "externalIds": [
+    "tvdb:76885"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/30991/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/30991/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/30991/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": [
+    {
+      "number": 1,
+      "name": "Season 1",
+      "overview": null,
+      "posterUrl": "https://images.invalid/tmdb/30991/season-1.jpg",
+      "episodes": [
+        {
+          "number": 1,
+          "absoluteNumber": 1,
+          "name": "Asteroid Blues",
+          "overview": null,
+          "airDate": "1998-04-03",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e1.jpg"
+        },
+        {
+          "number": 2,
+          "absoluteNumber": 2,
+          "name": "Stray Dog Strut",
+          "overview": null,
+          "airDate": "1998-04-10",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e2.jpg"
+        },
+        {
+          "number": 3,
+          "absoluteNumber": 3,
+          "name": "Honky Tonk Women",
+          "overview": null,
+          "airDate": "1998-04-17",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e3.jpg"
+        },
+        {
+          "number": 4,
+          "absoluteNumber": 4,
+          "name": "Gateway Shuffle",
+          "overview": null,
+          "airDate": "1998-04-24",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e4.jpg"
+        },
+        {
+          "number": 5,
+          "absoluteNumber": 5,
+          "name": "Ballad of Fallen Angels",
+          "overview": null,
+          "airDate": "1998-05-01",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e5.jpg"
+        },
+        {
+          "number": 6,
+          "absoluteNumber": 6,
+          "name": "Sympathy for the Devil",
+          "overview": null,
+          "airDate": "1998-05-08",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e6.jpg"
+        },
+        {
+          "number": 7,
+          "absoluteNumber": 7,
+          "name": "Heavy Metal Queen",
+          "overview": null,
+          "airDate": "1998-05-15",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e7.jpg"
+        },
+        {
+          "number": 8,
+          "absoluteNumber": 8,
+          "name": "Waltz for Venus",
+          "overview": null,
+          "airDate": "1998-05-22",
+          "stillUrl": "https://images.invalid/tmdb/30991/s1e8.jpg"
+        }
+      ]
+    }
+  ]
+}

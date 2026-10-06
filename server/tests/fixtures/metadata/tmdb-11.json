@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:11",
+  "kind": "movie",
+  "name": "Star Wars",
+  "year": 1977,
+  "overview": "A farm boy joins a rebellion against a galactic empire.",
+  "genres": [
+    "Adventure",
+    "Action",
+    "Science Fiction"
+  ],
+  "rating": 8.2,
+  "runtimeMinutes": 121,
+  "externalIds": [
+    "imdb:tt0076759"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/11/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/11/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/11/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

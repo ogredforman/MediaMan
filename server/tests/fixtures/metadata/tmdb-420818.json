@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:420818",
+  "kind": "movie",
+  "name": "The Lion King",
+  "year": 2019,
+  "overview": "A photorealistic retelling of a young lion prince reclaiming his kingdom.",
+  "genres": [
+    "Adventure",
+    "Family",
+    "Drama"
+  ],
+  "rating": 7.1,
+  "runtimeMinutes": 118,
+  "externalIds": [
+    "imdb:tt6105098"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/420818/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/420818/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/420818/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

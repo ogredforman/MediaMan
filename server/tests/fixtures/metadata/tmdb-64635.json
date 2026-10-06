@@ -1,0 +1,34 @@
+{
+  "id": "tmdb:64635",
+  "kind": "movie",
+  "name": "Total Recall",
+  "year": 2012,
+  "overview": "A factory worker begins to suspect he is a spy.",
+  "genres": [
+    "Action",
+    "Science Fiction"
+  ],
+  "rating": 6,
+  "runtimeMinutes": 118,
+  "externalIds": [
+    "imdb:tt1386703"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/64635/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/64635/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/64635/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

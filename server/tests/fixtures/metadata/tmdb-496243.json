@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:496243",
+  "kind": "movie",
+  "name": "Parasite",
+  "year": 2019,
+  "overview": "A poor family schemes to become employed by a wealthy household.",
+  "genres": [
+    "Comedy",
+    "Thriller",
+    "Drama"
+  ],
+  "rating": 8.5,
+  "runtimeMinutes": 133,
+  "externalIds": [
+    "imdb:tt6751668"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/496243/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/496243/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/496243/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

@@ -60,7 +60,7 @@ to the Parked section at the bottom.
 deterministic fake. Validates the data model, architecture, and UI before real integrations add cost
 and unpredictability.
 
-- [ ] **1.1** Build the prototype-scope fakes in `MediaMan.Fakes` (SPEC §10.4): `FakeClock`, `FakeMetadataProvider` with about 30 JSON fixture titles in `tests/fixtures/metadata/` (remakes, same-name shows, anime with absolute numbering, a show with specials), error injection and query recording, `FakeArtworkProvider`, `FakeMediaProbe` and `FakeFileWatcher`. Torrent, indexer and desktop fakes come with their workstreams.
+- [x] **1.1** Build the prototype-scope fakes in `MediaMan.Fakes` (SPEC §10.4): `FakeClock`, `FakeMetadataProvider` with about 30 JSON fixture titles in `tests/fixtures/metadata/` (remakes, same-name shows, anime with absolute numbering, a show with specials), error injection and query recording, `FakeArtworkProvider`, `FakeMediaProbe` and `FakeFileWatcher`. Torrent, indexer and desktop fakes come with their workstreams.
 - [ ] **1.2** Add the dev configuration: the server starts with a SQLite path and one media path from config, with no wizard. It registers that folder as an External library and picks fake or real providers per dependency from config (SPEC §8 setup [P]).
 - [ ] **1.3** Implement `ReleaseParser` for movies and episodes: title, year, season, episode(s), multi-episode ranges, and parent-folder context (SPEC §7.2 step 3, §10.3). Start `tests/corpus/release-names.json` with a corpus-driven test.
 - [ ] **1.4** Extend `ReleaseParser` with resolution, source, codec, HDR/Dolby Vision, audio, group and anime absolute numbering. Grow the corpus to ≥300 real-world names including junk, and record the accuracy baseline the test enforces (SPEC §8, §12).

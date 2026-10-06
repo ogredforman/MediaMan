@@ -1,0 +1,34 @@
+{
+  "id": "tmdb:841",
+  "kind": "movie",
+  "name": "Dune",
+  "year": 1984,
+  "overview": "A noble family takes control of the desert planet Arrakis.",
+  "genres": [
+    "Science Fiction",
+    "Adventure"
+  ],
+  "rating": 6.3,
+  "runtimeMinutes": 137,
+  "externalIds": [
+    "imdb:tt0087182"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/841/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/841/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/841/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}

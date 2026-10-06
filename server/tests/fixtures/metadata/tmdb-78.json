@@ -1,0 +1,35 @@
+{
+  "id": "tmdb:78",
+  "kind": "movie",
+  "name": "Blade Runner",
+  "year": 1982,
+  "overview": "A blade runner must pursue and retire four replicants.",
+  "genres": [
+    "Science Fiction",
+    "Drama",
+    "Thriller"
+  ],
+  "rating": 7.9,
+  "runtimeMinutes": 117,
+  "externalIds": [
+    "imdb:tt0083658"
+  ],
+  "artwork": [
+    {
+      "type": "poster",
+      "url": "https://images.invalid/tmdb/78/poster.jpg",
+      "language": "en"
+    },
+    {
+      "type": "backdrop",
+      "url": "https://images.invalid/tmdb/78/backdrop.jpg",
+      "language": null
+    },
+    {
+      "type": "logo",
+      "url": "https://images.invalid/tmdb/78/logo.jpg",
+      "language": "en"
+    }
+  ],
+  "seasons": []
+}
