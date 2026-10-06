@@ -24,13 +24,17 @@ to the Parked section at the bottom.
 - Contracts first: `contracts/openapi.yaml` and the module interfaces in SPEC §10.3 are the only
   ways components talk to each other. Every external dependency sits behind an interface with a fake.
 - Safety rules that shape the code: external libraries are read-only, the server enforces every
-  permission, and the Superadmin can't be locked out. Later: torrents never leak outside the VPN path,
-  and downloaded files are never executed.
+  permission, and the Superadmin can't be locked out. From Stage 3: torrents never leak outside the VPN
+  path, and downloaded files are never executed.
 - Platforms: Windows and Linux fully supported, macOS best-effort. CI runs on Windows and Linux.
-- MVP guardrail (scope): on Windows, the user adds an external library, MediaMan matches it against
-  TMDB with artwork, and the Superadmin signs in and browses a Netflix-style UI. A title then plays in
-  MPV through the desktop app, resumes, and offers the next episode. Torrenting, indexers, multiple
-  users, browser playback and transcoding come after the MVP.
+- MVP guardrail (scope): the MVP is Stages 2–6. On Windows, the user adds an external library,
+  MediaMan matches it against TMDB with artwork, and the Superadmin signs in and browses a
+  Netflix-style UI. A title plays in MPV through the desktop app, resumes, and offers the next episode
+  (Stage 2). A title not in the library is found in the catalog, searched across indexers with quality
+  chips, and downloaded through the VPN-gated torrent client, then imported automatically (Stages 3–4).
+  The same library plays in a browser with direct play, remux or transcode (Stage 5), and is reachable
+  safely from outside the LAN, including from the desktop app and a phone browser (Stage 6). Multiple
+  users and roles, metadata extras, Docker and automation come after the MVP.
 - Licence: AGPL-3.0. The repo stays private until it's "finished".
 
 ---
@@ -80,14 +84,16 @@ and unpredictability.
 
 ---
 
-## Stage 2 — MVP (real integrations, actually usable)
+## Stage 2 — MVP core (real integrations, desktop playback)
 
 **Goal:** swap fakes for real integrations, with just enough polish that the owner uses it for real.
+This is the first of the five MVP stages (2–6); later MVP stages build on the contracts set here, so
+the tasks below that shape them say what to leave room for.
 
 - [ ] **2.1** Implement the real TMDB `IMetadataProvider` with the shipped key (overridable in settings), a 7-day response cache and rate-limit backoff. Test it against recorded HTTP responses through a stub handler, with no network (SPEC §8 metadata [M]).
 - [ ] **2.2** Cache artwork locally, extract each image's dominant color, and serve cached images from an artwork endpoint. Tint the detail hero from the dominant color (SPEC §8 metadata [M], §11).
-- [ ] **2.3** Add `MediaMan.Auth`: the Superadmin account with Argon2id hashing, JWT access tokens (15 min) and rotating refresh tokens (30 days, sliding) signed with a per-install key. Generate that key on first run and store it next to the database; build the `AesGcmSecretProtector` from it so secrets are encrypted at rest (ADR 0003), replacing the `UnavailableSecretProtector` placeholder registered in 1.2. Add the permission list (SPEC §8) and per-endpoint permission metadata, a table-driven test that every route enforces its permission, and tests that the Superadmin can't be demoted, deleted or locked out (SPEC §5, §7.11, §12). Enforce the `PermissionMetadata` that every route already declares (mirroring `x-permission` in the contract, PLAN 0.4): routes such as `GET /events` are declared `authenticated` but not yet enforced, so after this task every route except `none` (setup, login, invite redemption, health) must reject requests without a valid token.
-- [ ] **2.4** Add the first-run setup API: `423 SetupRequired` until setup is done, create the Superadmin (password ≥12 characters), choose the mode, and add the first library with path validation. Local mode binds to `127.0.0.1` and Server mode to the LAN. Changing the mode later needs `server.control` (SPEC §7.1, §8 setup [M]).
+- [ ] **2.3** Add `MediaMan.Auth`: the Superadmin account with Argon2id hashing, JWT access tokens (15 min) and rotating refresh tokens (30 days, sliding) signed with a per-install key. Generate that key on first run and store it next to the database; build the `AesGcmSecretProtector` from it so secrets are encrypted at rest (ADR 0003), replacing the `UnavailableSecretProtector` placeholder registered in 1.2. Add the permission list (SPEC §8) and per-endpoint permission metadata, a table-driven test that every route enforces its permission, and tests that the Superadmin can't be demoted, deleted or locked out (SPEC §5, §7.11, §12). Enforce the `PermissionMetadata` that every route already declares (mirroring `x-permission` in the contract, PLAN 0.4): routes such as `GET /events` are declared `authenticated` but not yet enforced, so after this task every route except `none` (setup, login, invite redemption, health) must reject requests without a valid token. Persist each refresh-token family as a `Session` row so Stage 6 can list and revoke sessions without changing the token design.
+- [ ] **2.4** Add the first-run setup API: `423 SetupRequired` until setup is done, create the Superadmin (password ≥12 characters), choose the mode, and add the first library with path validation. Local mode binds to `127.0.0.1` and Server mode to the LAN. Changing the mode later needs `server.control` (SPEC §7.1, §8 setup [M]). Keep the bind address and scheme handling in one place in the host setup; Stage 6 adds trusted proxies and HTTPS enforcement there.
 - [ ] **2.5** Build the web setup wizard (one step per screen with a progress indicator) and sign-in with silent token refresh. Add a Playwright test for the setup flow (SPEC §7.1, §11, §12).
 - [ ] **2.6** Add Profiles (a default profile on account creation, plus create/edit/delete) and the profile picker shown after sign-in. WatchState is scoped to the profile (SPEC §6.1, §7.11 step 3, §8 accounts [M]).
 - [ ] **2.7** Support multiple libraries, each with several root paths and a content type. Add the library management API and the Settings → Libraries UI (SPEC §8 libraries [M]).
@@ -95,8 +101,8 @@ and unpredictability.
 - [ ] **2.9** Add the "Needs attention" and "Fix match" API: list MatchReviews, run a manual catalog search, relink a file (with season and episode mapping for shows), and persist the choice as a path override that rescans keep (SPEC §7.3).
 - [ ] **2.10** Build the "Needs attention" inbox (cards with the file name, parsed guess and candidate posters) and the "Fix match" dialog on any title (SPEC §7.3, §11).
 - [ ] **2.11** Support several versions per Playable: the API exposes them and the detail page gets a version picker that remembers the profile's preferred version (SPEC §8 parsing [M], §11).
-- [ ] **2.12** Add `POST /playback/sessions` for the MPV client capabilities. It picks the version and returns a direct-stream URL (with HTTP range support), the resume position and external subtitle URLs. Add the progress endpoint that updates WatchState: resume is offered after 2 minutes, a Playable is watched at ≥90%, and the next episode is returned (SPEC §7.4 steps 1–2 and 4–5, §8 playback [M]).
-- [ ] **2.13** Implement the real `IServerProcess` in Electron (Local mode spawns the server and waits for `/health`) and `FakeServerProcess`. Store tokens securely so the desktop app stays signed in (SPEC §8 accounts [M], §10.3, §10.4).
+- [ ] **2.12** Add `POST /playback/sessions` with the full client-capabilities shape in the contract (containers, video and audio codecs, HDR support, maximum bitrate, subtitle formats) and a response that can carry a direct-stream or HLS URL, so Stage 5 browser playback adds a decision path without changing the contract (SPEC §4, §7.5). Implement only the MPV path now: it picks the version and returns a direct-stream URL (with HTTP range support), the resume position and external subtitle URLs. Add the progress endpoint that updates WatchState: resume is offered after 2 minutes, a Playable is watched at ≥90%, and the next episode is returned (SPEC §7.4 steps 1–2 and 4–5, §8 playback [M]).
+- [ ] **2.13** Implement the real `IServerProcess` in Electron (Local mode spawns the server and waits for `/health`) and `FakeServerProcess`. Store tokens securely so the desktop app stays signed in (SPEC §8 accounts [M], §10.3, §10.4). Store the server base URL and tokens per server rather than assuming the local one, so Stage 6 can connect the desktop app to a remote server by URL.
 - [ ] **2.14** Implement the real MPV `IPlayer` over JSON IPC and `FakePlayer`. Play launches MPV with the stream URL, start position and subtitles, and reports progress every 10 s and on pause, seek and quit. Show "Open MPV settings" errors when MPV fails, and re-query the stream URL once on failure. Remove the dev-only play endpoint (SPEC §7.4 steps 3–4 and 6, §13).
 - [ ] **2.15** Write the purple Lua OSC and `mpv.conf`: title, a progress bar with chapters, and audio and subtitle menus (SPEC §8 playback [M], §11).
 - [ ] **2.16** Add "Up next": a cancellable 10 s countdown in the OSC that starts the next episode through the desktop app, and the Resume/Start over choice on the detail page (SPEC §7.4 step 5).
@@ -109,19 +115,110 @@ and unpredictability.
 - [ ] **2.23** Write `docs/SMOKE.md`, the manual MPV smoke checklist (SPEC §12). Run it on Windows against a real library, and fix or park what it finds.
 
 **Exit criteria:**
-- On Windows, the brief's scope guardrail works end to end against real TMDB. A fresh install runs the setup wizard, the Superadmin adds an external library, and it's matched with artwork. Browsing and search work, and a title plays in MPV through the desktop app, resumes, and offers the next episode.
+- On Windows, the Stage 2 part of the MVP guardrail works end to end against real TMDB. A fresh install runs the setup wizard, the Superadmin adds an external library, and it's matched with artwork. Browsing and search work, and a title plays in MPV through the desktop app, resumes, and offers the next episode.
 - The owner uses MediaMan as their everyday way to watch their library and is comfortable with it, without hitting issues that send them back to another player or Plex.
 - The safety-critical tests in scope (external libraries never written, per-route permissions, Superadmin protection) exist and pass in CI.
 
 ---
 
-## Stage 3 — Refinement (driven by real use)
+## Stage 3 — MVP: torrents and the VPN gate
+
+**Goal:** a built-in torrent client that can only talk through the configured VPN path, with
+downloads imported into managed libraries automatically. The engine choice is settled first, because
+everything else in this stage sits on it.
+
+- [ ] **3.1** Run the torrent engine test build (SPEC §10.1, §13): a throwaway harness, kept out of `npm test` and CI because it uses the real network, that checks MonoTorrent against the requirements. All traffic (peers, trackers, DHT, uTP) must stay on one bound interface or a SOCKS5 proxy, verified by watching the other adapters and by removing the bound one. It must also handle magnet links, hold hundreds of seeding torrents at acceptable CPU and memory, and get throughput comparable to qBittorrent. Record the results and the decision (MonoTorrent, or the qBittorrent-nox sidecar over its Web API) in `docs/adr/0004-torrent-engine.md`, and update SPEC §10.1 and §13 to match.
+- [ ] **3.2** Add the torrent and VPN fakes to `MediaMan.Fakes` (SPEC §10.4): `FakeTorrentEngine` (an in-memory state machine with `Advance`/`Complete` that writes declared files into the temp dir and records pause/resume calls and network config), `FakeNetworkInterfaces` (settable adapters) and `FakePublicIpProbe` (settable IPs per route).
+- [ ] **3.3** Implement the real `ITorrentEngine` chosen in 3.1 in `MediaMan.Torrents`: start with a `TorrentNetworkConfig` (interface binding or SOCKS5), add by magnet or .torrent, pause, resume, remove with or without data, per-file priority and skip, global and per-torrent speed limits, and state that survives a restart. Add integration tests against a local tracker and seeder on loopback, skipped when they can't run (SPEC §8 torrents [M], §10.4).
+- [ ] **3.4** Implement the real `INetworkInterfaces` and `IPublicIpProbe` (leak-check endpoint configurable in settings; choose the default and close that SPEC §13 question), and the VPN gate service. The engine doesn't start without a VPN path or a Superadmin-recorded opt-out. It checks the interface every 5 s and runs the leak check every `leakCheckIntervalSeconds`. A missing interface or a leak pauses every torrent at once, writes an AuditEvent and raises an SSE event; a healthy path resumes them. Add kill-switch and leak tests on the fakes and `FakeClock` (SPEC §5, §7.8, §12).
+- [ ] **3.5** Add the torrent and VPN settings API to the contract and server: VPN config (interface or SOCKS5, with credentials encrypted through `ISecretProtector` and never logged), the opt-out that only the Superadmin can record, VPN status over REST and SSE, global speed limits and seeding defaults (ratio 2.0 or 7 days, SPEC §13). Add conformance tests and permission-table rows (SPEC §7.8, §9).
+- [ ] **3.6** Add the Downloads API to the contract and server: add by magnet or .torrent (`downloads.create`), list with progress, speed, peers, ETA and seeding status, pause, resume, remove with or without data, per-file priority and skip, and per-torrent limits (`downloads.manage`), with live updates over SSE. Add conformance tests and permission-table rows (SPEC §7.7, §8 torrents [M]).
+- [ ] **3.7** Skip and flag dangerous files: on add, files with the SPEC §5 extensions are set to skip and marked `dangerous` on their DownloadFile, and are never opened, executed or imported. Test it with `FakeTorrentEngine` (SPEC §5, §8 torrents [M]).
+- [ ] **3.8** Add Managed libraries: the Managed library kind with the download folder and the `Movies/Title (Year)/` and `Shows/Title (Year)/Season NN/` layout, set up through the library API and Settings → Libraries. Extend the read-only test so it proves imports never write to External roots (SPEC §5, §6.1, §8 libraries [M]).
+- [ ] **3.9** Import on completion: probe and parse the files, link them to the target title if known (else match as in 7.2), and hardlink into the managed layout right away on the same volume, otherwise move once the seeding limits (driven by `IClock`) are met. Notify the UI over SSE. Test in temp directories with `FakeTorrentEngine` (SPEC §7.7).
+- [ ] **3.10** Add "prioritize first episodes" for season packs: the first episodes' files and pieces download first (SPEC §7.7 step 1, §8 torrents [M]).
+- [ ] **3.11** Build the Downloads page (active, seeding and completed lists, add by magnet or .torrent, and a remove that confirms and names what will be lost) and the VPN status badge that is always visible in the shell, with a persistent red banner while the gate is closed. Add component tests with MSW (SPEC §11).
+- [ ] **3.12** Build Settings → Torrents and VPN (choose an interface or SOCKS5, run the leak check now, speed and seeding limits, and the Superadmin-only opt-out with a plain warning) and the optional VPN step in the setup wizard (SPEC §7.1, §11).
+
+**Exit criteria:**
+- On Windows with a real VPN, a magnet added on the Downloads page downloads through the VPN interface only, completes, is imported into a managed library, and plays.
+- Disconnecting the VPN pauses every torrent within seconds and shows the red banner; reconnecting resumes them. A simulated leak does the same.
+- Kill-switch, leak-check, dangerous-file and external-library tests pass in CI, all on fakes.
+
+---
+
+## Stage 4 — MVP: indexers and "Get"
+
+**Goal:** find any title in the catalog, search torrent sites for it with quality chips, and download it in one click.
+
+- [ ] **4.1** Add the indexer fakes to `MediaMan.Fakes` (SPEC §10.4): `FakeIndexerHttp` serving recorded HTML and JSON fixtures per URL (with Cloudflare-style 403/503, timeouts, and solved and unsolved FlareSolverr challenges) and `FakeDefinitionSource` returning fixture YAML from `tests/fixtures/definitions/`.
+- [ ] **4.2** Build the Cardigann definition engine in `MediaMan.Indexers`, part 1: load YAML definitions, settings and login, and build search requests from a `SearchQuery` (keywords, categories, season and episode, and IMDb/TMDB IDs where the definition supports them). Test against fixture definitions (SPEC §8 indexers [M]).
+- [ ] **4.3** Cardigann engine, part 2: parse HTML and JSON responses with the definition's selectors and filters into `ReleaseResult`s, including magnet or torrent URL, size, seeders, leechers and date. Test against recorded pages through `FakeIndexerHttp`.
+- [ ] **4.4** Add indexer management to the contract and server: import definitions from a URL and update them (choose the default community URL and close that SPEC §13 question); add, configure, enable and disable indexers with credentials encrypted through `ISecretProtector`; and test an indexer to record its health (last success, last error). Requires `indexers.manage`. Add conformance tests and permission-table rows (SPEC §8 indexers [M]).
+- [ ] **4.5** Add Torznab indexers (Jackett/Prowlarr) behind `IIndexer`, with fixture tests (SPEC §8 indexers [M]).
+- [ ] **4.6** Add optional FlareSolverr per indexer behind `IIndexerHttp`, with fake-driven tests for solved and unsolved challenges (SPEC §8 indexers [M]).
+- [ ] **4.7** Build Settings → Indexers (one-click definition import, the indexer list with health, Torznab and FlareSolverr setup) and the optional indexer import step in the setup wizard (SPEC §7.1, §11).
+- [ ] **4.8** Add catalog search: a TMDB search API for titles not in the library, the "Not in library" section in search results, and a detail page for catalog-only titles. Show Get on catalog titles and on missing episodes of library titles (SPEC §8 browsing [M], §11).
+- [ ] **4.9** Implement `IQualityClassifier`: resolution, dynamic range, codec, source, audio and language from `ParsedRelease`, and the bitrate tier from size ÷ runtime against the editable tier table. Add table-driven tests at the tier boundaries (SPEC §8 quality [M]).
+- [ ] **4.10** Build the Get search service (a service, not UI code, so automation can reuse it, SPEC §4) and its API: search every enabled indexer in parallel with a 15 s timeout each, discard releases that don't match the title, season or episode, classify, rank by chip matches then seeders, flag dangerous releases, and report failed sources with reasons. Choosing a result with `downloads.create` starts a Download linked to the title. Add tests on the fakes, conformance tests and permission-table rows (SPEC §7.6).
+- [ ] **4.11** Build the Get dialog: chips pre-filled from the last choice or a saved profile, live re-ranking as chips change, quality badges, size, seeders and indexer per result, red dangerous flags, an "n sources failed" notice, and a whole season or chosen episodes for shows. Add component tests with MSW (SPEC §7.6, §11).
+- [ ] **4.12** Add saved quality profiles and the last-used chips per user, and Settings → Quality with the editable tier table (SPEC §8 quality [M], §11).
+- [ ] **4.13** Add advanced raw search across indexers, with results that download the same way (SPEC §8 indexers [M]).
+
+**Exit criteria:**
+- A title not in the library is found through catalog search, Get returns ranked results from real indexers with the chips applied, and one click starts a VPN-gated download that is imported and plays.
+- A failing indexer is listed as a failed source while the other results still show.
+- All indexer and Get tests run on fixtures in CI, with no network.
+
+---
+
+## Stage 5 — MVP: browser playback
+
+**Goal:** the same library plays in any modern browser, desktop or phone, at the best quality the client supports.
+
+- [ ] **5.1** Implement the stream decision as a pure function: direct play, remux to HLS, or transcode only the unsupported streams, with HDR tone mapping when the client lacks HDR and bitrate reduction to the client's maximum. Add table-driven tests (SPEC §7.5 steps 1–2, §10.4).
+- [ ] **5.2** Add `FakeTranscoder` and the ffmpeg `ITranscoder` in `MediaMan.Playback`: remux or transcode to HLS (fMP4) with software encoders, serve segments, restart at the seek point when a seek passes the generated segments, stop idle sessions, and keep the transcode cache in a temp folder capped at 10 GB with the oldest evicted first (SPEC §7.5 step 4, §13). Add integration tests on tiny samples, skipped when ffmpeg is absent.
+- [ ] **5.3** Detect hardware encoders (NVENC, QSV, VAAPI, AMF, VideoToolbox), prefer them, and fall back to software when a hardware encode fails. Show the choice in Settings → Playback (SPEC §8 playback [M]).
+- [ ] **5.4** Add HDR → SDR tone mapping and bitrate limits for remote clients (a per-user maximum as well as the client's own) (SPEC §8 playback [M]).
+- [ ] **5.5** Wire the browser path into `POST /playback/sessions`: the web app detects its capabilities (MediaSource and `canPlayType`) and gets a direct or HLS URL. Progress goes through the same endpoint as MPV, so resume, watched and Next Up are shared. Add conformance tests (SPEC §7.5).
+- [ ] **5.6** Build the HTML5 player with hls.js and controls matching the OSC look: title, a progress bar with chapters, audio and subtitle menus, Resume/Start over, Up next, and keyboard controls. Add component tests (SPEC §11).
+- [ ] **5.7** Add browser subtitles: ASS/SSA rendered client-side with JASSUB, text subtitles as WebVTT, and PGS burned in only when selected (SPEC §7.5 step 3, §8 playback [M]).
+- [ ] **5.8** Route Play by client: the desktop app plays in MPV and a browser plays in the HTML5 player. Add a Playwright test for browse → detail → Play in the browser against fakes.
+
+**Exit criteria:**
+- On the LAN, desktop Chrome and Firefox and a phone browser play the owner's library: compatible files direct play, incompatible containers remux, incompatible codecs and HDR transcode with tone mapping, and seeking works.
+- Styled subtitles render, and resume, watched and Next Up are shared between the browser and MPV.
+
+---
+
+## Stage 6 — MVP: remote access
+
+**Goal:** reach the server safely from outside the LAN, from the desktop app and from a phone browser.
+This stage completes the MVP.
+
+- [ ] **6.1** Add trusted proxies and HTTPS enforcement: honour `X-Forwarded-Proto` and `X-Forwarded-For` only from configured trusted proxies, and refuse plain HTTP from non-LAN clients with an error that says how to fix it. Add tests (SPEC §8 remote access [M], §9).
+- [ ] **6.2** Add sign-in rate limiting and lockout per account and per IP, driven by `IClock`. A Superadmin lockout is always temporary. Add tests (SPEC §5, §7.11, §12).
+- [ ] **6.3** Add the session list and revocation (API and Settings UI): users see and revoke their own sessions (SPEC §7.11 step 4).
+- [ ] **6.4** Let the desktop app connect to a remote server by URL: choose Local or Remote, check `/health`, sign in, and keep per-server tokens. MPV plays the remote stream (SPEC §8 remote access [M]).
+- [ ] **6.5** Make the web UI work on phone screens: the shell, Home, detail, player, Get and Downloads at phone widths with touch-sized targets. Add Playwright runs at a mobile viewport (SPEC §3 goal 5).
+- [ ] **6.6** Build Settings → Remote access: trusted proxies, and in-app guides for Tailscale, Cloudflare Tunnel and Caddy (SPEC §8 remote access [M], §11).
+- [ ] **6.7** Extend `docs/SMOKE.md` with downloads, the VPN gate, Get, browser playback and remote access. Run it on Windows, and fix or park what it finds.
+
+**Exit criteria (MVP complete):**
+- Through one of the guided setups, over HTTPS from outside the LAN, a phone browser signs in and plays a title, and the desktop app connected to the remote server plays it in MPV.
+- Plain HTTP from outside the LAN is refused, and repeated failed sign-ins are locked out without permanently locking out the Superadmin.
+- The owner uses MediaMan daily for both watching and getting new titles, without going back to Plex, the *arr tools or qBittorrent.
+
+---
+
+## Stage 7 — Refinement (driven by real use)
 
 **Goal:** fix what real use revealed. Priorities come from the friction log and Parked items,
 not from this list. Candidates:
 
 - Measure against the SPEC §9 performance and footprint targets (5,000-file scan, rescan, API p95, first paint) and fix the gaps.
 - Matching accuracy against the owner's real library; tune the 0.85 threshold (SPEC §13).
+- Torrent engine load with hundreds of seeding torrents, and transcode CPU use on the owner's hardware.
 - Accessibility pass: keyboard navigation, focus states, WCAG AA contrast (SPEC §9).
 - Linux and macOS (best-effort) smoke runs of `docs/SMOKE.md`.
 
@@ -129,16 +226,16 @@ not from this list. Candidates:
 
 ---
 
-## Stage 4 — Packaging
+## Stage 8 — Packaging
 
 **Goal:** easy for someone who isn't the author to install and run.
 
-- [ ] **4.1** Publish the server as a single file for win-x64, linux-x64 and linux-arm64, with jellyfin-ffmpeg/ffprobe per platform (SPEC §9 portability, §10.1).
-- [ ] **4.2** Build a Windows installer (electron-builder NSIS) that bundles the desktop app, the single-file server, ffmpeg/ffprobe, MPV and the third-party licence notices (SPEC §9 licensing).
-- [ ] **4.3** Build a Linux AppImage with the same contents, and smoke-test it on a clean Linux machine.
-- [ ] **4.4** Write the README install and first-run guide, including where data lives and how to back it up by copying files (SPEC §9 data portability).
+- [ ] **8.1** Publish the server as a single file for win-x64, linux-x64 and linux-arm64, with jellyfin-ffmpeg/ffprobe per platform, plus the qBittorrent-nox sidecar if ADR 0004 chose it (SPEC §9 portability, §10.1).
+- [ ] **8.2** Build a Windows installer (electron-builder NSIS) that bundles the desktop app, the single-file server, ffmpeg/ffprobe, MPV, any torrent sidecar and the third-party licence notices (SPEC §9 licensing).
+- [ ] **8.3** Build a Linux AppImage with the same contents, and smoke-test it on a clean Linux machine.
+- [ ] **8.4** Write the README install and first-run guide, including VPN setup, where data lives and how to back it up by copying files (SPEC §9 data portability).
 
-**Exit criteria:** a fresh Windows machine goes from download to first playback of a library title by following the README, with no manual dependency installs. The Linux AppImage does the same on a clean Linux machine.
+**Exit criteria:** a fresh Windows machine goes from download to first playback of a library title, and to a first download through a configured VPN, by following the README with no manual dependency installs. The Linux AppImage does the same on a clean Linux machine.
 
 ---
 
@@ -146,12 +243,8 @@ not from this list. Candidates:
 
 Each group becomes its own stage once the MVP ships.
 
-- **Torrents and VPN:** the MonoTorrent Phase 0 test build first (VPN binding of all traffic including DHT and trackers, hundreds of seeding torrents, magnets, throughput; qBittorrent-nox sidecar fallback, SPEC §13). Then `ITorrentEngine` and its fakes, the VPN gate with kill switch and leak check (SPEC §7.8), the Downloads page, dangerous-file skipping, "prioritize first episodes", import on completion with managed libraries and the hardlink/move layout (SPEC §7.7), and seeding limits.
-- **Indexers and Get:** the Cardigann YAML engine with definition import and updates, Torznab, optional FlareSolverr, indexer health, advanced raw search, TMDB catalog search, the "Get" flow with quality chips and bitrate tiers, saved quality profiles, and download requests with the approval queue (SPEC §7.6, §7.9).
-- **Accounts and roles:** multiple users, invites, Admin/User presets and custom roles, a configurable default role, the session list and revocation, TOTP, rate limiting and lockout, profile PINs and maximum ratings, and the audit log (SPEC §7.10, §7.11).
-- **Browser playback:** the direct/remux/transcode decision, HLS, hardware encoders with software fallback, HDR tone mapping, bitrate limits, JASSUB subtitles, and the HTML5 player (SPEC §7.5).
+- **Accounts and roles:** multiple users, invites, Admin/User presets and custom roles, a configurable default role, TOTP, profile PINs and maximum ratings, the audit log UI, and download requests with the approval queue (SPEC §7.9, §7.10, §7.11).
 - **Metadata extras:** AniList matching for anime, fanart.tv logos and backdrops, and OpenSubtitles.
-- **Remote access:** HTTPS enforcement behind trusted proxies, guides for Tailscale, Cloudflare Tunnel and Caddy, and the desktop app connecting to a remote server.
 - **Docker:** an image with documented volumes and a gluetun recipe.
 - **Automation (parked):** follow shows, watchlists, release upgrades, and stream-while-downloading.
 
