@@ -30,6 +30,7 @@ public sealed class FakeMetadataProvider : IMetadataProvider
     private readonly Lock _gate = new();
     private readonly Dictionary<ExternalId, MetadataFixture> _titles;
     private readonly Queue<FakeProviderError> _errors = new();
+    private readonly Queue<FakeProviderError> _seasonErrors = new();
     private readonly List<TitleQuery> _searchQueries = [];
     private readonly List<ExternalId> _titleRequests = [];
     private readonly List<(ExternalId ShowId, int Season)> _seasonRequests = [];
@@ -99,6 +100,19 @@ public sealed class FakeMetadataProvider : IMetadataProvider
         }
     }
 
+    /// <summary>Makes the next <paramref name="calls"/> season calls fail with <paramref name="error"/>, after any queued <see cref="FailNext"/> errors.</summary>
+    public void FailNextSeason(FakeProviderError error, int calls = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(calls);
+        lock (_gate)
+        {
+            for (var i = 0; i < calls; i++)
+            {
+                _seasonErrors.Enqueue(error);
+            }
+        }
+    }
+
     public Task<IReadOnlyList<TitleCandidate>> SearchAsync(TitleQuery q, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(q);
@@ -146,6 +160,7 @@ public sealed class FakeMetadataProvider : IMetadataProvider
         {
             _seasonRequests.Add((showId, season));
             ThrowQueuedError();
+            ThrowQueuedError(_seasonErrors);
         }
 
         var details = Find(showId).Seasons.FirstOrDefault(s => s.Number == season)
@@ -156,9 +171,11 @@ public sealed class FakeMetadataProvider : IMetadataProvider
     private MetadataFixture Find(ExternalId id) =>
         _titles.TryGetValue(id, out var title) ? title : throw new KeyNotFoundException($"No metadata fixture for '{id}'.");
 
-    private void ThrowQueuedError()
+    private void ThrowQueuedError() => ThrowQueuedError(_errors);
+
+    private void ThrowQueuedError(Queue<FakeProviderError> errors)
     {
-        if (!_errors.TryDequeue(out var error))
+        if (!errors.TryDequeue(out var error))
         {
             return;
         }

@@ -89,6 +89,17 @@ public class FakeMetadataProviderTests
     }
 
     [Fact]
+    public async Task Season_errors_hit_only_season_calls()
+    {
+        _provider.FailNextSeason(FakeProviderError.Timeout);
+        var show = ExternalId.Parse("tmdb:19885");
+
+        await _provider.GetTitleAsync(show, Ct);
+        await FluentActions.Awaiting(() => _provider.GetSeasonAsync(show, 1, Ct)).Should().ThrowAsync<TimeoutException>();
+        (await _provider.GetSeasonAsync(show, 1, Ct)).Number.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Every_call_is_recorded_including_failed_ones()
     {
         _provider.FailNext(FakeProviderError.Timeout);
