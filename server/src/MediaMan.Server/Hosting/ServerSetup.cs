@@ -1,5 +1,8 @@
 using MediaMan.Core;
 using MediaMan.Data;
+#if MEDIAMAN_DEV
+using MediaMan.Server.Dev;
+#endif
 using MediaMan.Server.Endpoints;
 using MediaMan.Server.Events;
 using Microsoft.EntityFrameworkCore;
@@ -10,11 +13,14 @@ namespace MediaMan.Server.Hosting;
 /// <summary>DI and pipeline wiring for the server host.</summary>
 public static class ServerSetup
 {
-    public static IServiceCollection AddMediaManServer(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddMediaManServer(
+        this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
-        services.AddOptions<MediaManOptions>().Bind(configuration.GetSection(MediaManOptions.SectionName));
+        var section = configuration.GetSection(MediaManOptions.SectionName);
+        services.AddOptions<MediaManOptions>().Bind(section);
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<EventBroadcaster>();
+        services.AddSingleton<ISecretProtector, UnavailableSecretProtector>();
 
         services.AddDbContext<MediaManDbContext>((sp, builder) =>
         {
@@ -24,7 +30,31 @@ public static class ServerSetup
         });
 
         services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
+
+        // Hosted services start in registration order: the schema exists before anything seeds it.
+        services.AddHostedService<DatabaseMigrator>();
+        AddDevConfiguration(services, section.Get<MediaManOptions>()?.Dev ?? new DevOptions(), environment);
         return services;
+    }
+
+    /// <summary>
+    /// The dev configuration (SPEC §8 setup [P]) is on in the Development environment when a dev media path is set.
+    /// Release builds don't contain the fakes, so they refuse to start with it rather than silently ignore it.
+    /// </summary>
+    private static void AddDevConfiguration(IServiceCollection services, DevOptions dev, IHostEnvironment environment)
+    {
+        if (!environment.IsDevelopment() || string.IsNullOrWhiteSpace(dev.MediaPath))
+        {
+            return;
+        }
+
+#if MEDIAMAN_DEV
+        services.AddMediaManDev(dev);
+#else
+        throw new InvalidOperationException(
+            "The dev configuration needs a Debug build of the server. " +
+            $"Build with -c Debug, or clear {MediaManOptions.SectionName}:Dev:MediaPath.");
+#endif
     }
 
     /// <summary>Turns unhandled exceptions and bare error status codes into <c>Problem</c> responses.</summary>

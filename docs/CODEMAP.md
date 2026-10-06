@@ -21,7 +21,10 @@ Signatures here are summaries; `grep -n "public " <file>` (C#) or `grep -n "expo
 
 - **Server:** `server/src/MediaMan.Server/Program.cs` → `AddMediaManServer(config)` (binds `MediaManOptions` from the
   `MediaMan` section, `IClock`→`SystemClock`, `EventBroadcaster`, `MediaManDbContext` on `<DataDirectory>/mediaman.db`,
-  ProblemDetails) → `UseMediaManErrors()` → `MapMediaManEndpoints()` (`GET /health`, `GET /events` SSE). All in `Hosting/ServerSetup.cs`.
+  ProblemDetails, `ISecretProtector`→`UnavailableSecretProtector` until PLAN 2.3, `DatabaseMigrator` hosted service) → `UseMediaManErrors()` → `MapMediaManEndpoints()` (`GET /health`, `GET /events` SSE). All in `Hosting/ServerSetup.cs`.
+- **Dev configuration** (SPEC §8 setup [P], Debug builds only): `ASPNETCORE_ENVIRONMENT=Development` + `MediaMan:Dev:MediaPath`
+  (user-secrets or `MediaMan__Dev__MediaPath`) → `Dev/DevConfiguration.AddMediaManDev` registers fakes per `MediaMan:Dev:Providers:*`
+  (`Fake|Real`) and `DevLibrarySeeder` adds the folder as an External library once. The server csproj references `MediaMan.Fakes` in Debug only.
 - **Contract:** `contracts/openapi.yaml` (OpenAPI 3.1, `x-permission` per operation) → `npm run generate -w web` (Orval) →
   `web/src/api/*` (client, schemas, MSW handlers, faker). Never edit generated files.
 - **Web:** `web/src/main.tsx` → MSW in mock mode (`npm run dev:mock -w web`) → TanStack Router (`router.ts`, file routes in `routes/`) + Query → `AppShell`.
@@ -58,7 +61,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
   `FakeFileWatcher` (`Raise`). Fake tests are in `MediaMan.Core.Tests/Fakes/`.
 - `server/tests/fixtures/metadata/tmdb-<id>.json`: 33 provider titles (remakes, same-name shows, specials, anime absolute numbers), copied to `fixtures/metadata` in test output.
 - `MediaMan.Data.Tests/TempDatabase.cs`: per-test SQLite file (`CreateMigratedAsync`, `CreateEmpty`, `CreateContext`, `OpenRawConnection`).
-- `MediaMan.Server.Tests/MediaManFactory.cs`: in-process host on a per-test temp `DataDirectory`.
+- `MediaMan.Server.Tests/MediaManFactory.cs`: in-process host on a per-test temp `DataDirectory`; optional environment and settings, `KeepDataDirectory` for restarts.
 - `MediaMan.Server.Tests/Conformance/ContractDocument.cs`: loads the contract; `AssertConformsAsync(response, ct)` validates a response.
   `ContractCoverageTests` checks routes against contract operations.
 - Web: Vitest + Testing Library with MSW (`src/test/setup.ts`); Playwright smoke in `web/e2e/` against the mock dev server.

@@ -1,7 +1,7 @@
 using MediaMan.Server.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddMediaManServer(builder.Configuration);
+builder.Services.AddMediaManServer(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 app.UseMediaManErrors();
