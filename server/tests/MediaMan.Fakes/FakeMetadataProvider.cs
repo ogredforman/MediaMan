@@ -15,6 +15,9 @@ public enum FakeProviderError
 
     /// <summary>Throws <see cref="HttpRequestException"/> with status 429.</summary>
     RateLimited,
+
+    /// <summary>Throws <see cref="TaskCanceledException"/>, as <see cref="HttpClient"/> does when its own timeout expires.</summary>
+    HttpTimeout,
 }
 
 /// <summary>
@@ -165,6 +168,7 @@ public sealed class FakeMetadataProvider : IMetadataProvider
             FakeProviderError.Timeout => new TimeoutException($"Fake provider '{Key}' timed out."),
             FakeProviderError.RateLimited => new HttpRequestException(
                 $"Fake provider '{Key}' is rate limited.", null, HttpStatusCode.TooManyRequests),
+            FakeProviderError.HttpTimeout => new TaskCanceledException($"Fake provider '{Key}' timed out (HttpClient)."),
             _ => new InvalidOperationException($"Unknown fake error {error}."),
         };
     }

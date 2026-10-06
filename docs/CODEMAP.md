@@ -46,6 +46,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - **MediaMan.Playback**: `Probing/FfprobeMediaProbe` (real `IMediaProbe`, runs ffprobe as a process; `FfprobeOptions` path + timeout) and
   `Probing/FfprobeOutputParser.Parse(json)` (pure; HDR names match `ReleaseParser`). Dev wiring reads `MediaMan:Tools:FfprobePath`.
 - **MediaMan.Library**: `Scanning/LibraryScanner.ScanAsync(libraryId, ct)` → `ScanResult` (enumerate roots, probe + parse new/changed files as `Pending`, unreadable → `NeedsAttention`, missing → `Missing` with `MissingSince`, purge after 30 days); `Scanning/ScanRules` (pure: video extensions, samples, extras folders). Not yet registered in DI (PLAN 1.9).
+  `Matching/LibraryMatcher.MatchPendingAsync(libraryId, ct)` → `MatchRunResult` (`MatchDecision`s for the importer at ≥ `MatcherOptions.Threshold` with a clear lead; otherwise MatchReview + `NeedsAttention` with `no-match`/`low-confidence`/`ambiguous`; provider errors retried then left `Pending`); `Matching/MatchScorer` and `TitleSimilarity` (pure scoring).
 - **MediaMan.Auth, .Metadata, .Indexers, .Torrents**: empty, filled from Stage 1 on.
 
 ## Frontend
