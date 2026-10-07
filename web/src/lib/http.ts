@@ -9,6 +9,19 @@ export function setAccessTokenProvider(provider: () => string | undefined): void
   getAccessToken = provider;
 }
 
+/** The absolute URL of a contract path, e.g. `/titles`. */
+export function apiUrl(path: string): string {
+  return `${baseUrl || window.location.origin}${path}`;
+}
+
+/** Request headers with the bearer access token added when signed in. */
+export function withAuth(init?: HeadersInit): Headers {
+  const headers = new Headers(init);
+  const token = getAccessToken();
+  if (token !== undefined) headers.set('Authorization', `Bearer ${token}`);
+  return headers;
+}
+
 /** A non-2xx response; `problem` is the contract's error body (SPEC §11: what happened, what to do next). */
 export class ApiError extends Error {
   readonly status: number;
@@ -30,13 +43,11 @@ function isProblem(value: unknown): value is Problem {
 
 /** The fetcher every generated client function calls (Orval mutator). */
 export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
-  const token = getAccessToken();
-  if (token !== undefined) headers.set('Authorization', `Bearer ${token}`);
+  const headers = withAuth(init.headers);
 
   let response: Response;
   try {
-    response = await fetch(`${baseUrl || window.location.origin}${url}`, { ...init, headers });
+    response = await fetch(apiUrl(url), { ...init, headers });
   } catch {
     throw new ApiError({
       title: "Can't reach the MediaMan server.",
