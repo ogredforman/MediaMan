@@ -368,6 +368,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - Never logs secrets.
 - **Data portability:** a single SQLite file, the per-install key file and an artwork cache folder. Backup and restore are just copying files. Settings export and import as JSON.
 - **Accessibility:** keyboard navigable throughout; visible focus states; WCAG AA contrast for text.
+- **Bundled tools:** distributions always ship ffmpeg/ffprobe and MPV for their platform; users never install them separately. Their paths can be overridden in settings, but the bundled copies are the default.
 - **Licensing:** AGPL-3.0; third-party licences (ffmpeg, MPV, MonoTorrent) are included in distributions.
 
 ## 10. Architecture
@@ -399,7 +400,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
 | API contract | OpenAPI 3.1 in `contracts/openapi.yaml` | TS client generated; server conformance tested |
 | Web UI | React + Vite + TypeScript, TanStack Query, TanStack Router, Tailwind | Installable as a PWA |
 | Desktop | Electron (TypeScript) | Local mode spawns the server; MPV over JSON IPC |
-| Player | MPV + custom Lua OSC | Separate window in v1 |
+| Player | MPV + custom Lua OSC, run as a separate process | Bundled per platform with the desktop app; separate window in v1 |
 | Indexers | Cardigann YAML engine + Torznab client | Optional FlareSolverr |
 | Metadata | TMDB (primary), AniList (anime), fanart.tv (logos), OpenSubtitles (subs) | |
 | Auth | Argon2id, JWT access + rotating refresh tokens, TOTP | |
