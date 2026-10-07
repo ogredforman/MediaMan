@@ -42,6 +42,7 @@ import type {
 
 import type {
   AttentionFilePage,
+  DevPlayStarted,
   EventEnvelope,
   Health,
   Library,
@@ -792,4 +793,82 @@ export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError
 
 
 
+
+export const getDevPlayUrl = (playableId: string,) => {
+
+
+
+
+  return `/dev/playables/${playableId}/play`
+}
+
+/**
+ * Dev-only (`x-dev-only`, SPEC §8 playback [P], §13). The server maps it only in the dev configuration of a
+ * Debug build; everywhere else it returns `404`. It never ships, and it's removed when the desktop app plays
+ * through `POST /playback/sessions` and `IPlayer` (SPEC §7.4). The server picks the best available version:
+ * files that aren't `missing` first, then the highest resolution, then the largest.
+ * @summary Prototype only: launches MPV on the server's own host for one of the Playable's files.
+ */
+export const devPlay = async (playableId: string, options?: Parameters<typeof apiFetch>[1]): Promise<DevPlayStarted> => {
+
+  return apiFetch<DevPlayStarted>(getDevPlayUrl(playableId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getDevPlayMutationKey = () => ['devPlay'] as const;
+
+export const getDevPlayMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof devPlay>>, TError,DevPlayMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof devPlay>>, TError,DevPlayMutationVariables, TContext> => {
+
+const mutationKey = getDevPlayMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof devPlay>>, DevPlayMutationVariables> = (props) => {
+          const {playableId} = props ?? {};
+
+          return  devPlay(playableId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DevPlayMutationResult = NonNullable<Awaited<ReturnType<typeof devPlay>>>
+
+    export type DevPlayMutationError = ErrorType<Problem | ProblemResponse>
+    export type DevPlayMutationVariables = {playableId: string}
+
+    /**
+ * @summary Prototype only: launches MPV on the server's own host for one of the Playable's files.
+ */
+export const useDevPlay = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof devPlay>>, TError,DevPlayMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof devPlay>>,
+        TError,
+        DevPlayMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDevPlayMutationOptions(options), queryClient);
+    }
 

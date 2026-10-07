@@ -188,5 +188,8 @@ public sealed record ContractOperation(string Path, string Method, JsonObject No
 {
     public string? Permission => Node["x-permission"]?.GetValue<string>();
 
+    /// <summary>Mapped only in the dev configuration (SPEC §13), so it's absent from every other server.</summary>
+    public bool DevOnly => Node["x-dev-only"]?.GetValue<bool>() ?? false;
+
     public override string ToString() => $"{Method} {Path}";
 }

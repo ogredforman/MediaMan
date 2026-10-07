@@ -1,8 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { useGetTitle } from '../api/mediaman';
+import { useDevPlay, useGetTitle } from '../api/mediaman';
 import type { Episode, MediaVersion, Season, TitleDetail as Title } from '../api/mediaman.schemas';
-import type { ApiError } from '../lib/http';
+import { ApiError } from '../lib/http';
 import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
 
 const hexColor = /^#[0-9a-f]{6}$/i;
@@ -121,6 +121,9 @@ function EpisodeList({ season }: { season: Season }) {
               ) : (
                 <VersionList versions={episode.versions} label={`Versions of ${name}`} sharedWith={shared} />
               )}
+              {episode.playableId !== undefined && isPlayable(episode.versions) && (
+                <PlayButton playableId={episode.playableId} label={`Play ${name}`} />
+              )}
             </div>
           </li>
         );
@@ -197,6 +200,59 @@ function SeasonTabs({ seasons }: { seasons: Season[] }) {
   );
 }
 
+/** A version can be played unless its file is missing; the server picks which one (SPEC §7.4). */
+function isPlayable(versions: MediaVersion[]): boolean {
+  return versions.some((v) => v.status !== 'missing');
+}
+
+/** A 404 without a specific code means the server has no dev play endpoint, not that the title is gone. */
+function playProblem(error: ApiError) {
+  if (error.status === 404 && error.problem.code === 'not_found') {
+    return {
+      title: "Play isn't available on this server.",
+      detail: "In the prototype, Play launches MPV through the server's dev configuration, which isn't running.",
+      action: 'Start the server with the dev configuration (MediaMan:Dev:MediaPath), then try again.',
+    };
+  }
+  return error.problem;
+}
+
+/**
+ * Prototype Play (SPEC §8 playback [P]): the dev-only endpoint launches MPV on the server's host.
+ * The desktop app replaces it with playback sessions and IPlayer (SPEC §7.4).
+ */
+function PlayButton({ playableId, label }: { playableId: string; label: string }) {
+  const play = useDevPlay();
+  const problem = play.error instanceof ApiError ? playProblem(play.error) : undefined;
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <button
+        type="button"
+        aria-label={label}
+        disabled={play.isPending}
+        onClick={() => {
+          play.mutate({ playableId });
+        }}
+        className="rounded-card bg-highlight px-5 py-2 font-semibold text-bg shadow-soft transition-colors hover:bg-fg disabled:opacity-60"
+      >
+        ▶ Play
+      </button>
+      {play.isSuccess && (
+        <p role="status" className="text-sm text-fg-muted">
+          Playing {play.data.fileName} in MPV.
+        </p>
+      )}
+      {play.isError && (
+        <div role="alert" className="flex flex-col gap-1 text-sm">
+          <p>{problem?.title ?? "Couldn't start playback."}</p>
+          {problem?.detail !== undefined && <p className="text-fg-muted">{problem.detail}</p>}
+          <p className="text-fg-muted">{problem?.action ?? 'Check that the server is running, then try again.'}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Hero({ title }: { title: Title }) {
   const color = title.backdrop?.dominantColor ?? title.poster?.dominantColor;
   // The tint comes from the artwork (SPEC §11); anything that isn't `#RRGGBB` falls back to the accent token.
@@ -246,6 +302,7 @@ function Hero({ title }: { title: Title }) {
             </ul>
           )}
           {title.overview !== undefined && <p className="text-fg">{title.overview}</p>}
+          {title.playable && isPlayable(title.playable.versions) && <PlayButton playableId={title.playable.id} label="Play" />}
         </div>
       </div>
     </div>

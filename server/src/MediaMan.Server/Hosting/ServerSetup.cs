@@ -93,6 +93,13 @@ public static class ServerSetup
         app.MapHealthEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
+#if MEDIAMAN_DEV
+        // Dev-only (SPEC §13): the player is registered only by the dev configuration, so elsewhere this route is a 404.
+        if (app.Services.GetService<IDevPlayer>() is not null)
+        {
+            app.MapDevPlayEndpoints();
+        }
+#endif
         return app;
     }
 }

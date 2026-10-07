@@ -30,6 +30,7 @@ import type {
 } from 'msw';
 
 import {
+  getDevPlayResponseMock,
   getGetEventsResponseMock,
   getGetHealthResponseMock,
   getGetTitleResponseMock,
@@ -41,6 +42,7 @@ import {
 
 import type {
   AttentionFilePage,
+  DevPlayStarted,
   EventEnvelope,
   Health,
   Library,
@@ -49,7 +51,7 @@ import type {
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -135,6 +137,18 @@ export const getGetTitleMockHandler = (overrideResponse?: TitleDetail | ((info: 
       })
   }, options)
 }
+
+export const getDevPlayMockHandler = (overrideResponse?: DevPlayStarted | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DevPlayStarted> | DevPlayStarted), options?: RequestHandlerOptions) => {
+  return http.post('*/dev/playables/:playableId/play', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getDevPlayResponseMock(),
+      { status: 202
+      })
+  }, options)
+}
 export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
   getGetEventsMockHandler(),
@@ -142,5 +156,6 @@ export const getMediaManAPIMock = () => [
   getStartLibraryScanMockHandler(),
   getListAttentionFilesMockHandler(),
   getListTitlesMockHandler(),
-  getGetTitleMockHandler()
+  getGetTitleMockHandler(),
+  getDevPlayMockHandler()
 ]

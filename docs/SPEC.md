@@ -599,7 +599,8 @@ UX rules:
 - **Assumed: seeding defaults of ratio 2.0 or 7 days, whichever comes first.** Blocks managed-import timing.
 - **Assumed: transcode cache in a temp folder capped at 10 GB, oldest evicted first.** Blocks the browser playback design (PLAN Stage 5).
 - **Assumed: the prototype launches MPV from the server host via a dev-only endpoint.** It's removed when the Electron app lands in the MVP.
-  Blocks nothing, but must not ship.
+  Blocks nothing, but must not ship. It is `POST /dev/playables/{id}/play` (`x-dev-only` in the contract), mapped only in the dev configuration of a Debug build,
+  and reaches MPV through the dev-only `IDevPlayer` seam in `MediaMan.Server/Dev`, which is not a §10.3 interface.
 - **Assumed: the leak check uses a public "what is my IP" endpoint, configurable in settings.** Which service to use by default is undecided. Blocks VPN gate implementation.
 - **Exact community definitions URL to offer at first setup.** Blocks the indexer import UX.
 

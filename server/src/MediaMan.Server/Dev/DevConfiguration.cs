@@ -23,6 +23,10 @@ public static class DevConfiguration
                 ExecutablePath = sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
             }));
         AddProvider<IFileWatcher>(services, providers.FileWatcher, "FileWatcher", "PLAN 2.8", () => new FakeFileWatcher());
+        AddProvider<IDevPlayer>(services, providers.Player, "Player", "PLAN 1.12", () => new FakeDevPlayer(),
+            sp => new MpvDevPlayer(
+                sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.MpvPath,
+                sp.GetRequiredService<ILogger<MpvDevPlayer>>()));
 
         services.AddHostedService<DevLibrarySeeder>();
         return services;
