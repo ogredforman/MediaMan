@@ -55,10 +55,12 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 
 ## Frontend
 
-- `web/src/api/`: Orval output from the contract (generated, do not edit). `web/src/lib/http.ts`: `apiFetch` mutator, `ApiError`, `setAccessTokenProvider`.
-- `web/src/mocks/`: `handlers.ts` (generated handlers + `mockHealth`), `browser.ts` (dev mock mode), `node.ts` (Vitest).
-- `web/src/routes/`: file routes (`__root.tsx`, `index.tsx`); `routeTree.gen.ts` is generated.
-- `web/src/components/AppShell.tsx`: themed shell. `web/src/theme/theme.css`: SPEC §11 tokens for Tailwind.
+- `web/src/api/`: Orval output from the contract (generated, do not edit). `web/src/lib/http.ts`: `apiFetch` mutator, `ApiError`, `setAccessTokenProvider`, `apiUrl`, `withAuth`.
+- `web/src/lib/events.ts`: `createSseParser` (pure, chunked SSE → `EventEnvelope`s) and `connectEvents({ onEvent, onOpen, signal })` (streams `GET /events` with fetch, reconnects with backoff).
+  `web/src/lib/useLiveScanProgress.ts`: root-layout hook applying `scan.progress` to the libraries cache (`applyLibraryUpdate`); a finished scan invalidates `/titles`.
+- `web/src/mocks/`: `handlers.ts` (deterministic `mockHealth`, `mockLibrary`, `mockTitles`, `createEventStream()` SSE handler with `send`, then generated handlers), `browser.ts` (dev mock mode; a Scan click plays a fake scan over SSE), `node.ts` (Vitest).
+- `web/src/routes/`: file routes (`__root.tsx`, `index.tsx`, `movies.tsx`, `shows.tsx`); `routeTree.gen.ts` is generated.
+- `web/src/components/AppShell.tsx`: themed shell (nav, `ScanStatus`, server status). `ScanStatus.tsx`: per-library scan state + `ScanLibraryButton`. `PosterGrid.tsx`: paged Movies/Shows grid (`useInfiniteQuery` over `listTitles`). `web/src/theme/theme.css`: SPEC §11 tokens for Tailwind.
 - `desktop/src/main/`: `window.ts` (`resolveUiUrl`, `mainWindowOptions`, navigation guards), `player.ts` (`IPlayer`), `serverProcess.ts` (`IServerProcess`).
 - `desktop/mpv/`: `mpv.conf` and `osc.lua` placeholders.
 
@@ -76,6 +78,6 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - `MediaMan.Server.Tests/MediaManFactory.cs`: in-process host on a per-test temp `DataDirectory`; optional environment and settings, `ConfigureServices` (e.g. inject fakes), `KeepDataDirectory` for restarts.
 - `MediaMan.Server.Tests/Conformance/ContractDocument.cs`: loads the contract; `AssertConformsAsync(response, ct)` validates a response.
   `ContractCoverageTests` checks routes against contract operations. `LibraryApiTests` seeds a browse fixture (movies with versions, a multi-episode show). `ScanApiTests` scans a temp placeholder folder end to end on the fakes and follows SSE.
-- Web: Vitest + Testing Library with MSW (`src/test/setup.ts`); Playwright smoke in `web/e2e/` against the mock dev server.
+- Web: Vitest + Testing Library with MSW (`src/test/setup.ts`; `src/test/renderApp.tsx` renders the whole app at a path); Playwright smoke in `web/e2e/` against the mock dev server.
 - Desktop: Vitest next to the code (`*.test.ts`).
 - Quick runs: `dotnet test --project server/tests/MediaMan.<Module>.Tests`, `npm run test:unit -w web`, `npm run test:e2e -w web`, `npm test -w desktop`.

@@ -74,7 +74,7 @@ and unpredictability.
 - [x] **1.8** Import matched metadata: persist Title, Season and Episode data, plus artwork refs (poster, backdrop, stills) from the provider. Create FileLinks, including one per episode for multi-episode files (SPEC §6, §8 metadata [P], §8 multi-episode [P]).
 - [x] **1.9** Add the library browse API to the contract and server: list libraries, browse titles (movies/shows), and title detail with seasons, episodes and versions. Add conformance tests (SPEC §7.2, §10.1).
 - [x] **1.9b** Add scanning to the library API: trigger a scan (a background worker runs scan → match → import), scan progress over SSE with the current scan state on each Library, and a read-only list of a library's NeedsAttention files with their reason, parsed guess and MatchReview candidates. Add conformance tests and an end-to-end scan test on the fakes (SPEC §7.2, §10.1).
-- [ ] **1.10** Build the web app shell (navigation and theme) and the Movies/Shows poster grid, with live scan progress (SPEC §11). Add component tests with MSW.
+- [x] **1.10** Build the web app shell (navigation and theme) and the Movies/Shows poster grid, with live scan progress (SPEC §11). Add component tests with MSW.
 - [ ] **1.11** Build the web title detail page: backdrop hero, metadata, season tabs, an episode list with stills, and the versions list (SPEC §8 browsing [P], §11). Add component tests with MSW.
 - [ ] **1.12** Add the dev-only play endpoint, which launches MPV on the server host for a Playable's file. It's registered only in the dev configuration and returns 404 otherwise (SPEC §8 playback [P], §13). Wire the Play button. Add a Playwright test for browse → detail → Play against the server running on fakes.
 
@@ -272,3 +272,4 @@ Ideas and tangents captured mid-work (via `/devflow:park`). Not scheduled. Revie
 - [ ] `ParsedRelease` has no SD resolution (480p/576p parse as null) or audio channel count; add them if the quality chips or `IQualityClassifier` need them (parked 2026-10-06; suggested stage: 4, with 4.9)
 - [ ] HDR10+ detection in `FfprobeMediaProbe`: it needs per-frame side data (`-show_frames -read_intervals %+#1`), so HDR10+ files probe as `HDR10` for now (parked 2026-10-06; suggested stage: 5, with tone mapping decisions)
 - [ ] Per-file scan progress: `scan.progress` only reports phase changes; add processed/total counts within a phase (an `IProgress` from `LibraryScanner`/`LibraryMatcher`) so long first scans show movement (parked 2026-10-06; suggested stage: 2, with 2.8 scans)
+- [ ] Movies/Shows grid filters (genre, year, watched, resolution) and sort options (SPEC §11): `GET /titles` needs the query parameters first (parked 2026-10-06; suggested stage: 2, with the browsing polish)
