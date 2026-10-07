@@ -51,7 +51,7 @@ Elsewhere, the server direct-plays, remuxes or transcodes as each client needs. 
 - Native TV apps, native mobile apps, a 10-foot UI.
 - Embedding MPV inside the app window. v1 uses a separate MPV window.
 - Signed or notarized macOS builds.
-- Exposing the server to the internet directly. Remote access goes through Tailscale, Cloudflare Tunnel or a reverse proxy.
+- Exposing the server to the internet directly. Remote access is off by default and goes through Tailscale, Cloudflare Tunnel or a reverse proxy (7.12).
 - Bundling torrent site definitions in the repo.
 - Reusing anything from MediaMan2.
 
@@ -76,6 +76,9 @@ The design must not preclude:
 - **Never execute downloads.** MediaMan never executes, opens or auto-runs a downloaded file. Torrents
   containing dangerous extensions (`.exe`, `.msi`, `.bat`, `.cmd`, `.scr`, `.lnk`, `.ps1`, `.vbs`, `.js`,
   `.jar`, `.com`, `.pif`) are flagged in search results and those files are skipped on download.
+- **Private until opened.** Running on your own machine needs no security setup. Local mode is reachable only
+  from the same PC, and in any mode the server refuses clients outside the local network until the Superadmin
+  turns on remote access. Turning it on is one guided flow that configures everything it needs (7.12).
 - **One UI everywhere.** The desktop app, browser and remote access use the same web UI and API. Behaviour
   differs only where a platform can't do something, such as MPV playback.
 - **Cheapest playback first.** Direct play if the client can decode it, otherwise remux, otherwise
@@ -120,7 +123,8 @@ The design must not preclude:
 | DownloadFile | A file inside a Download | downloadId, path, sizeBytes, priority, skipped, dangerous |
 | DownloadRequest | A user asking for a download | id, userId, titleRef, release, filter, status (Pending/Approved/Denied), decidedBy |
 | VpnConfig | The torrent network path | mode (Interface/Socks5/None-Accepted), interfaceId?, socksHost/Port/creds?, leakCheckIntervalSeconds |
-| Setting | Server-wide key/value | key, value |
+| Setting | Server-wide key/value (including the remote access switch and trusted proxies) | key, value |
+| IpBan | A client address banned after repeated abuse (7.11) | id, address, reason, strikes, bannedUntil, createdAt |
 | AuditEvent | A security-relevant action | id, userId, action, target, at |
 
 ### 6.2 Relationships
@@ -149,6 +153,8 @@ User 1─* SavedQualityProfile
 1. The server starts with an empty database and serves the setup wizard. Every other API call returns `423 SetupRequired`.
 2. The user creates the Superadmin (username and password, minimum 12 characters).
 3. The user picks a mode. **Local** binds the server to `127.0.0.1` only. **Server** binds to the LAN interface.
+   Remote access isn't offered here: it starts off, so either mode serves only the local network until it's turned
+   on in Settings (7.12).
 4. The user adds a first library (path, content type). An unreadable path is shown inline and the step can't be completed until it's fixed.
 5. Optional: configure the VPN path and import indexer definitions from a URL. These can be skipped; torrenting stays off.
 6. The wizard closes, the first scan starts, and the user lands on Home with scan progress visible.
@@ -239,9 +245,36 @@ User 1─* SavedQualityProfile
 ### 7.11 Sign in and sessions
 
 1. Username and password (plus TOTP if enabled) return a short-lived access token (15 min) and a rotating refresh token (30 days, sliding).
-2. Repeated failures are rate-limited per IP and per account (5 failures → 15 min lockout). The Superadmin is rate-limited but can't be permanently locked.
+2. Repeated failures are rate-limited per IP and per account (5 failures → 15 min lockout), in every mode. The Superadmin is rate-limited but can't be permanently locked.
 3. The profile picker shows after sign-in. A profile PIN is required if one is set.
 4. Users can see and revoke their own sessions; `users.manage` can revoke anyone's except the Superadmin's.
+5. While remote access is on, abuse escalates to IP bans, like fail2ban built in. An address that keeps getting
+   locked out, or that sends a burst of invalid tokens or failed requests across endpoints, is banned for growing
+   periods (1 hour, then 24 hours, then 7 days; strikes expire after 30 days). Banned addresses get `403` on
+   everything. Bans persist across restarts and are listed in Settings → Remote access, where the Superadmin and
+   `server.control` can lift them. A ban applies only to the real client address resolved through trusted proxies
+   (7.12), never to a trusted proxy itself or a local-network address, so the owner can always get in from home.
+   All timing reads `IClock`.
+
+### 7.12 Remote access
+
+1. Remote access is off by default. While it's off, the server serves only clients on the local network:
+   loopback, private LAN ranges (RFC 1918, IPv6 unique-local and link-local) and the Tailscale ranges
+   (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`). Any other client gets `403` (`remote_access.disabled`) saying that
+   remote access is off and how to turn it on. A request carrying forwarding headers (`Forwarded`,
+   `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) is treated as outside, so a tunnel or proxy on the same
+   machine can't expose the server by accident.
+2. Tailscale needs no switch: tailnet devices count as the local network, so Server mode plus Tailscale works as-is.
+   It's the recommended option.
+3. Only the Superadmin turns remote access on, in Settings → Remote access. That opens a guided setup: pick
+   Cloudflare Tunnel or a reverse proxy (Caddy), follow the in-app steps, and the server configures the trusted
+   proxies for that choice. From then on, clients outside the local network must arrive through a trusted proxy
+   over HTTPS (`X-Forwarded-Proto`); anything else is refused with an error that says how to fix it.
+4. The setup ends with an outside check, with no third-party service involved: the UI shows the public URL and a
+   one-time code, the user opens it on a device off the local network (e.g. a phone on mobile data), and the server
+   confirms it arrived through the trusted proxy over HTTPS.
+5. While remote access is on, a "Remote access on" badge is visible to admins in the shell, and IP bans are active
+   (7.11 step 5). Turning it off takes effect at once: outside clients are refused again.
 
 ## 8. Functional requirements
 
@@ -337,8 +370,10 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
 - [L] Download requests and the approval queue (7.9).
 
 **Remote access**
+- [M] Remote access switch, off by default and turned on only by the Superadmin; while off, clients outside the local network (including requests forwarded by a local tunnel or proxy) are refused (7.12).
 - [M] HTTPS required for non-LAN clients (behind a reverse proxy, via `X-Forwarded-Proto` from configured trusted proxies).
-- [M] In-app guides for Tailscale, Cloudflare Tunnel and Caddy.
+- [M] Guided remote access setup with the outside check (7.12), and in-app guides for Tailscale, Cloudflare Tunnel and Caddy.
+- [M] Escalating IP bans while remote access is on, with a ban list and unban (7.11 step 5).
 - [M] Desktop app connects to a remote server by URL.
 
 **Later automation (parked)**
@@ -364,7 +399,8 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - Tokens are signed with a per-install key.
   - Secrets the server must read back (TOTP secrets, SOCKS5 credentials) are encrypted at rest with the per-install key (ADR 0003).
   - All endpoints are authenticated except setup, login (including token refresh), invite redemption and health.
-  - Rate limiting on authentication.
+  - Rate limiting on authentication, and escalating IP bans while remote access is on (7.11).
+  - Clients outside the local network are refused until the Superadmin turns on remote access (7.12).
   - Never logs secrets.
 - **Data portability:** a single SQLite file, the per-install key file and an artwork cache folder. Backup and restore are just copying files. Settings export and import as JSON.
 - **Accessibility:** keyboard navigable throughout; visible focus states; WCAG AA contrast for text.
@@ -571,7 +607,8 @@ soft shadows, subtle motion (150–250 ms). Every interactive element is reachab
 - **Needs attention:** cards with the file name, parsed guess and candidate posters; one-click confirm or search.
 - **Player (desktop):** MPV with the purple Lua OSC (title, progress bar with chapters, audio and subtitle menus, Up next).
 - **Player (browser):** custom HTML5 player matching the OSC look.
-- **Settings:** Libraries, Playback, Torrents and VPN, Indexers, Quality (tier table, saved profiles), Users and roles, Remote access, About and licences.
+- **Settings:** Libraries, Playback, Torrents and VPN, Indexers, Quality (tier table, saved profiles), Users and roles, Remote access (the switch and guided setup, trusted proxies, the ban list), About and licences.
+- **Remote access badge:** while remote access is on, admins see a "Remote access on" badge in the shell (7.12).
 
 UX rules:
 - No dead ends: every error says what happened and offers the next action.
@@ -591,6 +628,8 @@ UX rules:
   - Dangerous files are skipped.
   - Every endpoint enforces its permission (a table-driven test over all routes).
   - The Superadmin can't be demoted, deleted or locked out.
+  - With remote access off, clients outside the local network are refused, including requests forwarded by a tunnel or proxy on the same machine.
+  - IP bans never apply to a trusted proxy or a local-network address.
 - **API conformance:** server responses are validated against `contracts/openapi.yaml` in integration tests.
 - **Web:** component tests with MSW, and Playwright end-to-end tests for the core flows (setup, browse, play request, Get).
 - **Desktop:** `IPlayer` contract tests against `FakePlayer`, plus a manual smoke checklist with real MPV per platform.
@@ -607,6 +646,7 @@ UX rules:
   Blocks nothing, but must not ship. It is `POST /dev/playables/{id}/play` (`x-dev-only` in the contract), mapped only in the dev configuration of a Debug build,
   and reaches MPV through the dev-only `IDevPlayer` seam in `MediaMan.Server/Dev`, which is not a §10.3 interface.
 - **Assumed: the leak check uses a public "what is my IP" endpoint, configurable in settings.** Which service to use by default is undecided. Blocks VPN gate implementation.
+- **Assumed: IP ban thresholds** (a ban after 3 lockouts or 50 failed requests from one address within an hour; 1 h, 24 h, 7 days; strikes expire after 30 days). Blocks nothing; tuned with real use.
 - **Exact community definitions URL to offer at first setup.** Blocks the indexer import UX.
 
 ## 14. Guidance for AI agents
@@ -635,3 +675,5 @@ rules in `.claude/rules/`. If a rule there contradicts this spec, the spec wins 
 - **OSC:** MPV's on-screen controller (the player UI), customized in Lua.
 - **Superadmin:** the single protected owner account.
 - **Local mode / Server mode:** server bound to localhost for one PC / bound to the LAN for other devices.
+- **Local network:** loopback, private LAN addresses and the Tailscale tailnet (7.12).
+- **Remote access:** the Superadmin-only switch that lets clients outside the local network in, through a trusted proxy over HTTPS (7.12).
