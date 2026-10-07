@@ -3,6 +3,8 @@
     <!-- Storage (SPEC §10.1, ADR 0003) -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <!-- Password hashing: managed Argon2id (ADR 0008) -->
+    <PackageVersion Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
     <!-- Artwork decoding for dominant colors (ADR 0007) -->
     <PackageVersion Include="StbImageSharp" Version="2.30.16" />
     <!-- Tests (SPEC §10.1, ADR 0001) -->

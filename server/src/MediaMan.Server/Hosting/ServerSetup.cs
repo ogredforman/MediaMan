@@ -1,4 +1,6 @@
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
+using MediaMan.Auth;
 using MediaMan.Core;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
@@ -30,7 +32,7 @@ public static class ServerSetup
         services.AddOptions<MediaManOptions>().Bind(section);
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<EventBroadcaster>();
-        services.AddSingleton<ISecretProtector, UnavailableSecretProtector>();
+        AddAccounts(services);
 
         services.AddDbContext<MediaManDbContext>((sp, builder) =>
         {
@@ -50,6 +52,29 @@ public static class ServerSetup
         AddDevConfiguration(services, section.Get<MediaManOptions>()?.Dev ?? new DevOptions(), environment);
         services.AddHostedService<ScanWorker>();
         return services;
+    }
+
+    /// <summary>
+    /// The per-install key is created on first run, when the first context needs the secret protector (ADR 0008).
+    /// One protector per process: the EF model is cached per protector instance.
+    /// </summary>
+    private static void AddAccounts(IServiceCollection services)
+    {
+        services.AddSingleton(sp => InstallKey.LoadOrCreate(sp.GetRequiredService<IOptions<MediaManOptions>>().Value.KeyPath));
+        services.AddSingleton<ISecretProtector>(sp =>
+        {
+            var key = sp.GetRequiredService<InstallKey>().Derive(InstallKey.SecretsAtRest);
+            try
+            {
+                return new AesGcmSecretProtector(key);
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(key);
+            }
+        });
+        services.AddSingleton(PasswordHasher.Default);
+        services.AddScoped<AccountService>();
     }
 
     /// <summary>

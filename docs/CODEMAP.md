@@ -14,14 +14,14 @@ Signatures here are summaries; `grep -n "public " <file>` (C#) or `grep -n "expo
   §5 principles, §6.1 entities, §7 core flows, §9 non-functional, §10.2 layout, §10.3 interfaces, §10.4 fakes, §11 UI, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 server test stack (xUnit v3, MTP, AwesomeAssertions) · 0002 UUIDv7 ids, Playable/Artwork owner FKs ·
-  0003 SQLite conventions and secrets at rest · 0004 web stack and Orval codegen · 0005 desktop build with plain tsc · 0006 TMDB ids carry the kind (`tmdb:movie/603`, `tmdb:tv/1396`) and the shipped token · 0007 artwork cache, `IImageDownloader`, StbImageSharp.
+  0003 SQLite conventions and secrets at rest · 0004 web stack and Orval codegen · 0005 desktop build with plain tsc · 0006 TMDB ids carry the kind (`tmdb:movie/603`, `tmdb:tv/1396`) and the shipped token · 0007 artwork cache, `IImageDownloader`, StbImageSharp · 0008 per-install key, HKDF subkeys, Argon2id, Superadmin guard.
 - Area rules: `.claude/rules/<area>.md` (contracts, data, desktop, library, server, server-tests, web).
 
 ## Wiring
 
 - **Server:** `server/src/MediaMan.Server/Program.cs` → `AddMediaManServer(config)` (binds `MediaManOptions` from the
   `MediaMan` section, `IClock`→`SystemClock`, `EventBroadcaster`, `IMetadataProvider`→`TmdbMetadataProvider` (`MediaMan:Metadata:Tmdb`, cache in `<DataDirectory>/cache/tmdb`), `IImageDownloader`→`HttpImageDownloader`, `ArtworkCache` (scoped, `<DataDirectory>/cache/artwork`), `MediaManDbContext` on `<DataDirectory>/mediaman.db`,
-  ProblemDetails, JSON omits nulls, `LibraryQueries` (scoped), the scan pipeline (`LibraryScanner`/`LibraryMatcher`/`MetadataImporter` scoped via factories, `ScanCoordinator`, `ScanWorker` hosted service), `ISecretProtector`→`UnavailableSecretProtector` until PLAN 2.3, `DatabaseMigrator` hosted service) → `UseMediaManErrors()` → `MapMediaManEndpoints()` (`GET /health`, `GET /events` SSE, library browse and scanning, `GET /artwork/{artworkId}`). All in `Hosting/ServerSetup.cs`.
+  ProblemDetails, JSON omits nulls, `LibraryQueries` (scoped), the scan pipeline (`LibraryScanner`/`LibraryMatcher`/`MetadataImporter` scoped via factories, `ScanCoordinator`, `ScanWorker` hosted service), `InstallKey` (`<DataDirectory>/mediaman.key`) → `ISecretProtector`→`AesGcmSecretProtector` on its `secrets-at-rest` subkey, `PasswordHasher`, `AccountService` (scoped), `DatabaseMigrator` hosted service) → `UseMediaManErrors()` → `MapMediaManEndpoints()` (`GET /health`, `GET /events` SSE, library browse and scanning, `GET /artwork/{artworkId}`). All in `Hosting/ServerSetup.cs`.
 - **Dev configuration** (SPEC §8 setup [P], Debug builds only): running it on the owner's machine (library, ffprobe and MPV paths, launch commands): `docs/LOCAL-DEV.md`. `ASPNETCORE_ENVIRONMENT=Development` + `MediaMan:Dev:MediaPath`
   (user-secrets or `MediaMan__Dev__MediaPath`) → `Dev/DevConfiguration.AddMediaManDev` registers fakes per `MediaMan:Dev:Providers:*`
   (`Fake|Real`) and `DevLibrarySeeder` adds the folder as an External library once. Dev-only play (SPEC §13): `Dev/DevPlayEndpoints` (`POST /dev/playables/{playableId}/play`, `PickVersion`, `x-dev-only` in the contract) is mapped only when the dev configuration registers `IDevPlayer` (`MpvDevPlayer` via `MediaMan:Tools:MpvPath`, or `FakeDevPlayer` with `Providers:Player=Fake`). The server csproj references `MediaMan.Fakes` in Debug only.
@@ -39,7 +39,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - **MediaMan.Core**: domain entities (`Domain/*.cs`, SPEC §6.1), every §10.3 interface (`Modules/Metadata.cs`, `MediaTools.cs`,
   `Indexers.cs`, `Torrents.cs`), `IClock`/`SystemClock`, `ExternalId`, `InfoHash`, `Ids` (UUIDv7), `Permissions` constants.
 - **MediaMan.Data**: `MediaManDbContext`, entity config in `Model/*Model.cs`, `MediaManDb.Configure/CreateOptions` (SQLite, WAL via
-  `SqlitePragmaInterceptor`), `ISecretProtector`/`AesGcmSecretProtector`, migrations in `Migrations/`.
+  `SqlitePragmaInterceptor`), `ISecretProtector`/`AesGcmSecretProtector`, `SuperadminGuard` (SaveChanges interceptor on every context: the stored Superadmin can't be deleted, demoted, disabled or re-roled → `SuperadminProtectedException`), migrations in `Migrations/`.
 - **MediaMan.Server**: host and endpoints. `Endpoints/HealthEndpoints.cs`, `RequiresPermission(...)` in `Endpoints/PermissionMetadata.cs`,
   `Events/EventBroadcaster` (`Publish`, `Subscribe`) + `EventEnvelope`, `Hosting/Problems.cs` (error model; `Problems.Result(status, code, title, detail, action)` for specific codes).
   `LibraryApi/`: `LibraryEndpoints` (`GET /libraries`, `POST /libraries/{libraryId}/scan`, `GET /libraries/{libraryId}/attention`, `/titles`, `/titles/{titleId}`), `LibraryQueries` (read-only EF queries → DTOs in `LibraryDtos.cs`),
@@ -54,7 +54,8 @@ Server projects live in `server/src/`; most are empty shells until their stage.
   `Importing/MetadataImporter.ImportAsync(decisions, ct)` → `ImportResult` (Title by provider id, Seasons holding linked files with full episode lists, one Artwork ref per type per owner, Playables for linked files only, FileLinks with `Part` from 1, file → `Matched`; absolute numbers resolved over seasons > 0; provider errors → stays `Pending`; unknown episode → `NeedsAttention` `episode-not-found`).
   `Images/ArtworkCache` (`CacheMissingAsync` → `ArtworkCacheResult`, `GetAsync(id)` → `ArtworkLookup`; files `<id>.<ext>`, refuses a cache inside an External root), `Images/DominantColor` (pure: `FromImage`, `FromPixels`), `Images/ImageFormats` (`Sniff` by leading bytes, `ContentTypeOf`).
 - **MediaMan.Metadata**: `Tmdb/TmdbMetadataProvider` (real `IMetadataProvider`: v3 API with a Bearer token, 7-day on-disk `TmdbResponseCache`, 429 backoff, 404 → `KeyNotFoundException`), `TmdbOptions` (`ShippedAccessToken`), `TmdbIds` (`Create`/`Parse` `movie/N` and `tv/N`). `Images/HttpImageDownloader` (real `IImageDownloader`: http/https only, 20 MB cap, timeouts → `HttpRequestException`).
-- **MediaMan.Auth, .Indexers, .Torrents**: empty, filled from Stage 1 on.
+- **MediaMan.Auth**: `InstallKey` (`LoadOrCreate(path)`, `FromBytes`, `Derive(purpose)` HKDF subkeys, ADR 0008), `PasswordHasher` (Argon2id PHC strings; `Hash`, static `Verify`, `Default`), `AccountService` (`CreateSuperadminAsync`, static `PermissionsOf(user, role)`).
+- **MediaMan.Indexers, .Torrents**: empty, filled from Stage 1 on.
 
 ## Frontend
 
