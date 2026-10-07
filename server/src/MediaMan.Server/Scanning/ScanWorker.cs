@@ -1,3 +1,4 @@
+using MediaMan.Library.Images;
 using MediaMan.Library.Importing;
 using MediaMan.Library.Matching;
 using MediaMan.Library.Scanning;
@@ -6,8 +7,8 @@ using MediaMan.Server.LibraryApi;
 namespace MediaMan.Server.Scanning;
 
 /// <summary>
-/// Runs queued library scans one at a time: scan, then match, then import (SPEC §7.2). Each phase gets its own DI
-/// scope, so a phase starts from a clean change tracker and only ids pass between them.
+/// Runs queued library scans one at a time: scan, match, import, then cache artwork (SPEC §7.2). Each phase gets its
+/// own DI scope, so a phase starts from a clean change tracker and only ids pass between them.
 /// </summary>
 public sealed partial class ScanWorker(ScanCoordinator coordinator, IServiceScopeFactory scopes, ILogger<ScanWorker> logger)
     : BackgroundService
@@ -42,6 +43,13 @@ public sealed partial class ScanWorker(ScanCoordinator coordinator, IServiceScop
             match = await InScopeAsync((LibraryMatcher m) => m.MatchPendingAsync(libraryId, ct));
             coordinator.Enter(libraryId, ScanPhase.Importing);
             import = await InScopeAsync((MetadataImporter i) => i.ImportAsync(match.Decisions, ct));
+            coordinator.Enter(libraryId, ScanPhase.Artwork);
+            var artwork = await InScopeAsync((ArtworkCache a) => a.CacheMissingAsync(ct));
+            if (artwork.Failed > 0)
+            {
+                LogArtworkFailed(logger, artwork.Failed, libraryId);
+            }
+
             coordinator.Finish(libraryId, succeeded: true, Counts(scan, match, import), error: null);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -78,6 +86,10 @@ public sealed partial class ScanWorker(ScanCoordinator coordinator, IServiceScop
         import?.Linked ?? 0,
         (match?.Reviewed ?? 0) + (import?.NeedsAttention ?? 0),
         (match?.Deferred ?? 0) + (import?.Deferred ?? 0));
+
+    // Not a scan failure: the images are fetched again on the next scan or when a client asks for them.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "{Count} artwork images couldn't be fetched while scanning library {LibraryId}")]
+    private static partial void LogArtworkFailed(ILogger logger, int count, Guid libraryId);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "The scan of library {LibraryId} failed")]
     private static partial void LogFailed(ILogger logger, Exception exception, Guid libraryId);

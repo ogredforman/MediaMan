@@ -15,3 +15,4 @@ old one's status is changed to `Superseded by NNNN`.
 | 0003 | [SQLite storage conventions and secrets at rest](0003-sqlite-storage-conventions.md) | Accepted |
 | 0004 | [Web stack versions and API codegen with Orval](0004-web-stack-and-api-codegen.md) | Accepted |
 | 0006 | [TMDB ids carry the title kind](0006-tmdb-ids-carry-kind.md) | Accepted |
+| 0007 | [Artwork cache, image fetching and decoding](0007-artwork-cache-and-image-decoding.md) | Accepted |

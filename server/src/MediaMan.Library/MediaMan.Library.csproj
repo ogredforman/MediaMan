@@ -5,4 +5,8 @@
     <ProjectReference Include="..\MediaMan.Data\MediaMan.Data.csproj" />
     <ProjectReference Include="..\MediaMan.Parsing\MediaMan.Parsing.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="StbImageSharp" />
+  </ItemGroup>
 </Project>

@@ -97,3 +97,8 @@ function parseJson(text: string): unknown {
 
 /** Error type for the generated hooks (Orval reads this export from the mutator file). */
 export type ErrorType<_E> = ApiError;
+
+/** Where an `ArtworkRef` loads from: its `url` is opaque and resolved against the API base as-is. */
+export function artworkSrc(artwork: { url: string }): string {
+  return apiUrl(artwork.url);
+}

@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import type { TitleDetail } from '../api/mediaman.schemas';
 import { mockTitleDetails, mockTitles } from '../mocks/handlers';
+import { apiUrl } from '../lib/http';
 import { server } from '../mocks/node';
 import { renderApp } from '../test/renderApp';
 
@@ -43,7 +44,7 @@ describe('TitleDetail', () => {
     await screen.findByRole('heading', { level: 1, name: 'Arrival' });
 
     const images = [...container.querySelectorAll('img')].map((img) => img.getAttribute('src'));
-    expect(images).toEqual(expect.arrayContaining(['/art/backdrop.jpg', '/art/poster.jpg']));
+    expect(images).toEqual(expect.arrayContaining([apiUrl('/art/backdrop.jpg'), apiUrl('/art/poster.jpg')]));
     expect(container.querySelector<HTMLElement>('[style*="--tint"]')?.style.getPropertyValue('--tint')).toBe('#336699');
   });
 

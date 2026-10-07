@@ -794,6 +794,111 @@ export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError
 
 
 
+export const getGetArtworkUrl = (artworkId: string,) => {
+
+
+
+
+  return `/artwork/${artworkId}`
+}
+
+/**
+ * The server caches each image the first time it's needed, normally during a scan, and records its dominant
+ * color (SPEC §8 metadata [M]). An image that isn't cached yet is fetched from the metadata provider first.
+ * The response is `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/bmp` or `image/svg+xml`, and
+ * an id's image never changes, so clients may cache it indefinitely.
+ * @summary A cached artwork image. Clients don't build this path; they load an `ArtworkRef.url` as-is.
+ */
+export const getArtwork = async (artworkId: string, options?: Parameters<typeof apiFetch>[1]): Promise<Blob> => {
+
+  return apiFetch<Blob>(getGetArtworkUrl(artworkId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetArtworkQueryKey = (artworkId: string,) => {
+    return [
+    `/artwork/${artworkId}`
+    ] as const;
+    }
+
+
+export const getGetArtworkQueryOptions = <TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetArtworkQueryKey(artworkId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtwork>>> = ({ signal }) => getArtwork(artworkId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: artworkId !== null && artworkId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetArtworkQueryResult = NonNullable<Awaited<ReturnType<typeof getArtwork>>>
+export type GetArtworkQueryError = ErrorType<Problem>
+
+
+export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
+ artworkId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getArtwork>>,
+          TError,
+          Awaited<ReturnType<typeof getArtwork>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
+ artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getArtwork>>,
+          TError,
+          Awaited<ReturnType<typeof getArtwork>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
+ artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary A cached artwork image. Clients don't build this path; they load an `ArtworkRef.url` as-is.
+ */
+
+export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
+ artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetArtworkQueryOptions(artworkId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getDevPlayUrl = (playableId: string,) => {
 
 

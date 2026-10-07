@@ -71,6 +71,10 @@ public sealed class DevProviders
 {
     public ProviderSource Metadata { get; set; } = ProviderSource.Fake;
     public ProviderSource Artwork { get; set; } = ProviderSource.Fake;
+
+    /// <summary>Fetches artwork images; Fake serves generated solid-color images with no network.</summary>
+    public ProviderSource Images { get; set; } = ProviderSource.Fake;
+
     public ProviderSource MediaProbe { get; set; } = ProviderSource.Fake;
     public ProviderSource FileWatcher { get; set; } = ProviderSource.Fake;
 

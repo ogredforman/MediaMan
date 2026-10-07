@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useDevPlay, useGetTitle } from '../api/mediaman';
 import type { Episode, MediaVersion, Season, TitleDetail as Title } from '../api/mediaman.schemas';
-import { ApiError } from '../lib/http';
+import { ApiError, artworkSrc } from '../lib/http';
 import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
 
 const hexColor = /^#[0-9a-f]{6}$/i;
@@ -99,7 +99,7 @@ function EpisodeList({ season }: { season: Season }) {
           <li key={episode.id} className="flex flex-col gap-4 sm:flex-row">
             <div className="aspect-video w-full shrink-0 overflow-hidden rounded-card bg-surface shadow-soft sm:w-56">
               {episode.still ? (
-                <img src={episode.still.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                <img src={artworkSrc(episode.still)} alt="" loading="lazy" className="h-full w-full object-cover" />
               ) : (
                 <div aria-hidden="true" className="flex h-full items-center justify-center text-2xl text-highlight">
                   {episode.number}
@@ -267,7 +267,7 @@ function Hero({ title }: { title: Title }) {
   return (
     <div className="relative isolate overflow-hidden" style={style}>
       {title.backdrop && (
-        <img src={title.backdrop.url} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-60" />
+        <img src={artworkSrc(title.backdrop)} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-60" />
       )}
       <div
         aria-hidden="true"
@@ -276,7 +276,7 @@ function Hero({ title }: { title: Title }) {
       <div className="flex items-end gap-8 px-8 pt-40 pb-8">
         <div className="hidden aspect-[2/3] w-44 shrink-0 overflow-hidden rounded-card bg-surface shadow-soft sm:block">
           {title.poster ? (
-            <img src={title.poster.url} alt="" className="h-full w-full object-cover" />
+            <img src={artworkSrc(title.poster)} alt="" className="h-full w-full object-cover" />
           ) : (
             <div aria-hidden="true" className="flex h-full items-center justify-center p-4 text-center text-highlight">
               {title.name}

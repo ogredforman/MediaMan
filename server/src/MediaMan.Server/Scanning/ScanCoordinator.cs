@@ -18,6 +18,7 @@ public enum ScanPhase
     Scanning,
     Matching,
     Importing,
+    Artwork,
 }
 
 /// <summary>

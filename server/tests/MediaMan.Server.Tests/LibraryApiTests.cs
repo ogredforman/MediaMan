@@ -74,7 +74,7 @@ public sealed class LibraryApiTests : IAsyncLifetime
         alien.Kind.Should().Be("movie");
         alien.Year.Should().Be(1979);
         alien.Genres.Should().Equal("Horror", "Science Fiction");
-        alien.Poster!.Url.Should().Be("https://img.example/alien-poster.jpg");
+        await AssertServesArtworkAsync(alien.Poster!.Url, "https://img.example/alien-poster.jpg");
         alien.Poster.DominantColor.Should().Be("#112233");
     }
 
@@ -106,7 +106,7 @@ public sealed class LibraryApiTests : IAsyncLifetime
         alien.Overview.Should().Be("In space, no one can hear you scream.");
         alien.RuntimeMinutes.Should().Be(117);
         alien.ExternalIds.Tmdb.Should().Be("movie/348");
-        alien.Backdrop!.Url.Should().Be("https://img.example/alien-backdrop.jpg");
+        await AssertServesArtworkAsync(alien.Backdrop!.Url, "https://img.example/alien-backdrop.jpg");
         alien.Logo.Should().BeNull();
         alien.Seasons.Should().BeNull();
         alien.Playable!.Id.Should().Be(_seed.AlienPlayableId);
@@ -137,11 +137,11 @@ public sealed class LibraryApiTests : IAsyncLifetime
         office.Playable.Should().BeNull();
         office.Seasons!.Select(s => s.Number).Should().Equal(0, 1);
         var season = office.Seasons![1];
-        season.Poster!.Url.Should().Be("https://img.example/office-s1.jpg");
+        await AssertServesArtworkAsync(season.Poster!.Url, "https://img.example/office-s1.jpg");
         season.Episodes.Select(e => e.Number).Should().Equal(1, 2, 3);
 
         var (e1, e2, e3) = (season.Episodes[0], season.Episodes[1], season.Episodes[2]);
-        e1.Still!.Url.Should().Be("https://img.example/office-s1e1.jpg");
+        await AssertServesArtworkAsync(e1.Still!.Url, "https://img.example/office-s1e1.jpg");
         e1.AirDate.Should().Be(new DateOnly(2005, 3, 24));
         e1.Versions.Should().ContainSingle().Which.MediaFileId.Should().Be(_seed.OfficeDoubleFileId);
         e2.Versions.Should().ContainSingle().Which.MediaFileId.Should().Be(_seed.OfficeDoubleFileId);
@@ -190,6 +190,15 @@ public sealed class LibraryApiTests : IAsyncLifetime
         await ContractDocument.Instance.AssertConformsAsync(response, Ct);
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
         body.RootElement.GetProperty("code").GetString().Should().Be(code);
+    }
+
+    /// <summary>The artwork URL is served by this server, from the image the provider gave.</summary>
+    private async Task AssertServesArtworkAsync(string url, string sourceUrl)
+    {
+        url.Should().MatchRegex("^/artwork/[0-9a-f-]{36}$");
+        using var response = await _client.GetAsync(new Uri(url, UriKind.Relative), Ct);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        _factory.Images.Requests.Should().Contain(new Uri(sourceUrl));
     }
 
     private async Task<T> GetAsync<T>(string url)

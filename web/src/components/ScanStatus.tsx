@@ -7,6 +7,7 @@ const phaseLabels: Record<ScanStatePhase, string> = {
   scanning: 'finding files',
   matching: 'matching titles',
   importing: 'importing metadata',
+  artwork: 'fetching artwork',
 };
 
 function describeScan(library: Library): string {

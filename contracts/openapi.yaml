@@ -199,6 +199,55 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /artwork/{artworkId}:
+    get:
+      operationId: getArtwork
+      summary: A cached artwork image. Clients don't build this path; they load an `ArtworkRef.url` as-is.
+      description: |
+        The server caches each image the first time it's needed, normally during a scan, and records its dominant
+        color (SPEC §8 metadata [M]). An image that isn't cached yet is fetched from the metadata provider first.
+        The response is `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/bmp` or `image/svg+xml`, and
+        an id's image never changes, so clients may cache it indefinitely.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - name: artworkId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The image.
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: The image doesn't exist (`artwork.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '502':
+          description: |
+            The image isn't cached and couldn't be fetched from the metadata provider (`artwork.unavailable`). It's
+            fetched again on the next scan or request.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          description: |
+            Any other error, including `500` `artwork.cache_in_library` when the server's data directory is inside an
+            External library, so nothing can be cached (SPEC §5).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+
   /dev/playables/{playableId}/play:
     post:
       operationId: devPlay
@@ -427,8 +476,10 @@ components:
           enum: [idle, queued, running]
         phase:
           type: string
-          description: Scanning finds and probes files, matching searches the provider, importing links the matches.
-          enum: [scanning, matching, importing]
+          description: |
+            Scanning finds and probes files, matching searches the provider, importing links the matches, and artwork
+            caches their images and dominant colors.
+          enum: [scanning, matching, importing, artwork]
         startedAt:
           type: string
           format: date-time
@@ -641,6 +692,9 @@ components:
       properties:
         url:
           type: string
+          description: |
+            Where the client loads the image, relative to the API base. Treat it as opaque and load it as-is: sign-in
+            may add a signature to it.
         dominantColor:
           type: string
           description: The image's dominant color as `#RRGGBB`, for tinting heroes (SPEC §11).

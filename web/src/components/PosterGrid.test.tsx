@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import type { TitleSummary } from '../api/mediaman.schemas';
+import { apiUrl } from '../lib/http';
 import { mockTitles } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp } from '../test/renderApp';
@@ -36,7 +37,7 @@ describe('PosterGrid', () => {
     expect(cards).toHaveLength(2);
     expect(kind).toBe('movie');
     expect(cards[0]).toHaveTextContent('Movie 12001');
-    expect(cards[0]?.querySelector('img')).toHaveAttribute('src', '/art/poster-1.jpg');
+    expect(cards[0]?.querySelector('img')).toHaveAttribute('src', apiUrl('/art/poster-1.jpg'));
     expect(cards[1]).toHaveTextContent('Movie 2');
     expect(cards[1]?.querySelector('img')).toBeNull();
   });

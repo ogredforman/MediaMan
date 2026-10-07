@@ -21,6 +21,15 @@ public interface IArtworkProvider
     Task<IReadOnlyList<ArtworkRef>> GetArtworkAsync(ExternalId id, CancellationToken ct);
 }
 
+/// <summary>
+/// Fetches artwork images by the URL a metadata provider gave (SPEC §10.3). Throws <see cref="HttpRequestException"/>
+/// when the image can't be fetched (including timeouts) and <see cref="InvalidDataException"/> when it's too large.
+/// </summary>
+public interface IImageDownloader
+{
+    Task<byte[]> DownloadAsync(Uri url, CancellationToken ct);
+}
+
 /// <summary>Subtitle search and download, e.g. OpenSubtitles.</summary>
 public interface ISubtitleProvider
 {

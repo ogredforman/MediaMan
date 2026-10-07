@@ -2,9 +2,11 @@ using System.Text.Json.Serialization;
 using MediaMan.Core;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
+using MediaMan.Library.Images;
 using MediaMan.Library.Importing;
 using MediaMan.Library.Matching;
 using MediaMan.Library.Scanning;
+using MediaMan.Metadata.Images;
 using MediaMan.Metadata.Tmdb;
 #if MEDIAMAN_DEV
 using MediaMan.Server.Dev;
@@ -51,8 +53,9 @@ public static class ServerSetup
     }
 
     /// <summary>
-    /// TMDB is the metadata provider (SPEC §8 metadata [M]). It owns one long-lived HttpClient that recycles pooled
-    /// connections, and logs nothing, so neither the token nor the requests reach the logs (SPEC §9).
+    /// TMDB is the metadata provider (SPEC §8 metadata [M]), and its artwork is cached locally. Each owns one long-lived
+    /// HttpClient that recycles pooled connections, and logs nothing, so neither the token nor the requests reach the
+    /// logs (SPEC §9).
     /// </summary>
     private static void AddMetadata(IServiceCollection services)
     {
@@ -74,6 +77,16 @@ public static class ServerSetup
                 sp.GetRequiredService<IClock>());
         });
         services.AddSingleton<IMetadataProvider>(sp => sp.GetRequiredService<TmdbMetadataProvider>());
+
+        // Artwork comes from the URLs the provider gave; the cache lives next to the database (SPEC §9 data portability).
+        services.AddSingleton(_ => new HttpImageDownloader(
+            new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(15) }) { Timeout = TimeSpan.FromSeconds(30) }));
+        services.AddSingleton<IImageDownloader>(sp => sp.GetRequiredService<HttpImageDownloader>());
+        services.AddSingleton(sp => new ArtworkCacheOptions
+        {
+            Directory = Path.Combine(sp.GetRequiredService<IOptions<MediaManOptions>>().Value.DataDirectory, "cache", "artwork"),
+        });
+        services.AddScoped<ArtworkCache>();
     }
 
     /// <summary>
@@ -122,6 +135,7 @@ public static class ServerSetup
         app.MapHealthEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
+        app.MapArtworkEndpoints();
 #if MEDIAMAN_DEV
         // Dev-only (SPEC §13): the player is registered only by the dev configuration, so elsewhere this route is a 404.
         if (app.Services.GetService<IDevPlayer>() is not null)
