@@ -454,6 +454,9 @@ interface IMetadataProvider {
 interface IArtworkProvider {                            // fanart.tv
   Task<IReadOnlyList<ArtworkRef>> GetArtworkAsync(ExternalId id, CancellationToken ct);
 }
+interface IImageDownloader {                            // artwork images by provider URL (ADR 0007)
+  Task<byte[]> DownloadAsync(Uri url, CancellationToken ct);
+}
 interface ISubtitleProvider {                           // OpenSubtitles
   Task<IReadOnlyList<SubtitleCandidate>> SearchAsync(SubtitleQuery q, CancellationToken ct);
   Task<Stream> DownloadAsync(string candidateId, CancellationToken ct);
@@ -531,6 +534,7 @@ All fakes live in `server/tests/MediaMan.Fakes` (and `desktop/src/fakes` for TS)
   (a fixed set of about 30 movies and shows, including remakes with the same name, anime with absolute numbering, and a show with specials).
   It is deterministic, can inject errors (timeout, 429) per call, and records the queries it receives. The prototype runs against it.
 - **fanart.tv (`IArtworkProvider`):** returns fixture artwork URLs, or none.
+- **Artwork images (`IImageDownloader`):** `FakeImageDownloader` serves generated solid-color images per URL, can fail per URL, and records the URLs it was asked for.
 - **OpenSubtitles (`ISubtitleProvider`):** returns fixture candidates and a fixed `.srt` stream.
 - **ffprobe (`IMediaProbe`):** `FakeMediaProbe` maps a file path or name pattern to a fixture ProbeResult, so tests use empty placeholder files.
   A small set of integration tests runs real ffprobe on tiny generated sample files (skipped if ffprobe is absent).

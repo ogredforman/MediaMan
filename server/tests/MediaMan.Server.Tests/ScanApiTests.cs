@@ -110,7 +110,7 @@ public sealed class ScanApiTests : IAsyncLifetime
         }
 
         progress.Select(s => s.Phase is null ? s.State : $"{s.State}/{s.Phase}").Should().Equal(
-            "queued", "running/scanning", "running/matching", "running/importing", "idle");
+            "queued", "running/scanning", "running/matching", "running/importing", "running/artwork", "idle");
         var last = progress[^1].LastScan!;
         last.Outcome.Should().Be("succeeded");
         last.Error.Should().BeNull();
@@ -118,6 +118,8 @@ public sealed class ScanApiTests : IAsyncLifetime
 
         var titles = await GetAsync<TitlePage>("/titles");
         titles.Items.Select(t => t.Name).Should().BeEquivalentTo("The Matrix", "Breaking Bad");
+        titles.Items.Should().AllSatisfy(t => t.Poster!.DominantColor.Should().Be(FakeImageDownloader.DefaultColor),
+            "the scan caches each poster and records its color");
         var libraries = await GetAsync<LibraryPage>("/libraries");
         libraries.Items.Should().ContainSingle().Which.Scan.Should().BeEquivalentTo(progress[^1]);
     }

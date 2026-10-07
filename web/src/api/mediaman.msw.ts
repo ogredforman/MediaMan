@@ -31,6 +31,7 @@ import type {
 
 import {
   getDevPlayResponseMock,
+  getGetArtworkResponseMock,
   getGetEventsResponseMock,
   getGetHealthResponseMock,
   getGetTitleResponseMock,
@@ -51,7 +52,7 @@ import type {
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -138,6 +139,19 @@ export const getGetTitleMockHandler = (overrideResponse?: TitleDetail | ((info: 
   }, options)
 }
 
+export const getGetArtworkMockHandler = (overrideResponse?: Blob | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Blob> | Blob), options?: RequestHandlerOptions) => {
+  return http.get('*/artwork/:artworkId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+  const binaryBody = overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetArtworkResponseMock();
+    return new HttpResponse(binaryBody,
+      { status: 200,
+        headers: { 'Content-Type': 'image/*' }
+      })
+  }, options)
+}
+
 export const getDevPlayMockHandler = (overrideResponse?: DevPlayStarted | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DevPlayStarted> | DevPlayStarted), options?: RequestHandlerOptions) => {
   return http.post('*/dev/playables/:playableId/play', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -157,5 +171,6 @@ export const getMediaManAPIMock = () => [
   getListAttentionFilesMockHandler(),
   getListTitlesMockHandler(),
   getGetTitleMockHandler(),
+  getGetArtworkMockHandler(),
   getDevPlayMockHandler()
 ]

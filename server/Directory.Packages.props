@@ -3,6 +3,8 @@
     <!-- Storage (SPEC §10.1, ADR 0003) -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <!-- Artwork decoding for dominant colors (ADR 0007) -->
+    <PackageVersion Include="StbImageSharp" Version="2.30.16" />
     <!-- Tests (SPEC §10.1, ADR 0001) -->
     <PackageVersion Include="AwesomeAssertions" Version="9.6.0" />
     <PackageVersion Include="JsonSchema.Net" Version="9.4.0" />

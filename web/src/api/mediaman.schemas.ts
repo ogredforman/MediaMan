@@ -124,7 +124,8 @@ export const ScanStateState = {
 } as const;
 
 /**
- * Scanning finds and probes files, matching searches the provider, importing links the matches.
+ * Scanning finds and probes files, matching searches the provider, importing links the matches, and artwork
+ * caches their images and dominant colors.
  */
 export type ScanStatePhase = typeof ScanStatePhase[keyof typeof ScanStatePhase];
 
@@ -133,6 +134,7 @@ export const ScanStatePhase = {
   scanning: 'scanning',
   matching: 'matching',
   importing: 'importing',
+  artwork: 'artwork',
 } as const;
 
 export type ScanSummaryOutcome = typeof ScanSummaryOutcome[keyof typeof ScanSummaryOutcome];
@@ -207,7 +209,10 @@ export interface ScanSummary {
  */
 export interface ScanState {
   state: ScanStateState;
-  /** Scanning finds and probes files, matching searches the provider, importing links the matches. */
+  /**
+     * Scanning finds and probes files, matching searches the provider, importing links the matches, and artwork
+     * caches their images and dominant colors.
+     */
   phase?: ScanStatePhase;
   startedAt?: string;
   lastScan?: ScanSummary;
@@ -332,6 +337,10 @@ export const MediaFileStatus = {
  * An image of a title, season or episode.
  */
 export interface ArtworkRef {
+  /**
+     * Where the client loads the image, relative to the API base. Treat it as opaque and load it as-is: sign-in
+     * may add a signature to it.
+     */
   url: string;
   /** The image's dominant color as `#RRGGBB`, for tinting heroes (SPEC §11). */
   dominantColor?: string;

@@ -272,5 +272,5 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans)
             file.Parsed?.Group);
     }
 
-    private static ArtworkRef? Ref(Artwork? artwork) => artwork is null ? null : new ArtworkRef(artwork.Url, artwork.DominantColor);
+    private static ArtworkRef? Ref(Artwork? artwork) => artwork is null ? null : new ArtworkRef(ArtworkEndpoints.UrlOf(artwork.Id), artwork.DominantColor);
 }

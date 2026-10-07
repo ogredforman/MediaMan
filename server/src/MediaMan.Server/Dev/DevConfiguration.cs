@@ -1,5 +1,6 @@
 using MediaMan.Core.Modules;
 using MediaMan.Fakes;
+using MediaMan.Metadata.Images;
 using MediaMan.Metadata.Tmdb;
 using MediaMan.Playback.Probing;
 using MediaMan.Server.Hosting;
@@ -18,7 +19,9 @@ public static class DevConfiguration
         var providers = dev.Providers;
         AddProvider<IMetadataProvider>(services, providers.Metadata, "Metadata", "PLAN 2.1", () => new FakeMetadataProvider(),
             sp => sp.GetRequiredService<TmdbMetadataProvider>());
-        AddProvider<IArtworkProvider>(services, providers.Artwork, "Artwork", "PLAN 2.2", () => new FakeArtworkProvider());
+        AddProvider<IArtworkProvider>(services, providers.Artwork, "Artwork", "a later stage", () => new FakeArtworkProvider());
+        AddProvider<IImageDownloader>(services, providers.Images, "Images", "PLAN 2.2", () => new FakeImageDownloader(),
+            sp => sp.GetRequiredService<HttpImageDownloader>());
         AddProvider<IMediaProbe>(services, providers.MediaProbe, "MediaProbe", "PLAN 1.5", () => new FakeMediaProbe(),
             sp => new FfprobeMediaProbe(new FfprobeOptions
             {

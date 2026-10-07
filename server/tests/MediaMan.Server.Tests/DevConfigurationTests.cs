@@ -98,7 +98,7 @@ public sealed class DevConfigurationTests : IDisposable
         var start = () => factory.Services;
 
         start.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Artwork*PLAN 2.2*Set MediaMan:Dev:Providers:Artwork to Fake*");
+            .WithMessage("*Artwork*a later stage*Set MediaMan:Dev:Providers:Artwork to Fake*");
     }
 
     [Fact]

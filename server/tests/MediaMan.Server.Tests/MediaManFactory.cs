@@ -1,3 +1,5 @@
+using MediaMan.Core.Modules;
+using MediaMan.Fakes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -18,6 +20,9 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
     /// <summary>Extra service registrations applied after the server's own, e.g. fakes for the scan pipeline.</summary>
     public Action<IServiceCollection>? ConfigureServices { get; init; }
 
+    /// <summary>Stands in for the real image downloader in every test, so no test fetches artwork over the network.</summary>
+    public FakeImageDownloader Images { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
@@ -27,6 +32,7 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
             builder.UseSetting(key, value);
         }
 
+        builder.ConfigureTestServices(s => s.AddSingleton<IImageDownloader>(Images));
         if (ConfigureServices is not null)
         {
             builder.ConfigureTestServices(ConfigureServices);

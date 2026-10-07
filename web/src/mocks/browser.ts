@@ -10,6 +10,7 @@ const simulatedScan = http.post('*/libraries/:libraryId/scan', () => {
     { state: 'running', phase: 'scanning', startedAt },
     { state: 'running', phase: 'matching', startedAt },
     { state: 'running', phase: 'importing', startedAt },
+    { state: 'running', phase: 'artwork', startedAt },
     {
       state: 'idle',
       lastScan: {

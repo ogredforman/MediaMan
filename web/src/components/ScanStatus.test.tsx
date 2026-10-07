@@ -54,6 +54,9 @@ describe('ScanStatus', () => {
     expect(within(list).getByRole('button', { name: 'Scan Media' })).toBeDisabled();
     expect(screen.getByText(/A scan is running/)).toBeInTheDocument();
 
+    send({ state: 'running', phase: 'artwork', startedAt: '2026-10-06T12:00:00Z' });
+    expect(await within(list).findByText('Media: fetching artwork…')).toBeInTheDocument();
+
     send({ state: 'idle', lastScan: succeeded });
     expect(await within(list).findByText('Media: scanned, 2 linked, 1 need attention')).toBeInTheDocument();
     expect(within(list).getByRole('button', { name: 'Scan Media' })).toBeEnabled();
