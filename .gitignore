@@ -15,6 +15,7 @@ out/
 coverage/
 playwright-report/
 test-results/
+web/.e2e-server/
 *.tsbuildinfo
 
 # Local data
