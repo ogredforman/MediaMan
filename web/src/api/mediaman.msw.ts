@@ -5,7 +5,7 @@
  * Conventions shared by every operation:
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
- *   Only setup, login, invite redemption and health are unauthenticated (SPEC §9).
+ *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -38,11 +38,14 @@ import {
   getListAttentionFilesResponseMock,
   getListLibrariesResponseMock,
   getListTitlesResponseMock,
+  getLoginResponseMock,
+  getRefreshTokensResponseMock,
   getStartLibraryScanResponseMock
 } from './mediaman.faker';
 
 import type {
   AttentionFilePage,
+  AuthTokens,
   DevPlayStarted,
   EventEnvelope,
   Health,
@@ -52,7 +55,7 @@ import type {
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -62,6 +65,30 @@ export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Para
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getGetHealthResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getLoginMockHandler = (overrideResponse?: AuthTokens | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<AuthTokens> | AuthTokens), options?: RequestHandlerOptions) => {
+  return http.post('*/auth/login', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getLoginResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getRefreshTokensMockHandler = (overrideResponse?: AuthTokens | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<AuthTokens> | AuthTokens), options?: RequestHandlerOptions) => {
+  return http.post('*/auth/refresh', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getRefreshTokensResponseMock(),
       { status: 200
       })
   }, options)
@@ -165,6 +192,8 @@ export const getDevPlayMockHandler = (overrideResponse?: DevPlayStarted | ((info
 }
 export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
+  getLoginMockHandler(),
+  getRefreshTokensMockHandler(),
   getGetEventsMockHandler(),
   getListLibrariesMockHandler(),
   getStartLibraryScanMockHandler(),

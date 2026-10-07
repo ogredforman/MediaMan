@@ -363,7 +363,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - Passwords are hashed with Argon2id.
   - Tokens are signed with a per-install key.
   - Secrets the server must read back (TOTP secrets, SOCKS5 credentials) are encrypted at rest with the per-install key (ADR 0003).
-  - All endpoints are authenticated except setup, login, invite redemption and health.
+  - All endpoints are authenticated except setup, login (including token refresh), invite redemption and health.
   - Rate limiting on authentication.
   - Never logs secrets.
 - **Data portability:** a single SQLite file, the per-install key file and an artwork cache folder. Backup and restore are just copying files. Settings export and import as JSON.

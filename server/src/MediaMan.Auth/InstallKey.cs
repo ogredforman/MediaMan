@@ -15,6 +15,9 @@ public sealed class InstallKey
     /// <summary>Subkey for encrypting secrets at rest with <c>AesGcmSecretProtector</c>.</summary>
     public const string SecretsAtRest = "secrets-at-rest";
 
+    /// <summary>Subkey for signing access tokens (HS256) with <c>AccessTokens</c>.</summary>
+    public const string AccessTokens = "access-tokens";
+
     private readonly byte[] _key;
 
     private InstallKey(byte[] key) => _key = key;

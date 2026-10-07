@@ -5,7 +5,7 @@
  * Conventions shared by every operation:
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
- *   Only setup, login, invite redemption and health are unauthenticated (SPEC §9).
+ *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -33,6 +33,7 @@ import {
 } from './mediaman.schemas';
 import type {
   AttentionFilePage,
+  AuthTokens,
   DevPlayStarted,
   EventEnvelope,
   Health,
@@ -44,6 +45,10 @@ import type {
 
 
 export const getGetHealthResponseMock = (overrideResponse: Partial<Extract<Health, object>> = {}): Health => ({status: faker.helpers.arrayElement(['healthy'] as const), version: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
+
+export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+
+export const getRefreshTokensResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
 export const getGetEventsResponseMock = (overrideResponse: Partial<Extract<EventEnvelope, object>> = {}): EventEnvelope => ({id: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.fromRegExp("^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$"), at: faker.date.past().toISOString().slice(0, 19) + 'Z', data: {}, ...overrideResponse})
 
