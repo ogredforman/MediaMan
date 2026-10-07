@@ -2,13 +2,13 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-07
-- **PLAN task:** 2.3
+- **PLAN task:** 2.3, 2.3b
 
 ## Context
 
 SPEC §9 requires Argon2id password hashes, tokens signed with a per-install key, and secrets encrypted at rest
 with that key (ADR 0003). .NET has no built-in Argon2. One key serving several algorithms (AES-GCM now, HMAC token
-signatures and signed artwork URLs in PLAN 2.3b) must not let one use's output be valid for another.
+signatures in PLAN 2.3b and signed artwork URLs in 2.3c) must not let one use's output be valid for another.
 
 ## Options considered
 
@@ -30,10 +30,26 @@ Konscious Argon2id at OWASP's minimum (19 MiB, 2 iterations, 1 lane), stored as 
 (`$argon2id$v=19$m=…,t=…,p=…$salt$hash`) so the parameters can be raised later and old hashes still verify.
 The per-install key is 32 random bytes in `<DataDirectory>/mediaman.key`, created on first run (temp file, then
 an atomic move; owner-only on Unix) and never replaced if damaged, since a new key orphans every stored secret.
-Every use takes its own HKDF subkey: `secrets-at-rest` for `AesGcmSecretProtector` now, others for tokens in 2.3b.
+Every use takes its own HKDF subkey: `secrets-at-rest` for `AesGcmSecretProtector`, `access-tokens` for access tokens,
+and its own subkey for signed artwork URLs in 2.3c.
 
 The Superadmin is protected in the data layer: an EF `SaveChanges` interceptor on every context refuses to delete,
 demote, disable or change the role of the stored Superadmin row (SPEC §5, §7.11).
+
+## Sign-in tokens (PLAN 2.3b)
+
+- **Access tokens:** JWTs, HS256 on the `access-tokens` subkey, issuer and audience `mediaman`, carrying `sub` (user)
+  and `sid` (session), valid 15 minutes. Created and validated with **Microsoft.IdentityModel.JsonWebTokens** (MIT),
+  the library ASP.NET Core's JwtBearer handler is built on, rather than hand-rolled signing; JwtBearer validates them
+  with the same `TokenValidationParameters` in 2.3c. Lifetimes are checked against `IClock`, not the library's clock.
+- **Refresh tokens:** opaque `<session id>.<32 random bytes, base64url>`, valid 30 days and sliding: each refresh
+  replaces the token and restarts the 30 days. A `Session` row stores only its SHA-256 (the token is random, so a slow
+  hash adds nothing). Rotation is a conditional update on the current hash, so of two concurrent refreshes one wins.
+- **Reuse detection without history:** a token naming a live session but not matching its hash is a rotated one being
+  replayed (or a guess, which needs the session id from the owner's own tokens), and revokes the session. Clients must
+  therefore never refresh twice with one token, even concurrently (the web client single-flights it, PLAN 2.5).
+- **Login failures** don't distinguish an unknown user, a wrong password or a disabled account; an unknown user is
+  verified against a dummy Argon2 hash so timing doesn't either.
 
 ## Consequences
 

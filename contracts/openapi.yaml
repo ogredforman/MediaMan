@@ -7,7 +7,7 @@ info:
     Conventions shared by every operation:
 
     - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
-      Only setup, login, invite redemption and health are unauthenticated (SPEC §9).
+      Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
     - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
       `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
       The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -42,6 +42,79 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Signs in with a username and password and starts a session (SPEC §7.11).
+      description: |
+        Returns a short-lived access token for the `Authorization: Bearer` header and a refresh token for
+        `POST /auth/refresh`. Each sign-in is a session the user can later see and revoke.
+      tags: [auth]
+      security: []
+      x-permission: none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: |
+            The username or password is wrong, or the account is disabled (`auth.invalid_credentials`). The response
+            doesn't say which.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /auth/refresh:
+    post:
+      operationId: refreshTokens
+      summary: Exchanges a refresh token for a new access token and a new refresh token.
+      description: |
+        Part of signing in, so it's unauthenticated. The refresh token rotates: the one sent stops working and the
+        response carries its replacement, valid for 30 days from now. Sending a refresh token that was already
+        exchanged revokes its session, so a client must never refresh twice with the same token, even concurrently.
+      tags: [auth]
+      security: []
+      x-permission: none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: The session continues with new tokens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '401':
+          description: |
+            The refresh token is unknown, expired or already used, its session was revoked, or the account is disabled
+            (`auth.session_expired`). The user signs in again.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         default:
           $ref: '#/components/responses/Problem'
 
@@ -351,6 +424,51 @@ components:
         version:
           type: string
           description: Server version.
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+        deviceName:
+          type: string
+          maxLength: 100
+          description: How the session is listed, e.g. `Living room PC`. Defaults to the client's User-Agent.
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+          minLength: 1
+
+    AuthTokens:
+      type: object
+      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt]
+      additionalProperties: false
+      properties:
+        accessToken:
+          type: string
+          description: |
+            A JWT for the `Authorization: Bearer` header, valid for 15 minutes.
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+          description: |
+            Opaque. Store it securely: it's a credential. It works once, until `refreshTokenExpiresAt`.
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
 
     Problem:
       type: object

@@ -73,8 +73,21 @@ public static class ServerSetup
                 CryptographicOperations.ZeroMemory(key);
             }
         });
+        services.AddSingleton(sp =>
+        {
+            var key = sp.GetRequiredService<InstallKey>().Derive(InstallKey.AccessTokens);
+            try
+            {
+                return new AccessTokens(key, sp.GetRequiredService<IClock>());
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(key);
+            }
+        });
         services.AddSingleton(PasswordHasher.Default);
         services.AddScoped<AccountService>();
+        services.AddScoped<SessionService>();
     }
 
     /// <summary>
@@ -158,6 +171,7 @@ public static class ServerSetup
     public static WebApplication MapMediaManEndpoints(this WebApplication app)
     {
         app.MapHealthEndpoints();
+        app.MapAuthEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
         app.MapArtworkEndpoints();

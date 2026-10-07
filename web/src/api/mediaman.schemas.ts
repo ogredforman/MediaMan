@@ -5,7 +5,7 @@
  * Conventions shared by every operation:
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
- *   Only setup, login, invite redemption and health are unauthenticated (SPEC §9).
+ *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -32,6 +32,32 @@ export interface Health {
   status: HealthStatus;
   /** Server version. */
   version: string;
+}
+
+export interface LoginRequest {
+  /** @minLength 1 */
+  username: string;
+  /** @minLength 1 */
+  password: string;
+  /**
+     * How the session is listed, e.g. `Living room PC`. Defaults to the client's User-Agent.
+     * @maxLength 100
+     */
+  deviceName?: string;
+}
+
+export interface RefreshRequest {
+  /** @minLength 1 */
+  refreshToken: string;
+}
+
+export interface AuthTokens {
+  /** A JWT for the `Authorization: Bearer` header, valid for 15 minutes. */
+  accessToken: string;
+  accessTokenExpiresAt: string;
+  /** Opaque. Store it securely: it's a credential. It works once, until `refreshTokenExpiresAt`. */
+  refreshToken: string;
+  refreshTokenExpiresAt: string;
 }
 
 /**

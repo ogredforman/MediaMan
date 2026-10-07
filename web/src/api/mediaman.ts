@@ -5,7 +5,7 @@
  * Conventions shared by every operation:
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
- *   Only setup, login, invite redemption and health are unauthenticated (SPEC §9).
+ *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -42,6 +42,7 @@ import type {
 
 import type {
   AttentionFilePage,
+  AuthTokens,
   DevPlayStarted,
   EventEnvelope,
   Health,
@@ -50,8 +51,10 @@ import type {
   ListAttentionFilesParams,
   ListLibrariesParams,
   ListTitlesParams,
+  LoginRequest,
   Problem,
   ProblemResponse,
+  RefreshRequest,
   TitleDetail,
   TitlePage
 } from './mediaman.schemas';
@@ -179,6 +182,187 @@ export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TErr
 
 
 
+
+export const getLoginUrl = () => {
+
+
+
+
+  return `/auth/login`
+}
+
+/**
+ * Returns a short-lived access token for the `Authorization: Bearer` header and a refresh token for
+ * `POST /auth/refresh`. Each sign-in is a session the user can later see and revoke.
+ * @summary Signs in with a username and password and starts a session (SPEC §7.11).
+ */
+export const login = async (loginRequest: LoginRequest, options?: Parameters<typeof apiFetch>[1]): Promise<AuthTokens> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<AuthTokens>(getLoginUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(loginRequest)
+  }
+);}
+
+
+
+
+
+export const getLoginMutationKey = () => ['login'] as const;
+
+export const getLoginMutationOptions = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext> => {
+
+const mutationKey = getLoginMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof login>>, LoginMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  login(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type LoginMutationResult = NonNullable<Awaited<ReturnType<typeof login>>>
+    export type LoginMutationBody = LoginRequest
+    export type LoginMutationError = ErrorType<ProblemResponse | Problem>
+    export type LoginMutationVariables = {data: LoginRequest}
+
+    /**
+ * @summary Signs in with a username and password and starts a session (SPEC §7.11).
+ */
+export const useLogin = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof login>>, TError,LoginMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof login>>,
+        TError,
+        LoginMutationVariables,
+        TContext
+      > => {
+      return useMutation(getLoginMutationOptions(options), queryClient);
+    }
+
+export const getRefreshTokensUrl = () => {
+
+
+
+
+  return `/auth/refresh`
+}
+
+/**
+ * Part of signing in, so it's unauthenticated. The refresh token rotates: the one sent stops working and the
+ * response carries its replacement, valid for 30 days from now. Sending a refresh token that was already
+ * exchanged revokes its session, so a client must never refresh twice with the same token, even concurrently.
+ * @summary Exchanges a refresh token for a new access token and a new refresh token.
+ */
+export const refreshTokens = async (refreshRequest: RefreshRequest, options?: Parameters<typeof apiFetch>[1]): Promise<AuthTokens> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<AuthTokens>(getRefreshTokensUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(refreshRequest)
+  }
+);}
+
+
+
+
+
+export const getRefreshTokensMutationKey = () => ['refreshTokens'] as const;
+
+export const getRefreshTokensMutationOptions = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshTokens>>, TError,RefreshTokensMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshTokens>>, TError,RefreshTokensMutationVariables, TContext> => {
+
+const mutationKey = getRefreshTokensMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshTokens>>, RefreshTokensMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  refreshTokens(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshTokensMutationResult = NonNullable<Awaited<ReturnType<typeof refreshTokens>>>
+    export type RefreshTokensMutationBody = RefreshRequest
+    export type RefreshTokensMutationError = ErrorType<ProblemResponse | Problem>
+    export type RefreshTokensMutationVariables = {data: RefreshRequest}
+
+    /**
+ * @summary Exchanges a refresh token for a new access token and a new refresh token.
+ */
+export const useRefreshTokens = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshTokens>>, TError,RefreshTokensMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof refreshTokens>>,
+        TError,
+        RefreshTokensMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRefreshTokensMutationOptions(options), queryClient);
+    }
 
 export const getGetEventsUrl = () => {
 
