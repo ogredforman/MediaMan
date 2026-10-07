@@ -6,7 +6,7 @@ namespace MediaMan.Data;
 /// <summary>Entry point for hosting the database (ADR 0003).</summary>
 public static class MediaManDb
 {
-    /// <summary>Points the context at the SQLite file at <paramref name="databasePath"/> with WAL and foreign keys on.</summary>
+    /// <summary>Points the context at the SQLite file at <paramref name="databasePath"/> with WAL and foreign keys on and the Superadmin guarded.</summary>
     public static DbContextOptionsBuilder<MediaManDbContext> Configure(
         DbContextOptionsBuilder<MediaManDbContext> builder,
         string databasePath)
@@ -20,7 +20,7 @@ public static class MediaManDb
             ForeignKeys = true,
         }.ToString();
 
-        builder.UseSqlite(connectionString).AddInterceptors(SqlitePragmaInterceptor.Instance);
+        builder.UseSqlite(connectionString).AddInterceptors(SqlitePragmaInterceptor.Instance, SuperadminGuard.Instance);
         return builder;
     }
 

@@ -7,12 +7,16 @@ public sealed class MediaManOptions
 {
     public const string SectionName = "MediaMan";
     public const string DatabaseFileName = "mediaman.db";
+    public const string KeyFileName = "mediaman.key";
 
     /// <summary>Holds the database, the per-install key file and the artwork cache (SPEC §9 data portability).</summary>
     public string DataDirectory { get; set; } =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MediaMan");
 
     public string DatabasePath => Path.Combine(DataDirectory, DatabaseFileName);
+
+    /// <summary>The per-install key (ADR 0008). Back it up with the database: without it, stored secrets are unreadable.</summary>
+    public string KeyPath => Path.Combine(DataDirectory, KeyFileName);
 
     /// <summary>Dev configuration (SPEC §8 setup [P]); honoured only in the Development environment of a Debug build.</summary>
     public DevOptions Dev { get; set; } = new();

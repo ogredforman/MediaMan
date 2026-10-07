@@ -16,3 +16,4 @@ old one's status is changed to `Superseded by NNNN`.
 | 0004 | [Web stack versions and API codegen with Orval](0004-web-stack-and-api-codegen.md) | Accepted |
 | 0006 | [TMDB ids carry the title kind](0006-tmdb-ids-carry-kind.md) | Accepted |
 | 0007 | [Artwork cache, image fetching and decoding](0007-artwork-cache-and-image-decoding.md) | Accepted |
+| 0008 | [Per-install key, derived subkeys and Argon2id password hashing](0008-install-key-and-password-hashing.md) | Accepted |
