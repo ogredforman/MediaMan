@@ -50,6 +50,16 @@ describe('PosterGrid', () => {
     expect(within(region).queryByText('Arrival')).not.toBeInTheDocument();
   });
 
+  it('opens the detail page from a poster', async () => {
+    const user = userEvent.setup();
+    renderApp('/movies');
+    const region = await grid();
+
+    await user.click(await within(region).findByRole('link', { name: /Arrival/ }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Arrival' })).toBeInTheDocument();
+  });
+
   it('loads the next page when asked', async () => {
     const user = userEvent.setup();
     server.use(

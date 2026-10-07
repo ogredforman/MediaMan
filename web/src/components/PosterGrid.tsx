@@ -1,4 +1,5 @@
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { getListTitlesQueryKey, listTitles, useListLibraries } from '../api/mediaman';
 import type { TitleKind, TitlePage, TitleSummary } from '../api/mediaman.schemas';
 import type { ApiError } from '../lib/http';
@@ -11,8 +12,8 @@ const labels: Record<TitleKind, { heading: string; plural: string }> = {
 
 function PosterCard({ title }: { title: TitleSummary }) {
   return (
-    <div>
-      <div className="aspect-[2/3] overflow-hidden rounded-card bg-surface shadow-soft">
+    <Link to="/titles/$titleId" params={{ titleId: title.id }} className="group block rounded-card">
+      <div className="aspect-[2/3] overflow-hidden rounded-card bg-surface shadow-soft ring-highlight transition-shadow duration-(--motion-fast) group-hover:ring-2">
         {title.poster ? (
           <img src={title.poster.url} alt="" loading="lazy" className="h-full w-full object-cover" />
         ) : (
@@ -23,7 +24,7 @@ function PosterCard({ title }: { title: TitleSummary }) {
       </div>
       <p className="mt-2 truncate font-medium">{title.name}</p>
       {title.year !== undefined && <p className="text-sm text-fg-muted">{title.year}</p>}
-    </div>
+    </Link>
   );
 }
 
