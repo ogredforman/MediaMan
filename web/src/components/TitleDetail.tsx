@@ -233,9 +233,12 @@ function PlayButton({ playableId, label }: { playableId: string; label: string }
         onClick={() => {
           play.mutate({ playableId });
         }}
-        className="rounded-card bg-highlight px-5 py-2 font-semibold text-bg shadow-soft transition-colors hover:bg-fg disabled:opacity-60"
+        className="inline-flex items-center gap-2 rounded-card bg-highlight px-5 py-2 font-semibold text-bg shadow-soft transition-colors hover:bg-fg disabled:opacity-60"
       >
-        ▶ Play
+        <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+          <path d="M4 2.5v11a.5.5 0 0 0 .76.43l9-5.5a.5.5 0 0 0 0-.86l-9-5.5A.5.5 0 0 0 4 2.5Z" />
+        </svg>
+        Play
       </button>
       {play.isSuccess && (
         <p role="status" className="text-sm text-fg-muted">
