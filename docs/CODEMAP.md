@@ -58,9 +58,9 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - `web/src/api/`: Orval output from the contract (generated, do not edit). `web/src/lib/http.ts`: `apiFetch` mutator, `ApiError`, `setAccessTokenProvider`, `apiUrl`, `withAuth`.
 - `web/src/lib/events.ts`: `createSseParser` (pure, chunked SSE → `EventEnvelope`s) and `connectEvents({ onEvent, onOpen, signal })` (streams `GET /events` with fetch, reconnects with backoff).
   `web/src/lib/useLiveScanProgress.ts`: root-layout hook applying `scan.progress` to the libraries cache (`applyLibraryUpdate`); a finished scan invalidates `/titles`.
-- `web/src/mocks/`: `handlers.ts` (deterministic `mockHealth`, `mockLibrary`, `mockTitles`, `createEventStream()` SSE handler with `send`, then generated handlers), `browser.ts` (dev mock mode; a Scan click plays a fake scan over SSE), `node.ts` (Vitest).
-- `web/src/routes/`: file routes (`__root.tsx`, `index.tsx`, `movies.tsx`, `shows.tsx`); `routeTree.gen.ts` is generated.
-- `web/src/components/AppShell.tsx`: themed shell (nav, `ScanStatus`, server status). `ScanStatus.tsx`: per-library scan state + `ScanLibraryButton`. `PosterGrid.tsx`: paged Movies/Shows grid (`useInfiniteQuery` over `listTitles`). `web/src/theme/theme.css`: SPEC §11 tokens for Tailwind.
+- `web/src/mocks/`: `handlers.ts` (deterministic `mockHealth`, `mockLibrary`, `mockTitles`, `mockTitleDetails` (a 404 for unknown ids), `createEventStream()` SSE handler with `send`, then generated handlers), `browser.ts` (dev mock mode; a Scan click plays a fake scan over SSE), `node.ts` (Vitest).
+- `web/src/routes/`: file routes (`__root.tsx`, `index.tsx`, `movies.tsx`, `shows.tsx`, `titles.$titleId.tsx`); `routeTree.gen.ts` is generated.
+- `web/src/components/AppShell.tsx`: themed shell (nav, `ScanStatus`, server status). `ScanStatus.tsx`: per-library scan state + `ScanLibraryButton`. `PosterGrid.tsx`: paged Movies/Shows grid (`useInfiniteQuery` over `listTitles`), cards link to the detail page. `TitleDetail.tsx`: detail page (tinted hero, versions, season tabs, episode list) over `useGetTitle`. `web/src/lib/mediaFormat.ts`: `formatDuration`, `formatSize`, `resolutionLabel`, `versionTags`. `web/src/theme/theme.css`: SPEC §11 tokens for Tailwind.
 - `desktop/src/main/`: `window.ts` (`resolveUiUrl`, `mainWindowOptions`, navigation guards), `player.ts` (`IPlayer`), `serverProcess.ts` (`IServerProcess`).
 - `desktop/mpv/`: `mpv.conf` and `osc.lua` placeholders.
 

@@ -75,7 +75,7 @@ and unpredictability.
 - [x] **1.9** Add the library browse API to the contract and server: list libraries, browse titles (movies/shows), and title detail with seasons, episodes and versions. Add conformance tests (SPEC §7.2, §10.1).
 - [x] **1.9b** Add scanning to the library API: trigger a scan (a background worker runs scan → match → import), scan progress over SSE with the current scan state on each Library, and a read-only list of a library's NeedsAttention files with their reason, parsed guess and MatchReview candidates. Add conformance tests and an end-to-end scan test on the fakes (SPEC §7.2, §10.1).
 - [x] **1.10** Build the web app shell (navigation and theme) and the Movies/Shows poster grid, with live scan progress (SPEC §11). Add component tests with MSW.
-- [ ] **1.11** Build the web title detail page: backdrop hero, metadata, season tabs, an episode list with stills, and the versions list (SPEC §8 browsing [P], §11). Add component tests with MSW.
+- [x] **1.11** Build the web title detail page: backdrop hero, metadata, season tabs, an episode list with stills, and the versions list (SPEC §8 browsing [P], §11). Add component tests with MSW.
 - [ ] **1.12** Add the dev-only play endpoint, which launches MPV on the server host for a Playable's file. It's registered only in the dev configuration and returns 404 otherwise (SPEC §8 playback [P], §13). Wire the Play button. Add a Playwright test for browse → detail → Play against the server running on fakes.
 
 **Exit criteria:**
