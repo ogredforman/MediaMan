@@ -6,7 +6,7 @@ import {
   getMediaManAPIMock,
   getStartLibraryScanMockHandler,
 } from '../api/mediaman.msw';
-import type { Library, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
+import type { Library, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
 
 export const mockHealth = { status: 'healthy', version: '0.0.0-mock' } as const;
 
@@ -29,6 +29,7 @@ export const mockTitles: TitleSummary[] = [
 
 const [arrival, dune, office] = mockTitles as [TitleSummary, TitleSummary, TitleSummary];
 const episodeId = (n: number) => `01920000-0000-7000-8000-${String(300 + n).padStart(12, '0')}`;
+const episodePlayableId = (n: number) => `01920000-0000-7000-8000-${String(700 + n).padStart(12, '0')}`;
 const fileId = (n: number) => `01920000-0000-7000-8000-${String(400 + n).padStart(12, '0')}`;
 
 /** Detail for each of `mockTitles`: a movie with two versions (one missing), and a show with specials, a multi-episode file and an episode no file holds. */
@@ -93,6 +94,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             id: episodeId(0),
             number: 1,
             name: 'The Accountants',
+            playableId: episodePlayableId(0),
             versions: [
               { mediaFileId: fileId(10), fileName: 'The Office S00E01.mkv', sizeBytes: 90_000_000, status: 'matched', part: 1 },
             ],
@@ -107,6 +109,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             id: episodeId(1),
             number: 1,
             name: 'Pilot',
+            playableId: episodePlayableId(1),
             airDate: '2005-03-24',
             overview: 'A documentary crew arrives at the Scranton branch.',
             versions: [
@@ -117,6 +120,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             id: episodeId(2),
             number: 2,
             name: 'Diversity Day',
+            playableId: episodePlayableId(2),
             airDate: '2005-03-29',
             versions: [
               { mediaFileId: fileId(11), fileName: 'The.Office.S01E01-E02.720p.WEB-DL.mkv', sizeBytes: 900_000_000, status: 'matched', part: 2, width: 1280, height: 720, source: 'WEB-DL' },
@@ -133,6 +137,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             id: episodeId(4),
             number: 1,
             name: 'The Dundies',
+            playableId: episodePlayableId(4),
             versions: [
               { mediaFileId: fileId(12), fileName: 'The.Office.S02E01.mkv', sizeBytes: 400_000_000, status: 'matched', part: 1 },
             ],
@@ -189,6 +194,17 @@ export function createEventStream() {
 
 export const mockEvents = createEventStream();
 
+/** The versions of a Playable across the mock titles, or undefined for an unknown Playable. */
+function mockVersionsOf(playableId: string): MediaVersion[] | undefined {
+  for (const detail of Object.values(mockTitleDetails)) {
+    if (detail.playable?.id === playableId) return detail.playable.versions;
+    for (const episode of (detail.seasons ?? []).flatMap((s) => s.episodes)) {
+      if (episode.playableId === playableId) return episode.versions;
+    }
+  }
+  return undefined;
+}
+
 // Deterministic overrides first (MSW uses the first matching handler), then the generated defaults.
 export const handlers = [
   getGetHealthMockHandler(mockHealth),
@@ -210,6 +226,21 @@ export const handlers = [
             code: 'title.not_found',
             detail: "This title isn't in the library. It may have been removed or re-matched.",
             action: 'Go back to Movies or Shows and pick it again.',
+          },
+          { status: 404 },
+        );
+  }),
+  http.post('*/dev/playables/:playableId/play', ({ params }) => {
+    const version = mockVersionsOf(String(params.playableId))?.find((v) => v.status !== 'missing');
+    return version
+      ? HttpResponse.json({ mediaFileId: version.mediaFileId, fileName: version.fileName }, { status: 202 })
+      : HttpResponse.json(
+          {
+            title: 'Nothing to play here.',
+            status: 404,
+            code: 'playable.not_found',
+            detail: "This movie or episode doesn't exist any more. A rescan may have removed it.",
+            action: 'Go back to the title and try again.',
           },
           { status: 404 },
         );

@@ -199,6 +199,55 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /dev/playables/{playableId}/play:
+    post:
+      operationId: devPlay
+      summary: "Prototype only: launches MPV on the server's own host for one of the Playable's files."
+      description: |
+        Dev-only (`x-dev-only`, SPEC §8 playback [P], §13). The server maps it only in the dev configuration of a
+        Debug build; everywhere else it returns `404`. It never ships, and it's removed when the desktop app plays
+        through `POST /playback/sessions` and `IPlayer` (SPEC §7.4). The server picks the best available version:
+        files that aren't `missing` first, then the highest resolution, then the largest.
+      tags: [dev]
+      x-permission: library.view
+      x-dev-only: true
+      parameters:
+        - name: playableId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '202':
+          description: MPV was launched on the server's host with the chosen file.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DevPlayStarted'
+        '404':
+          description: |
+            The Playable doesn't exist (`playable.not_found`), or the server isn't running the dev configuration
+            (`not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: None of the Playable's files is available to play (`playback.no_file`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          description: MPV couldn't be started on the server's host (`playback.player_unavailable`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -752,6 +801,19 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MediaVersion'
+
+    DevPlayStarted:
+      type: object
+      description: The file MPV was launched with (dev-only, see `devPlay`).
+      required: [mediaFileId, fileName]
+      additionalProperties: false
+      properties:
+        mediaFileId:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+          description: The file's name, without its folder.
 
     MediaVersion:
       type: object

@@ -34,7 +34,7 @@ public sealed class ContractCoverageTests
     {
         var routes = await MappedRoutesAsync();
 
-        foreach (var operation in ContractDocument.Instance.Operations)
+        foreach (var operation in ContractDocument.Instance.Operations.Where(o => !o.DevOnly))
         {
             routes.Should().Contain(r => r.Method == operation.Method && r.Path == operation.Path, $"{operation} is in the contract");
         }
@@ -66,9 +66,21 @@ public sealed class ContractCoverageTests
         }
     }
 
-    private static async Task<List<(string Method, string Path, string? Permission)>> MappedRoutesAsync()
+    [Fact]
+    public async Task Dev_only_operations_are_not_mapped_outside_the_dev_configuration()
     {
-        await using var factory = new MediaManFactory();
+        var routes = await MappedRoutesAsync();
+
+        foreach (var operation in ContractDocument.Instance.Operations.Where(o => o.DevOnly))
+        {
+            routes.Should().NotContain(r => r.Method == operation.Method && r.Path == operation.Path, $"{operation} is dev-only (SPEC §13)");
+        }
+    }
+
+    internal static async Task<List<(string Method, string Path, string? Permission)>> MappedRoutesAsync(MediaManFactory? factory = null)
+    {
+        await using var owned = factory is null ? new MediaManFactory() : null;
+        factory ??= owned!;
         _ = factory.Server;
         var source = factory.Services.GetRequiredService<EndpointDataSource>();
 

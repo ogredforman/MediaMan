@@ -11,6 +11,11 @@
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>
 
+  <!-- Release builds of the server don't contain Dev/ (SPEC §13), so the tests of its dev-only types can't compile there. -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="DevPlayTests.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="..\..\..\contracts\openapi.yaml" Link="contracts\openapi.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
