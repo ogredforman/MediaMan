@@ -4,6 +4,7 @@ public class ExternalIdTests
 {
     [Theory]
     [InlineData("tmdb:603", "tmdb", "603")]
+    [InlineData("tmdb:movie/603", "tmdb", "movie/603")]
     [InlineData("imdb:tt0133093", "imdb", "tt0133093")]
     [InlineData("TMDB:603", "tmdb", "603")]
     [InlineData("anilist:21:extra", "anilist", "21:extra")]

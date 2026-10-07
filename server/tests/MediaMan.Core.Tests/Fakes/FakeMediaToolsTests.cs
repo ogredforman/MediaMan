@@ -25,13 +25,13 @@ public sealed class FakeMediaToolsTests : IDisposable
     [Fact]
     public async Task Artwork_returns_added_refs_or_none_and_records_requests()
     {
-        var matrix = ExternalId.Parse("tmdb:603");
+        var matrix = ExternalId.Parse("tmdb:movie/603");
         var poster = new ArtworkRef(ArtworkType.Poster, "https://images.invalid/fanart/603.jpg", "en");
         var provider = new FakeArtworkProvider().Add(matrix, poster);
 
         (await provider.GetArtworkAsync(matrix, Ct)).Should().Equal(poster);
-        (await provider.GetArtworkAsync(ExternalId.Parse("tmdb:1"), Ct)).Should().BeEmpty();
-        provider.Requests.Should().Equal(matrix, ExternalId.Parse("tmdb:1"));
+        (await provider.GetArtworkAsync(ExternalId.Parse("tmdb:movie/1"), Ct)).Should().BeEmpty();
+        provider.Requests.Should().Equal(matrix, ExternalId.Parse("tmdb:movie/1"));
     }
 
     [Fact]

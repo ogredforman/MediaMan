@@ -39,7 +39,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
     overview: 'A linguist works with the military to communicate with alien lifeforms.',
     runtimeMinutes: 116,
     rating: 7.9,
-    externalIds: { tmdb: '329865' },
+    externalIds: { tmdb: 'movie/329865' },
     playable: {
       id: '01920000-0000-7000-8000-000000000501',
       versions: [
@@ -78,13 +78,13 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
   [dune.id]: {
     ...dune,
     runtimeMinutes: 155,
-    externalIds: { tmdb: '438631' },
+    externalIds: { tmdb: 'movie/438631' },
     playable: { id: '01920000-0000-7000-8000-000000000502', versions: [] },
   },
   [office.id]: {
     ...office,
     overview: 'A mockumentary on a group of typical office workers.',
-    externalIds: { tmdb: '2316' },
+    externalIds: { tmdb: 'tv/2316' },
     seasons: [
       {
         id: '01920000-0000-7000-8000-000000000600',

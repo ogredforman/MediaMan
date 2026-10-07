@@ -7,7 +7,7 @@ namespace MediaMan.Library.Tests;
 
 public sealed class MatchScorerTests
 {
-    private static readonly ExternalId _showId = new(ExternalProviders.Tmdb, "1");
+    private static readonly ExternalId _showId = new(ExternalProviders.Tmdb, "tv/1");
 
     private static readonly TitleDetails _show = new()
     {

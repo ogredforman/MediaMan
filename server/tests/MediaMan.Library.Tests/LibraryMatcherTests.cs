@@ -53,7 +53,7 @@ public sealed class LibraryMatcherTests : IAsyncLifetime
 
         var decision = result.Decisions.Should().ContainSingle().Subject;
         decision.MediaFileId.Should().Be(file);
-        decision.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, tmdbId));
+        decision.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, $"movie/{tmdbId}"));
         decision.Kind.Should().Be(TitleKind.Movie);
         decision.Score.Should().BeGreaterThanOrEqualTo(0.85);
         (await FileAsync(file)).Status.Should().Be(MediaFileStatus.Pending, "the importer marks it Matched once linked");
@@ -69,7 +69,7 @@ public sealed class LibraryMatcherTests : IAsyncLifetime
 
         var result = await MatchAsync();
 
-        result.Decisions.Should().ContainSingle().Which.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, tmdbId));
+        result.Decisions.Should().ContainSingle().Which.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, $"movie/{tmdbId}"));
     }
 
     [Theory]
@@ -87,7 +87,7 @@ public sealed class LibraryMatcherTests : IAsyncLifetime
         var result = await MatchAsync();
 
         var decision = result.Decisions.Should().ContainSingle().Subject;
-        decision.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, tmdbId));
+        decision.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, $"tv/{tmdbId}"));
         decision.Kind.Should().Be(TitleKind.Show);
         decision.Season.Should().Be(season);
         decision.Episodes.Should().Equal(episode);
@@ -101,15 +101,15 @@ public sealed class LibraryMatcherTests : IAsyncLifetime
         var result = await MatchAsync();
 
         var decision = result.Decisions.Should().ContainSingle().Subject;
-        decision.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, "37854"));
+        decision.TitleRef.Should().Be(new ExternalId(ExternalProviders.Tmdb, "tv/37854"));
         decision.AbsoluteEpisode.Should().Be(20);
     }
 
     [Theory]
-    [InlineData("Movies/Dune.mkv", LibraryMatcher.AmbiguousReason, new[] { "438631", "841" })]
-    [InlineData("Movies/Ghostbusters.mkv", LibraryMatcher.AmbiguousReason, new[] { "43074", "620" })]
-    [InlineData("Shows/The Office/Season 1/The.Office.S01E01.mkv", LibraryMatcher.AmbiguousReason, new[] { "2316", "2996" })]
-    [InlineData("Shows/Breaking Bad/Season 5/Breaking.Bad.S05E01.mkv", LibraryMatcher.LowConfidenceReason, new[] { "1396" })]
+    [InlineData("Movies/Dune.mkv", LibraryMatcher.AmbiguousReason, new[] { "movie/438631", "movie/841" })]
+    [InlineData("Movies/Ghostbusters.mkv", LibraryMatcher.AmbiguousReason, new[] { "movie/43074", "movie/620" })]
+    [InlineData("Shows/The Office/Season 1/The.Office.S01E01.mkv", LibraryMatcher.AmbiguousReason, new[] { "tv/2316", "tv/2996" })]
+    [InlineData("Shows/Breaking Bad/Season 5/Breaking.Bad.S05E01.mkv", LibraryMatcher.LowConfidenceReason, new[] { "tv/1396" })]
     [InlineData("Movies/Heat.1995.1080p.mkv", LibraryMatcher.NoMatchReason, new string[0])]
     public async Task Unsure_matches_go_to_review_with_the_top_candidates(string path, string reason, string[] candidateIds)
     {
@@ -224,7 +224,7 @@ public sealed class LibraryMatcherTests : IAsyncLifetime
 
         var result = await MatchAsync();
 
-        result.Decisions.Should().ContainSingle().Which.TitleRef.Value.Should().Be("1396");
+        result.Decisions.Should().ContainSingle().Which.TitleRef.Value.Should().Be("tv/1396");
         result.Deferred.Should().Be(0);
     }
 

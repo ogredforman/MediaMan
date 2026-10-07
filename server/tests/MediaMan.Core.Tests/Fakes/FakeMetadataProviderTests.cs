@@ -26,7 +26,7 @@ public class FakeMetadataProviderTests
         var results = await _provider.SearchAsync(new TitleQuery("The Lion King", 2020, TitleKind.Movie), Ct);
 
         results.Select(r => (r.Name, r.Year)).Should().Equal(("The Lion King", 2019), ("The Lion King", 1994));
-        results[0].Id.Should().Be(ExternalId.Parse("tmdb:420818"));
+        results[0].Id.Should().Be(ExternalId.Parse("tmdb:movie/420818"));
         results[0].PosterUrl.Should().Be("https://images.invalid/tmdb/420818/poster.jpg");
     }
 
@@ -53,9 +53,9 @@ public class FakeMetadataProviderTests
     [Fact]
     public async Task Title_and_season_details_include_specials_and_absolute_numbers()
     {
-        var doctorWho = await _provider.GetTitleAsync(ExternalId.Parse("tmdb:57243"), Ct);
+        var doctorWho = await _provider.GetTitleAsync(ExternalId.Parse("tmdb:tv/57243"), Ct);
         var specials = await _provider.GetSeasonAsync(doctorWho.Id, 0, Ct);
-        var onePiece = await _provider.GetSeasonAsync(ExternalId.Parse("tmdb:37854"), 2, Ct);
+        var onePiece = await _provider.GetSeasonAsync(ExternalId.Parse("tmdb:tv/37854"), 2, Ct);
 
         doctorWho.Kind.Should().Be(TitleKind.Show);
         doctorWho.Seasons.Select(s => s.Number).Should().Equal(0, 1, 2);
@@ -68,8 +68,8 @@ public class FakeMetadataProviderTests
     [Fact]
     public async Task Unknown_ids_and_seasons_throw_not_found()
     {
-        var unknownTitle = () => _provider.GetTitleAsync(ExternalId.Parse("tmdb:999999999"), Ct);
-        var unknownSeason = () => _provider.GetSeasonAsync(ExternalId.Parse("tmdb:1396"), 99, Ct);
+        var unknownTitle = () => _provider.GetTitleAsync(ExternalId.Parse("tmdb:movie/999999999"), Ct);
+        var unknownSeason = () => _provider.GetSeasonAsync(ExternalId.Parse("tmdb:tv/1396"), 99, Ct);
 
         await unknownTitle.Should().ThrowAsync<KeyNotFoundException>();
         await unknownSeason.Should().ThrowAsync<KeyNotFoundException>();
@@ -83,7 +83,7 @@ public class FakeMetadataProviderTests
         var query = new TitleQuery("Dune", null, null);
 
         await FluentActions.Awaiting(() => _provider.SearchAsync(query, Ct)).Should().ThrowAsync<TimeoutException>();
-        (await FluentActions.Awaiting(() => _provider.GetTitleAsync(ExternalId.Parse("tmdb:841"), Ct))
+        (await FluentActions.Awaiting(() => _provider.GetTitleAsync(ExternalId.Parse("tmdb:movie/841"), Ct))
             .Should().ThrowAsync<HttpRequestException>()).Which.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
         (await _provider.SearchAsync(query, Ct)).Should().HaveCount(2);
     }
@@ -92,7 +92,7 @@ public class FakeMetadataProviderTests
     public async Task Season_errors_hit_only_season_calls()
     {
         _provider.FailNextSeason(FakeProviderError.Timeout);
-        var show = ExternalId.Parse("tmdb:19885");
+        var show = ExternalId.Parse("tmdb:tv/19885");
 
         await _provider.GetTitleAsync(show, Ct);
         await FluentActions.Awaiting(() => _provider.GetSeasonAsync(show, 1, Ct)).Should().ThrowAsync<TimeoutException>();
@@ -106,12 +106,12 @@ public class FakeMetadataProviderTests
         var query = new TitleQuery("Sherlock", 2010, TitleKind.Show);
 
         await FluentActions.Awaiting(() => _provider.SearchAsync(query, Ct)).Should().ThrowAsync<TimeoutException>();
-        await _provider.GetTitleAsync(ExternalId.Parse("tmdb:19885"), Ct);
-        await _provider.GetSeasonAsync(ExternalId.Parse("tmdb:19885"), 1, Ct);
+        await _provider.GetTitleAsync(ExternalId.Parse("tmdb:tv/19885"), Ct);
+        await _provider.GetSeasonAsync(ExternalId.Parse("tmdb:tv/19885"), 1, Ct);
 
         _provider.SearchQueries.Should().Equal(query);
-        _provider.TitleRequests.Should().Equal(ExternalId.Parse("tmdb:19885"));
-        _provider.SeasonRequests.Should().Equal((ExternalId.Parse("tmdb:19885"), 1));
+        _provider.TitleRequests.Should().Equal(ExternalId.Parse("tmdb:tv/19885"));
+        _provider.SeasonRequests.Should().Equal((ExternalId.Parse("tmdb:tv/19885"), 1));
     }
 
     [Fact]

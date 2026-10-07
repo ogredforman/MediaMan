@@ -1,9 +1,11 @@
 using System.Text.Json.Serialization;
 using MediaMan.Core;
+using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Library.Importing;
 using MediaMan.Library.Matching;
 using MediaMan.Library.Scanning;
+using MediaMan.Metadata.Tmdb;
 #if MEDIAMAN_DEV
 using MediaMan.Server.Dev;
 #endif
@@ -38,6 +40,7 @@ public static class ServerSetup
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
         services.AddScoped<LibraryQueries>();
+        AddMetadata(services);
         AddScanning(services);
 
         // Hosted services start in registration order: the schema exists before anything seeds it.
@@ -48,7 +51,33 @@ public static class ServerSetup
     }
 
     /// <summary>
-    /// The scan pipeline. Its providers are registered only by the dev configuration until Stage 2, so the pipeline is
+    /// TMDB is the metadata provider (SPEC §8 metadata [M]). It owns one long-lived HttpClient that recycles pooled
+    /// connections, and logs nothing, so neither the token nor the requests reach the logs (SPEC §9).
+    /// </summary>
+    private static void AddMetadata(IServiceCollection services)
+    {
+        services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<MediaManOptions>>().Value;
+            var http = new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(15) })
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+            };
+            return new TmdbMetadataProvider(
+                http,
+                new TmdbOptions
+                {
+                    AccessToken = options.Metadata.Tmdb.AccessToken,
+                    Language = options.Metadata.Tmdb.Language,
+                    CacheDirectory = Path.Combine(options.DataDirectory, "cache", "tmdb"),
+                },
+                sp.GetRequiredService<IClock>());
+        });
+        services.AddSingleton<IMetadataProvider>(sp => sp.GetRequiredService<TmdbMetadataProvider>());
+    }
+
+    /// <summary>
+    /// The scan pipeline. The media probe is registered only by the dev configuration for now, so the pipeline is
     /// built through factories, which DI's build-time validation skips; <see cref="ScanCoordinator.IsAvailable"/> gates use.
     /// </summary>
     private static void AddScanning(IServiceCollection services)

@@ -611,7 +611,7 @@ components:
       properties:
         titleRef:
           type: string
-          description: The candidate's provider id as `provider:value`, e.g. `tmdb:603`.
+          description: The candidate's provider id as `provider:value`, e.g. `tmdb:movie/603` or `tmdb:tv/1396` (TMDB ids carry the kind, ADR 0006).
         score:
           type: number
           minimum: 0
@@ -652,6 +652,7 @@ components:
       properties:
         tmdb:
           type: string
+          description: The TMDB id with its kind, `movie/603` or `tv/1396` (ADR 0006).
         imdb:
           type: string
         tvdb:

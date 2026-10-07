@@ -1,0 +1,111 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/tlm8UkiQsitc8rSuIAscQDCnP8d.jpg",
+      "genre_ids": [
+        28,
+        878
+      ],
+      "id": 603,
+      "title": "The Matrix",
+      "original_language": "en",
+      "original_title": "The Matrix",
+      "overview": "Set in the 22nd century, The Matrix tells the story of a computer hacker who joins a group of underground insurgents fighting the vast and powerful computers who now rule the earth.",
+      "popularity": 50.3631,
+      "poster_path": "/dXNAPwY7VrqMAo51EKhhCJfaGb5.jpg",
+      "release_date": "1999-03-31",
+      "softcore": false,
+      "video": false,
+      "vote_average": 8.3,
+      "vote_count": 28892
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/ihOJcrorpDQtHTzIOrobbOhpJsj.jpg",
+      "genre_ids": [
+        12,
+        28,
+        53,
+        878
+      ],
+      "id": 604,
+      "title": "The Matrix Reloaded",
+      "original_language": "en",
+      "original_title": "The Matrix Reloaded",
+      "overview": "The Resistance builds in numbers as humans are freed from the Matrix and brought to the city of Zion. Neo discovers his superpowers, including the ability to see the code inside the Matrix. With machine sentinels digging to Zion in 72 hours, Neo, Morpheus and Trinity must find the Keymaker to ultimately reach the Source.",
+      "popularity": 24.8729,
+      "poster_path": "/8xEVAe84zlL9rkfYT6dZXero4KK.jpg",
+      "release_date": "2003-05-15",
+      "softcore": false,
+      "video": false,
+      "vote_average": 7.086,
+      "vote_count": 12378
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/533xAMhhVyjTy8hwMUFEt5TuDfR.jpg",
+      "genre_ids": [
+        12,
+        28,
+        53,
+        878
+      ],
+      "id": 605,
+      "title": "The Matrix Revolutions",
+      "original_language": "en",
+      "original_title": "The Matrix Revolutions",
+      "overview": "The human city of Zion defends itself against the massive invasion of the machines as Neo fights to end the war at another front while also opposing the rogue Agent Smith.",
+      "popularity": 20.6822,
+      "poster_path": "/qEWiBXJGXK28jGBAm8oFKKTB0WD.jpg",
+      "release_date": "2003-11-05",
+      "softcore": false,
+      "video": false,
+      "vote_average": 6.76,
+      "vote_count": 11190
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/eNI7PtK6DEYgZmHWP9gQNuff8pv.jpg",
+      "genre_ids": [
+        878,
+        28,
+        12
+      ],
+      "id": 624860,
+      "title": "The Matrix Resurrections",
+      "original_language": "en",
+      "original_title": "The Matrix Resurrections",
+      "overview": "Plagued by strange memories, Neo's life takes an unexpected turn when he finds himself back inside the Matrix.",
+      "popularity": 13.5007,
+      "poster_path": "/8c4a8kE7PizaGQQnditMmI1xbRp.jpg",
+      "release_date": "2021-12-16",
+      "softcore": false,
+      "video": false,
+      "vote_average": 6.3,
+      "vote_count": 6766
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/2P3FyI9ZTe9duRIGpGPiDC3mQMf.jpg",
+      "genre_ids": [
+        99
+      ],
+      "id": 1217455,
+      "title": "The Matrix: Generation",
+      "original_language": "fr",
+      "original_title": "Matrix génération",
+      "overview": "After the 1999 premiere of the first Matrix movie, it became a pop culture phenomenon. A special documentary about the Matrix saga and its prophetic aspects.",
+      "popularity": 2.5877,
+      "poster_path": "/53McB8R9RUBxfINRxWaPwUMtL5Q.jpg",
+      "release_date": "2023-12-13",
+      "softcore": false,
+      "video": false,
+      "vote_average": 6.9,
+      "vote_count": 25
+    }
+  ],
+  "total_pages": 3,
+  "total_results": 56
+}

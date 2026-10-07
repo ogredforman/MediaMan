@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\MediaMan.Metadata\MediaMan.Metadata.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../fixtures/tmdb/*.json" LinkBase="fixtures/tmdb" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

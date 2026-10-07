@@ -14,3 +14,4 @@ old one's status is changed to `Superseded by NNNN`.
 | 0002 | [Entity ids are UUIDv7; Playable and Artwork owners use explicit FKs](0002-entity-ids-and-playable.md) | Accepted |
 | 0003 | [SQLite storage conventions and secrets at rest](0003-sqlite-storage-conventions.md) | Accepted |
 | 0004 | [Web stack versions and API codegen with Orval](0004-web-stack-and-api-codegen.md) | Accepted |
+| 0006 | [TMDB ids carry the title kind](0006-tmdb-ids-carry-kind.md) | Accepted |

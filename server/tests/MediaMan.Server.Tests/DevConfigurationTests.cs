@@ -2,6 +2,7 @@ using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Fakes;
+using MediaMan.Metadata.Tmdb;
 using MediaMan.Playback.Probing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,12 +93,20 @@ public sealed class DevConfigurationTests : IDisposable
     [Fact]
     public async Task Choosing_a_real_provider_that_does_not_exist_yet_fails_with_the_fix()
     {
-        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:Providers:Metadata"] = "Real" });
+        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:Providers:Artwork"] = "Real" });
 
         var start = () => factory.Services;
 
         start.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Metadata*PLAN 2.1*Set MediaMan:Dev:Providers:Metadata to Fake*");
+            .WithMessage("*Artwork*PLAN 2.2*Set MediaMan:Dev:Providers:Artwork to Fake*");
+    }
+
+    [Fact]
+    public async Task Choosing_the_real_metadata_provider_registers_tmdb()
+    {
+        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:Providers:Metadata"] = "Real" });
+
+        factory.Services.GetRequiredService<IMetadataProvider>().Should().BeOfType<TmdbMetadataProvider>();
     }
 
     [Fact]
@@ -121,7 +130,7 @@ public sealed class DevConfigurationTests : IDisposable
     }
 
     [Fact]
-    public async Task Outside_development_no_library_or_provider_is_registered()
+    public async Task Outside_development_no_library_or_fake_is_registered()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var factory = new MediaManFactory(
@@ -129,6 +138,7 @@ public sealed class DevConfigurationTests : IDisposable
             new Dictionary<string, string> { ["MediaMan:Dev:MediaPath"] = _mediaPath });
 
         (await LibrariesAsync(factory, ct)).Should().BeEmpty();
-        factory.Services.GetService<IMetadataProvider>().Should().BeNull();
+        factory.Services.GetRequiredService<IMetadataProvider>().Should().BeOfType<TmdbMetadataProvider>();
+        factory.Services.GetService<IMediaProbe>().Should().BeNull();
     }
 }

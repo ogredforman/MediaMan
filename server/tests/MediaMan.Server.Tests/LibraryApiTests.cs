@@ -105,7 +105,7 @@ public sealed class LibraryApiTests : IAsyncLifetime
 
         alien.Overview.Should().Be("In space, no one can hear you scream.");
         alien.RuntimeMinutes.Should().Be(117);
-        alien.ExternalIds.Tmdb.Should().Be("348");
+        alien.ExternalIds.Tmdb.Should().Be("movie/348");
         alien.Backdrop!.Url.Should().Be("https://img.example/alien-backdrop.jpg");
         alien.Logo.Should().BeNull();
         alien.Seasons.Should().BeNull();
@@ -228,7 +228,7 @@ public sealed class LibraryApiTests : IAsyncLifetime
             title.RuntimeMinutes = 117;
             title.Rating = 8.2;
             title.Genres = ["Horror", "Science Fiction"];
-            title.ExternalIds.Tmdb = "348";
+            title.ExternalIds.Tmdb = "movie/348";
             db.Artwork.AddRange(
                 new Artwork { Id = Guid.CreateVersion7(), TitleId = alien.TitleId, Type = ArtworkType.Poster, Url = "https://img.example/alien-poster.jpg", DominantColor = "#112233" },
                 new Artwork { Id = Guid.CreateVersion7(), TitleId = alien.TitleId, Type = ArtworkType.Backdrop, Url = "https://img.example/alien-backdrop.jpg" });

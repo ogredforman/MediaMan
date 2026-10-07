@@ -273,7 +273,7 @@ export const TitleKind = {
 } as const;
 
 export interface MatchCandidate {
-  /** The candidate's provider id as `provider:value`, e.g. `tmdb:603`. */
+  /** The candidate's provider id as `provider:value`, e.g. `tmdb:movie/603` or `tmdb:tv/1396` (TMDB ids carry the kind, ADR 0006). */
   titleRef: string;
   /**
      * @minimum 0
@@ -341,6 +341,7 @@ export interface ArtworkRef {
  * The title's ids at metadata providers. Any may be absent.
  */
 export interface ExternalIds {
+  /** The TMDB id with its kind, `movie/603` or `tv/1396` (ADR 0006). */
   tmdb?: string;
   imdb?: string;
   tvdb?: string;
