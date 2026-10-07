@@ -18,6 +18,22 @@ public sealed class MediaManOptions
     public DevOptions Dev { get; set; } = new();
 
     public ToolsOptions Tools { get; set; } = new();
+
+    public MetadataOptions Metadata { get; set; } = new();
+}
+
+/// <summary>Metadata provider settings (SPEC §8 metadata [M]); Settings → Metadata edits them in PLAN 2.22.</summary>
+public sealed class MetadataOptions
+{
+    public TmdbSettings Tmdb { get; set; } = new();
+}
+
+public sealed class TmdbSettings
+{
+    /// <summary>A TMDB v4 read-access token overriding the shipped one. A secret: never logged (SPEC §9).</summary>
+    public string? AccessToken { get; set; }
+
+    public string Language { get; set; } = "en-US";
 }
 
 /// <summary>Where the external media tools live (SPEC §10.1). Bare names are looked up on PATH.</summary>

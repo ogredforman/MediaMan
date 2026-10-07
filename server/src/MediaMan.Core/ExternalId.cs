@@ -11,7 +11,7 @@ public static class ExternalProviders
     public const string AniList = "anilist";
 }
 
-/// <summary>An id at an external metadata provider, written as <c>provider:value</c> (e.g. <c>tmdb:603</c>).</summary>
+/// <summary>An id at an external metadata provider, written as <c>provider:value</c> (e.g. <c>tmdb:movie/603</c>; TMDB ids carry the kind, ADR 0006).</summary>
 public readonly record struct ExternalId
 {
     public ExternalId(string provider, string value)
@@ -35,7 +35,7 @@ public readonly record struct ExternalId
     public string Value { get; }
 
     public static ExternalId Parse(string text) =>
-        TryParse(text, out var id) ? id : throw new FormatException($"'{text}' is not an external id like 'tmdb:603'.");
+        TryParse(text, out var id) ? id : throw new FormatException($"'{text}' is not an external id like 'tmdb:movie/603'.");
 
     public static bool TryParse([NotNullWhen(true)] string? text, out ExternalId id)
     {

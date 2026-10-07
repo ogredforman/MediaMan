@@ -14,13 +14,13 @@ Signatures here are summaries; `grep -n "public " <file>` (C#) or `grep -n "expo
   §5 principles, §6.1 entities, §7 core flows, §9 non-functional, §10.2 layout, §10.3 interfaces, §10.4 fakes, §11 UI, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 server test stack (xUnit v3, MTP, AwesomeAssertions) · 0002 UUIDv7 ids, Playable/Artwork owner FKs ·
-  0003 SQLite conventions and secrets at rest · 0004 web stack and Orval codegen · 0005 desktop build with plain tsc.
+  0003 SQLite conventions and secrets at rest · 0004 web stack and Orval codegen · 0005 desktop build with plain tsc · 0006 TMDB ids carry the kind (`tmdb:movie/603`, `tmdb:tv/1396`) and the shipped token.
 - Area rules: `.claude/rules/<area>.md` (contracts, data, desktop, library, server, server-tests, web).
 
 ## Wiring
 
 - **Server:** `server/src/MediaMan.Server/Program.cs` → `AddMediaManServer(config)` (binds `MediaManOptions` from the
-  `MediaMan` section, `IClock`→`SystemClock`, `EventBroadcaster`, `MediaManDbContext` on `<DataDirectory>/mediaman.db`,
+  `MediaMan` section, `IClock`→`SystemClock`, `EventBroadcaster`, `IMetadataProvider`→`TmdbMetadataProvider` (`MediaMan:Metadata:Tmdb`, cache in `<DataDirectory>/cache/tmdb`), `MediaManDbContext` on `<DataDirectory>/mediaman.db`,
   ProblemDetails, JSON omits nulls, `LibraryQueries` (scoped), the scan pipeline (`LibraryScanner`/`LibraryMatcher`/`MetadataImporter` scoped via factories, `ScanCoordinator`, `ScanWorker` hosted service), `ISecretProtector`→`UnavailableSecretProtector` until PLAN 2.3, `DatabaseMigrator` hosted service) → `UseMediaManErrors()` → `MapMediaManEndpoints()` (`GET /health`, `GET /events` SSE, library browse and scanning). All in `Hosting/ServerSetup.cs`.
 - **Dev configuration** (SPEC §8 setup [P], Debug builds only): `ASPNETCORE_ENVIRONMENT=Development` + `MediaMan:Dev:MediaPath`
   (user-secrets or `MediaMan__Dev__MediaPath`) → `Dev/DevConfiguration.AddMediaManDev` registers fakes per `MediaMan:Dev:Providers:*`
@@ -51,7 +51,8 @@ Server projects live in `server/src/`; most are empty shells until their stage.
 - **MediaMan.Library**: `Scanning/LibraryScanner.ScanAsync(libraryId, ct)` → `ScanResult` (enumerate roots, probe + parse new/changed files as `Pending`, unreadable → `NeedsAttention`, missing → `Missing` with `MissingSince`, purge after 30 days); `Scanning/ScanRules` (pure: video extensions, samples, extras folders).
   `Matching/LibraryMatcher.MatchPendingAsync(libraryId, ct)` → `MatchRunResult` (`MatchDecision`s for the importer at ≥ `MatcherOptions.Threshold` with a clear lead; otherwise MatchReview + `NeedsAttention` with `no-match`/`low-confidence`/`ambiguous`; provider errors retried then left `Pending`); `Matching/MatchScorer` and `TitleSimilarity` (pure scoring); `Matching/ProviderSession` (internal: per-run provider cache, retry/backoff, trip).
   `Importing/MetadataImporter.ImportAsync(decisions, ct)` → `ImportResult` (Title by provider id, Seasons holding linked files with full episode lists, one Artwork ref per type per owner, Playables for linked files only, FileLinks with `Part` from 1, file → `Matched`; absolute numbers resolved over seasons > 0; provider errors → stays `Pending`; unknown episode → `NeedsAttention` `episode-not-found`).
-- **MediaMan.Auth, .Metadata, .Indexers, .Torrents**: empty, filled from Stage 1 on.
+- **MediaMan.Metadata**: `Tmdb/TmdbMetadataProvider` (real `IMetadataProvider`: v3 API with a Bearer token, 7-day on-disk `TmdbResponseCache`, 429 backoff, 404 → `KeyNotFoundException`), `TmdbOptions` (`ShippedAccessToken`), `TmdbIds` (`Create`/`Parse` `movie/N` and `tv/N`).
+- **MediaMan.Auth, .Indexers, .Torrents**: empty, filled from Stage 1 on.
 
 ## Frontend
 
@@ -72,6 +73,7 @@ Server projects live in `server/src/`; most are empty shells until their stage.
   `FakeFileWatcher` (`Raise`). Fake tests are in `MediaMan.Core.Tests/Fakes/`.
 - `server/tests/fixtures/metadata/tmdb-<id>.json`: 33 provider titles (remakes, same-name shows, specials, anime absolute numbers), copied to `fixtures/metadata` in test output.
 - `server/tests/corpus/release-names.json`: parser corpus (`path` with `/`, partial `expected` fields, `baseline` accuracy), copied to `corpus/` in `MediaMan.Parsing.Tests` output; `ReleaseParserCorpusTests` enforces the baseline and lists failing cases.
+- `server/tests/fixtures/tmdb/*.json`: recorded TMDB responses (trimmed), served by `MediaMan.Metadata.Tests/Tmdb/StubTmdbHandler` by request path and query.
 - `server/tests/fixtures/ffprobe/*.json`: saved ffprobe outputs (1080p MKV, HDR10, Dolby Vision, HLG, cover art), copied to `fixtures/ffprobe` in
   `MediaMan.Playback.Tests` output. `FfprobeMediaProbeIntegrationTests` generates samples with ffmpeg and skips when ffmpeg/ffprobe are absent.
 - `MediaMan.Fakes/TempDatabase.cs` (shared by every test project): per-test SQLite file (`CreateMigratedAsync`, `CreateEmpty`, `CreateContext`, `OpenRawConnection`).

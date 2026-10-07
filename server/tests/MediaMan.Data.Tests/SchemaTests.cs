@@ -17,7 +17,7 @@ public class SchemaTests
     {
         await using var db = await TempDatabase.CreateMigratedAsync(Ct);
         var library = new Library { Id = Guid.NewGuid(), Name = "Shows", Kind = LibraryKind.External, ContentType = ContentType.Shows, RootPaths = ["/media/shows"], ScanIntervalMinutes = 60 };
-        var title = new Title { Id = Guid.NewGuid(), Kind = TitleKind.Show, Name = "Example", Year = 2020, Genres = ["Drama"], ExternalIds = { Tmdb = "1399" } };
+        var title = new Title { Id = Guid.NewGuid(), Kind = TitleKind.Show, Name = "Example", Year = 2020, Genres = ["Drama"], ExternalIds = { Tmdb = "tv/1399" } };
         var season = new Season { Id = Guid.NewGuid(), TitleId = title.Id, Number = 1 };
         var episode = new Episode { Id = Guid.NewGuid(), SeasonId = season.Id, Number = 1, AirDate = new DateOnly(2020, 1, 1) };
         var playable = Playable.ForEpisode(Guid.NewGuid(), episode.Id);
@@ -37,16 +37,16 @@ public class SchemaTests
         {
             write.AddRange(library, title, season, episode, playable, file);
             write.Add(new FileLink { MediaFileId = file.Id, PlayableId = playable.Id, Part = 0 });
-            write.Add(new MatchReview { Id = Guid.NewGuid(), MediaFileId = file.Id, Reason = "low score", Candidates = [new MatchCandidate(ExternalId.Parse("tmdb:1399"), 0.4)] });
+            write.Add(new MatchReview { Id = Guid.NewGuid(), MediaFileId = file.Id, Reason = "low score", Candidates = [new MatchCandidate(ExternalId.Parse("tmdb:tv/1399"), 0.4)] });
             await write.SaveChangesAsync(Ct);
         }
 
         await using var read = db.CreateContext();
         var storedFile = await read.MediaFiles.SingleAsync(Ct);
         storedFile.Should().BeEquivalentTo(file);
-        (await read.Titles.SingleAsync(t => t.ExternalIds.Tmdb == "1399", Ct)).Genres.Should().Equal("Drama");
+        (await read.Titles.SingleAsync(t => t.ExternalIds.Tmdb == "tv/1399", Ct)).Genres.Should().Equal("Drama");
         (await read.Episodes.SingleAsync(Ct)).AirDate.Should().Be(new DateOnly(2020, 1, 1));
-        (await read.MatchReviews.SingleAsync(Ct)).Candidates.Should().Equal(new MatchCandidate(ExternalId.Parse("tmdb:1399"), 0.4));
+        (await read.MatchReviews.SingleAsync(Ct)).Candidates.Should().Equal(new MatchCandidate(ExternalId.Parse("tmdb:tv/1399"), 0.4));
         (await read.FileLinks.SingleAsync(Ct)).PlayableId.Should().Be(playable.Id);
     }
 
@@ -62,7 +62,7 @@ public class SchemaTests
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            TitleRef = ExternalId.Parse("tmdb:1399"),
+            TitleRef = ExternalId.Parse("tmdb:tv/1399"),
             Filter = filter,
             Release = new ReleaseResult { IndexerId = Guid.NewGuid().ToString("D"), Title = "Example.2160p", MagnetUri = "magnet:?xt=urn:btih:" + new string('a', 40), Parsed = new ParsedRelease { Title = "Example" }, Quality = new ReleaseQuality { DynamicRange = DynamicRange.Hdr } },
         };

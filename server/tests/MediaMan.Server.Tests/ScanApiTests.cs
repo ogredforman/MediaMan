@@ -143,7 +143,7 @@ public sealed class ScanApiTests : IAsyncLifetime
         dune.Parsed.Year.Should().BeNull();
         dune.Review!.Reason.Should().Be("ambiguous");
         dune.Review.Candidates.Select(c => (c.TitleRef, c.Kind, c.Name, c.Year)).Should().BeEquivalentTo(
-            [("tmdb:438631", "movie", "Dune", 2021), ("tmdb:841", "movie", "Dune", 1984)]);
+            [("tmdb:movie/438631", "movie", "Dune", 2021), ("tmdb:movie/841", "movie", "Dune", 1984)]);
     }
 
     [Fact]

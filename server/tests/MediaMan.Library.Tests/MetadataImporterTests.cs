@@ -52,7 +52,7 @@ public sealed class MetadataImporterTests : IAsyncLifetime
         title.Overview.Should().NotBeNullOrEmpty();
         title.Genres.Should().NotBeEmpty();
         title.Rating.Should().NotBeNull();
-        title.ExternalIds.Tmdb.Should().Be("603");
+        title.ExternalIds.Tmdb.Should().Be("movie/603");
         var artwork = await context.Artwork.Where(a => a.TitleId == title.Id).ToListAsync(Ct);
         artwork.Select(a => a.Type).Should().Contain([ArtworkType.Poster, ArtworkType.Backdrop]).And.OnlyHaveUniqueItems();
         var playable = await context.Playables.SingleAsync(Ct);
@@ -90,7 +90,7 @@ public sealed class MetadataImporterTests : IAsyncLifetime
         await using var context = _db.CreateContext();
         var title = await context.Titles.SingleAsync(Ct);
         title.Kind.Should().Be(TitleKind.Show);
-        title.ExternalIds.Should().BeEquivalentTo(new TitleExternalIds { Tmdb = "1396", Tvdb = "81189" });
+        title.ExternalIds.Should().BeEquivalentTo(new TitleExternalIds { Tmdb = "tv/1396", Tvdb = "81189" });
         var season = await context.Seasons.SingleAsync(Ct);
         season.Should().Match<Season>(s => s.TitleId == title.Id && s.Number == 1);
         var episodes = await context.Episodes.OrderBy(e => e.Number).ToListAsync(Ct);
@@ -101,7 +101,7 @@ public sealed class MetadataImporterTests : IAsyncLifetime
         var playable = await context.Playables.SingleAsync(Ct);
         playable.EpisodeId.Should().Be(episodes[1].Id, "only episodes with files get a Playable");
         (await context.FileLinks.SingleAsync(Ct)).Should().Match<FileLink>(l => l.MediaFileId == file && l.PlayableId == playable.Id);
-        _provider.SeasonRequests.Should().Equal((new ExternalId(ExternalProviders.Tmdb, "1396"), 1));
+        _provider.SeasonRequests.Should().Equal((new ExternalId(ExternalProviders.Tmdb, "tv/1396"), 1));
     }
 
     [Fact]
@@ -155,14 +155,14 @@ public sealed class MetadataImporterTests : IAsyncLifetime
     {
         await AddFileAsync("Shows/Breaking Bad/Season 1/Breaking.Bad.S01E02.720p.mkv");
         await MatchAndImportAsync();
-        var titleRequests = _provider.TitleRequests.Count(r => r.Value == "1396");
+        var titleRequests = _provider.TitleRequests.Count(r => r.Value == "tv/1396");
         await AddFileAsync("Shows/Breaking Bad/Season 1/Breaking.Bad.S01E05.720p.mkv");
 
         var result = await ImportAsync((await MatchAsync()).Decisions);
 
         result.Linked.Should().Be(1);
         _provider.SeasonRequests.Should().ContainSingle("season 1 is already stored with every episode");
-        _provider.TitleRequests.Count(r => r.Value == "1396").Should().Be(titleRequests + 1, "only the matcher asks for the title");
+        _provider.TitleRequests.Count(r => r.Value == "tv/1396").Should().Be(titleRequests + 1, "only the matcher asks for the title");
         await using var context = _db.CreateContext();
         (await context.Titles.CountAsync(Ct)).Should().Be(1);
         (await context.Seasons.CountAsync(Ct)).Should().Be(1);
@@ -195,7 +195,7 @@ public sealed class MetadataImporterTests : IAsyncLifetime
         var file = await AddFileAsync("Shows/Breaking Bad/Season 1/Breaking.Bad.S01E01-E03.720p.mkv");
         await MatchAndImportAsync();
         await SetStatusAsync(file, MediaFileStatus.Pending);
-        var rematch = new MatchDecision(file, new ExternalId(ExternalProviders.Tmdb, "1396"), TitleKind.Show, 2, [4], null, 1.0);
+        var rematch = new MatchDecision(file, new ExternalId(ExternalProviders.Tmdb, "tv/1396"), TitleKind.Show, 2, [4], null, 1.0);
 
         await ImportAsync([rematch]);
 
@@ -244,7 +244,7 @@ public sealed class MetadataImporterTests : IAsyncLifetime
     public async Task Episode_the_provider_lacks_needs_attention()
     {
         var file = await AddFileAsync("Shows/Breaking Bad/Season 1/Breaking.Bad.S01E02.720p.mkv");
-        var missing = new MatchDecision(file, new ExternalId(ExternalProviders.Tmdb, "1396"), TitleKind.Show, 1, [42], null, 1.0);
+        var missing = new MatchDecision(file, new ExternalId(ExternalProviders.Tmdb, "tv/1396"), TitleKind.Show, 1, [42], null, 1.0);
 
         var result = await ImportAsync([missing]);
 
