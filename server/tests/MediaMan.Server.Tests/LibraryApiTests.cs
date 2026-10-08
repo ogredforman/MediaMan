@@ -20,7 +20,7 @@ public sealed class LibraryApiTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        _client = _factory.CreateClient(); // starts the host, which migrates the database
+        _client = await _factory.CreateSignedInClientAsync(Ct); // starts the host, which migrates the database
         await using var scope = _factory.Services.CreateAsyncScope();
         _seed = await Seed.CreateAsync(scope.ServiceProvider.GetRequiredService<MediaManDbContext>(), Ct);
     }

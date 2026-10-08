@@ -17,6 +17,7 @@ using MediaMan.Server.Endpoints;
 using MediaMan.Server.Events;
 using MediaMan.Server.LibraryApi;
 using MediaMan.Server.Scanning;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -88,6 +89,15 @@ public static class ServerSetup
         services.AddSingleton(PasswordHasher.Default);
         services.AddScoped<AccountService>();
         services.AddScoped<SessionService>();
+
+        // Bearer tokens are validated exactly as AccessTokens validates them, times included (IClock). No authority is
+        // set, so nothing is fetched. PermissionEnforcement turns the result into 401s and 403s.
+        services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+        services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme).Configure<AccessTokens>((o, tokens) =>
+        {
+            o.TokenValidationParameters = tokens.ValidationParameters;
+            o.MapInboundClaims = false;
+        });
     }
 
     /// <summary>
@@ -165,6 +175,14 @@ public static class ServerSetup
     {
         app.UseExceptionHandler();
         app.UseStatusCodePages();
+        return app;
+    }
+
+    /// <summary>Reads the bearer token, then enforces each route's declared permission (SPEC §5, §9).</summary>
+    public static WebApplication UseMediaManAuth(this WebApplication app)
+    {
+        app.UseAuthentication();
+        app.UseMiddleware<PermissionEnforcement>();
         return app;
     }
 

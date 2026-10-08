@@ -29,7 +29,7 @@ public sealed class DevPlayTests : IAsyncLifetime
     {
         Directory.CreateDirectory(MediaPath);
         _factory = DevFactory(new() { ["MediaMan:Dev:Providers:Player"] = "Fake" });
-        _client = _factory.CreateClient();
+        _client = await _factory.CreateSignedInClientAsync(Ct);
         _player = (FakeDevPlayer)_factory.Services.GetRequiredService<IDevPlayer>();
         await using var scope = _factory.Services.CreateAsyncScope();
         await SeedAsync(scope.ServiceProvider.GetRequiredService<MediaManDbContext>());

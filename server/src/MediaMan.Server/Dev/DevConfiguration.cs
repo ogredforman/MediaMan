@@ -10,7 +10,7 @@ namespace MediaMan.Server.Dev;
 
 /// <summary>
 /// Wires the dev configuration (SPEC §8 setup [P]): picks a fake or real implementation per dependency and
-/// registers the configured media folder as an External library. Compiled into Debug builds only.
+/// registers the configured media folder as an External library and a dev Superadmin. Compiled into Debug builds only.
 /// </summary>
 public static class DevConfiguration
 {
@@ -33,6 +33,8 @@ public static class DevConfiguration
                 sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.MpvPath,
                 sp.GetRequiredService<ILogger<MpvDevPlayer>>()));
 
+        services.AddSingleton(new DevAccount(dev.AutoSignIn));
+        services.AddHostedService<DevAccountSeeder>();
         services.AddHostedService<DevLibrarySeeder>();
         return services;
     }

@@ -13,6 +13,10 @@
     <InternalsVisibleTo Include="MediaMan.Server.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
   <!-- Dev configuration (SPEC §8 setup [P]): Debug builds can run on the fakes; Release builds never contain them. -->
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <DefineConstants>$(DefineConstants);MEDIAMAN_DEV</DefineConstants>

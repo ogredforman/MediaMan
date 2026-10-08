@@ -67,6 +67,12 @@ public sealed class DevOptions
 
     public ContentType ContentType { get; set; } = ContentType.Mixed;
 
+    /// <summary>
+    /// Treats requests without a token as the dev Superadmin, so the dev configuration runs without signing in.
+    /// Off unless set; it has no effect outside the dev configuration.
+    /// </summary>
+    public bool AutoSignIn { get; set; }
+
     public DevProviders Providers { get; set; } = new();
 }
 

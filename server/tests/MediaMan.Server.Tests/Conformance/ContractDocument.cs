@@ -89,6 +89,13 @@ public sealed class ContractDocument
         var operation = Find(request.Method.Method, request.RequestUri!.AbsolutePath);
         operation.Should().NotBeNull($"{request.Method} {request.RequestUri.AbsolutePath} must be in the contract");
 
+        var declared = operation!.Node["responses"]![((int)response.StatusCode).ToString(CultureInfo.InvariantCulture)];
+        if (declared is not null && Resolve(declared)["content"] is null)
+        {
+            (await response.Content.ReadAsByteArrayAsync(ct)).Should().BeEmpty($"the contract declares no body for {(int)response.StatusCode} of {operation}");
+            return;
+        }
+
         var mediaType = response.Content.Headers.ContentType?.MediaType;
         mediaType.Should().NotBeNull("every response declares a content type");
 

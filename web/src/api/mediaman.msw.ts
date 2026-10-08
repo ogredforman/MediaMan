@@ -9,6 +9,10 @@
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
+ * - **Auth errors:** a request without a valid access token gets `401` with code `auth.required` (no token, or
+ *   it's malformed, forged or expired: refresh, then sign in if that fails); a token whose session was revoked or
+ *   whose user is disabled gets `401` `auth.session_expired` (sign in again); a signed-in user without the
+ *   operation's permission gets `403` `auth.forbidden`.
  * - **Errors:** every non-2xx response is `application/problem+json` with the `Problem` schema.
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
@@ -90,6 +94,16 @@ export const getRefreshTokensMockHandler = (overrideResponse?: AuthTokens | ((in
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getRefreshTokensResponseMock(),
       { status: 200
+      })
+  }, options)
+}
+
+export const getLogoutMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.post('*/auth/logout', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
       })
   }, options)
 }
@@ -194,6 +208,7 @@ export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
   getLoginMockHandler(),
   getRefreshTokensMockHandler(),
+  getLogoutMockHandler(),
   getGetEventsMockHandler(),
   getListLibrariesMockHandler(),
   getStartLibraryScanMockHandler(),

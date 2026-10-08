@@ -20,7 +20,7 @@ public sealed class ArtworkApiTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        _client = _factory.CreateClient();
+        _client = await _factory.CreateSignedInClientAsync(Ct);
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<MediaManDbContext>();
         _titleId = Guid.CreateVersion7();

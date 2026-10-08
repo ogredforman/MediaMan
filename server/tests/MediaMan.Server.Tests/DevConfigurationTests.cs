@@ -1,9 +1,11 @@
+using System.Net;
 using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Fakes;
 using MediaMan.Metadata.Tmdb;
 using MediaMan.Playback.Probing;
+using MediaMan.Server.Dev;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -140,5 +142,75 @@ public sealed class DevConfigurationTests : IDisposable
         (await LibrariesAsync(factory, ct)).Should().BeEmpty();
         factory.Services.GetRequiredService<IMetadataProvider>().Should().BeOfType<TmdbMetadataProvider>();
         factory.Services.GetService<IMediaProbe>().Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Dev_configuration_seeds_one_superadmin_and_keeps_it_across_restarts()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var dataDirectory = Path.Combine(Path.GetDirectoryName(_mediaPath)!, "data");
+        Guid firstId;
+        await using (var first = DevFactory(dataDirectory))
+        {
+            firstId = (await SuperadminsAsync(first, ct)).Should().ContainSingle().Subject.Id;
+            first.Services.GetRequiredService<DevAccount>().UserId.Should().Be(firstId);
+        }
+
+        await using var second = DevFactory(dataDirectory);
+        (await SuperadminsAsync(second, ct)).Should().ContainSingle().Which.Id.Should().Be(firstId);
+        second.Services.GetRequiredService<DevAccount>().UserId.Should().Be(firstId);
+    }
+
+    [Fact]
+    public async Task With_auto_sign_in_a_request_without_a_token_acts_as_the_dev_superadmin()
+    {
+        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:AutoSignIn"] = "true" });
+        using var client = factory.CreateClient();
+
+        using var libraries = await client.GetAsync(new Uri("/libraries", UriKind.Relative), TestContext.Current.CancellationToken);
+        using var logout = await client.PostAsync(new Uri("/auth/logout", UriKind.Relative), null, TestContext.Current.CancellationToken);
+
+        libraries.StatusCode.Should().Be(HttpStatusCode.OK);
+        logout.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task Auto_sign_in_does_not_accept_an_invalid_token()
+    {
+        await using var factory = DevFactory(extra: new() { ["MediaMan:Dev:AutoSignIn"] = "true" });
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new("Bearer", "not-a-token");
+
+        using var response = await client.GetAsync(new Uri("/libraries", UriKind.Relative), TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Theory]
+    [InlineData("Development", true, false)] // dev configuration, auto sign-in not set
+    [InlineData("Testing", true, true)] // not Development
+    [InlineData("Development", false, true)] // no media path
+    [InlineData("Production", true, true)]
+    public async Task Outside_auto_sign_in_requests_without_a_token_are_refused(string environment, bool withMediaPath, bool autoSignIn)
+    {
+        var settings = new Dictionary<string, string> { ["MediaMan:Dev:AutoSignIn"] = autoSignIn ? "true" : "false" };
+        if (withMediaPath)
+        {
+            settings["MediaMan:Dev:MediaPath"] = _mediaPath;
+        }
+
+        await using var factory = new MediaManFactory(environment, settings);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(new Uri("/libraries", UriKind.Relative), TestContext.Current.CancellationToken);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private static async Task<List<User>> SuperadminsAsync(MediaManFactory factory, CancellationToken ct)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<MediaManDbContext>();
+        return await db.Users.AsNoTracking().Where(u => u.IsSuperadmin).ToListAsync(ct);
     }
 }
