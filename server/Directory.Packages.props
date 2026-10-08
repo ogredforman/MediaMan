@@ -7,6 +7,8 @@
     <PackageVersion Include="Konscious.Security.Cryptography.Argon2" Version="1.3.1" />
     <!-- Access tokens: JWT creation and validation, the same library JwtBearer uses (ADR 0008) -->
     <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.19.2" />
+    <!-- Bearer authentication middleware validating those access tokens (ADR 0008) -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
     <!-- Artwork decoding for dominant colors (ADR 0007) -->
     <PackageVersion Include="StbImageSharp" Version="2.30.16" />
     <!-- Tests (SPEC §10.1, ADR 0001) -->

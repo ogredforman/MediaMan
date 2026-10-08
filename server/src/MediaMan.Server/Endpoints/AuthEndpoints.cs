@@ -9,13 +9,17 @@ public sealed record LoginRequest(string? Username, string? Password, string? De
 
 public sealed record RefreshRequest(string? RefreshToken);
 
-/// <summary>Sign-in and token refresh (SPEC §7.11). Both are unauthenticated: refreshing is part of signing in.</summary>
+/// <summary>
+/// Sign-in, token refresh and sign-out (SPEC §7.11). Signing in and refreshing are unauthenticated: refreshing is part of
+/// signing in.
+/// </summary>
 public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/auth/login", LoginAsync).RequiresPermission(PermissionMetadata.None);
         app.MapPost("/auth/refresh", RefreshAsync).RequiresPermission(PermissionMetadata.None);
+        app.MapPost("/auth/logout", LogoutAsync).RequiresPermission(PermissionMetadata.Authenticated);
         return app;
     }
 
@@ -51,5 +55,16 @@ public static class AuthEndpoints
             ? TypedResults.Ok(tokens)
             : Problems.Result(StatusCodes.Status401Unauthorized, "auth.session_expired", "Your session has ended.",
                 "The session expired or was signed out, or the account is disabled.", "Sign in again.");
+    }
+
+    /// <summary>Revokes the token's session. The dev configuration's auto sign-in has no session, so there's nothing to end.</summary>
+    private static async Task<NoContent> LogoutAsync(HttpContext http, SessionService sessions, CancellationToken ct)
+    {
+        if (http.Features.Get<CurrentUser>()?.SessionId is { } sessionId)
+        {
+            await sessions.RevokeAsync(sessionId, ct);
+        }
+
+        return TypedResults.NoContent();
     }
 }

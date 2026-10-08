@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MediaMan.Server.Tests;
 
-/// <summary><c>POST /auth/login</c> and <c>POST /auth/refresh</c> (SPEC §7.11).</summary>
+/// <summary><c>POST /auth/login</c>, <c>POST /auth/refresh</c> and <c>POST /auth/logout</c> (SPEC §7.11).</summary>
 public sealed class AuthApiTests : IAsyncLifetime
 {
     private const string Password = "a long password";
@@ -70,6 +70,34 @@ public sealed class AuthApiTests : IAsyncLifetime
         await AssertProblemAsync(reused, HttpStatusCode.Unauthorized, "auth.session_expired");
     }
 
+    [Fact]
+    public async Task Signing_out_ends_the_session_but_not_the_others()
+    {
+        var tokens = await SignInAsync();
+        var other = await SignInAsync();
+        using var signedIn = new HttpRequestMessage(HttpMethod.Post, new Uri("/auth/logout", UriKind.Relative));
+        signedIn.Headers.Authorization = new("Bearer", tokens.AccessToken);
+
+        using var logout = await _client.SendAsync(signedIn, Ct);
+
+        logout.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        await ContractDocument.Instance.AssertConformsAsync(logout, Ct);
+        using var afterwards = await GetLibrariesAsync(tokens.AccessToken);
+        await AssertProblemAsync(afterwards, HttpStatusCode.Unauthorized, "auth.session_expired");
+        using var refresh = await PostAsync("/auth/refresh", new { refreshToken = tokens.RefreshToken });
+        await AssertProblemAsync(refresh, HttpStatusCode.Unauthorized, "auth.session_expired");
+        using var otherSession = await GetLibrariesAsync(other.AccessToken);
+        otherSession.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Signing_out_without_a_token_is_a_401_problem()
+    {
+        using var response = await _client.PostAsync(new Uri("/auth/logout", UriKind.Relative), null, Ct);
+
+        await AssertProblemAsync(response, HttpStatusCode.Unauthorized, "auth.required");
+    }
+
     [Theory]
     [InlineData("/auth/login", """{"username":"owner"}""")]
     [InlineData("/auth/login", """{"username":" ","password":"x"}""")]
@@ -80,6 +108,19 @@ public sealed class AuthApiTests : IAsyncLifetime
         using var response = await _client.PostAsync(new Uri(path, UriKind.Relative), content, Ct);
 
         await AssertProblemAsync(response, HttpStatusCode.BadRequest, "bad_request");
+    }
+
+    private async Task<AuthTokens> SignInAsync()
+    {
+        using var login = await PostAsync("/auth/login", new { username = "owner", password = Password });
+        return (await login.Content.ReadFromJsonAsync<AuthTokens>(Ct))!;
+    }
+
+    private async Task<HttpResponseMessage> GetLibrariesAsync(string accessToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri("/libraries", UriKind.Relative));
+        request.Headers.Authorization = new("Bearer", accessToken);
+        return await _client.SendAsync(request, Ct);
     }
 
     private Task<HttpResponseMessage> PostAsync(string path, object body) =>

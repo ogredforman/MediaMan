@@ -53,7 +53,7 @@ public sealed class ScanApiTests : IAsyncLifetime
             await File.WriteAllBytesAsync(path, [], Ct);
         }
 
-        _client = _factory.CreateClient();
+        _client = await _factory.CreateSignedInClientAsync(Ct);
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<MediaManDbContext>();
         db.Libraries.Add(new Core.Domain.Library
@@ -167,7 +167,7 @@ public sealed class ScanApiTests : IAsyncLifetime
     public async Task Scanning_without_a_metadata_provider_or_probe_is_unavailable()
     {
         await using var factory = new MediaManFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.CreateSignedInClientAsync(Ct);
         await using (var scope = factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<MediaManDbContext>();

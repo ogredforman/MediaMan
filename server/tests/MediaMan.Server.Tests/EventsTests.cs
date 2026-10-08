@@ -14,7 +14,7 @@ public sealed class EventsTests
     {
         var ct = TestContext.Current.CancellationToken;
         await using var factory = new MediaManFactory();
-        using var client = factory.CreateClient();
+        using var client = await factory.CreateSignedInClientAsync(ct);
         var broadcaster = factory.Services.GetRequiredService<EventBroadcaster>();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));

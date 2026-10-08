@@ -2,8 +2,7 @@ namespace MediaMan.Server.Endpoints;
 
 /// <summary>
 /// The permission an endpoint requires; mirrors the operation's <c>x-permission</c> in the contract.
-/// Enforcement arrives with authentication in PLAN 2.3. Until then it's declared on every route and
-/// tested against the contract.
+/// <see cref="PermissionEnforcement"/> enforces it, and tests check it against the contract.
 /// </summary>
 public sealed record PermissionMetadata(string Permission)
 {

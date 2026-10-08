@@ -31,7 +31,7 @@ Konscious Argon2id at OWASP's minimum (19 MiB, 2 iterations, 1 lane), stored as 
 The per-install key is 32 random bytes in `<DataDirectory>/mediaman.key`, created on first run (temp file, then
 an atomic move; owner-only on Unix) and never replaced if damaged, since a new key orphans every stored secret.
 Every use takes its own HKDF subkey: `secrets-at-rest` for `AesGcmSecretProtector`, `access-tokens` for access tokens,
-and its own subkey for signed artwork URLs in 2.3c.
+and its own subkey for signed artwork URLs in 2.3d.
 
 The Superadmin is protected in the data layer: an EF `SaveChanges` interceptor on every context refuses to delete,
 demote, disable or change the role of the stored Superadmin row (SPEC §5, §7.11).
@@ -50,6 +50,21 @@ demote, disable or change the role of the stored Superadmin row (SPEC §5, §7.1
   therefore never refresh twice with one token, even concurrently (the web client single-flights it, PLAN 2.5).
 - **Login failures** don't distinguish an unknown user, a wrong password or a disabled account; an unknown user is
   verified against a dummy Argon2 hash so timing doesn't either.
+
+## Permission enforcement (PLAN 2.3c)
+
+- **Bearer validation:** **Microsoft.AspNetCore.Authentication.JwtBearer** (MIT, part of ASP.NET Core) reads the
+  `Authorization` header and validates the token with `AccessTokens.ValidationParameters`, so its lifetime check reads
+  `IClock` too. No authority or metadata address is set, so it never fetches anything. Claims keep their JWT names.
+- **One enforcement point:** a middleware after authentication reads each route's `PermissionMetadata` (the contract's
+  `x-permission`). `none` passes; a route declaring nothing is refused. Otherwise each request loads its session and
+  user: a revoked session or a disabled user is `401 auth.session_expired` even while the token is unexpired, a missing
+  or invalid token is `401 auth.required`, and a missing permission is `403 auth.forbidden`. That's two small SQLite
+  reads per request, cheap next to what any endpoint does, and it makes sign-out and disabling take effect at once.
+- **Dev auto sign-in:** the dev configuration (Debug build, Development, `Dev:MediaPath` set) always has a Superadmin,
+  the stored one or a seeded `dev` account with a random password. With `MediaMan:Dev:AutoSignIn`, a request with no
+  `Authorization` header at all acts as it, without a session; an invalid token is still refused. Release builds don't
+  contain this code.
 
 ## Consequences
 
