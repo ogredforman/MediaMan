@@ -79,7 +79,7 @@ export async function connectEvents({
   while (!stopped()) {
     try {
       const response = await fetch(apiUrl(getGetEventsUrl()), {
-        headers: withAuth({ Accept: 'text/event-stream' }),
+        headers: await withAuth({ Accept: 'text/event-stream' }),
         signal,
       });
       if (!response.ok || !response.body) {

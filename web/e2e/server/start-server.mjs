@@ -42,7 +42,7 @@ const server = spawn(
       MediaMan__Dev__MediaPath: mediaDir,
       MediaMan__Dev__LibraryName: 'Media',
       MediaMan__Dev__Providers__Player: 'Fake',
-      // No sign-in screen until PLAN 2.5: requests without a token act as the dev Superadmin.
+      // Until the setup e2e (PLAN 2.5b) signs in for real: requests without a token act as the dev Superadmin.
       MediaMan__Dev__AutoSignIn: 'true',
     },
   },

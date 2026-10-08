@@ -3,12 +3,25 @@ import {
   getGetHealthMockHandler,
   getListLibrariesMockHandler,
   getListTitlesMockHandler,
+  getLoginMockHandler,
+  getRefreshTokensMockHandler,
   getMediaManAPIMock,
   getStartLibraryScanMockHandler,
 } from '../api/mediaman.msw';
-import type { Library, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
+import type { AuthTokens, Library, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
 
 export const mockHealth = { status: 'healthy', version: '0.0.0-mock' } as const;
+
+/** Tokens valid for 15 minutes from now (so the client doesn't refresh on every request), tagged to tell them apart. */
+export function mockTokens(tag = 'mock'): AuthTokens {
+  const now = Date.now();
+  return {
+    accessToken: `access-${tag}`,
+    accessTokenExpiresAt: new Date(now + 15 * 60_000).toISOString(),
+    refreshToken: `refresh-${tag}`,
+    refreshTokenExpiresAt: new Date(now + 30 * 24 * 60 * 60_000).toISOString(),
+  };
+}
 
 export const mockLibrary: Library = {
   id: '01920000-0000-7000-8000-000000000001',
@@ -209,6 +222,8 @@ function mockVersionsOf(playableId: string): MediaVersion[] | undefined {
 export const handlers = [
   getGetHealthMockHandler(mockHealth),
   mockEvents.handler,
+  getLoginMockHandler(() => mockTokens('signed-in')),
+  getRefreshTokensMockHandler(() => mockTokens('refreshed')),
   getListLibrariesMockHandler({ items: [mockLibrary], pageInfo: {} }),
   getStartLibraryScanMockHandler({ ...mockLibrary, scan: { state: 'queued' } }),
   getListTitlesMockHandler(({ request }) => {
