@@ -34,8 +34,11 @@ public static class DevConfiguration
                 sp.GetRequiredService<ILogger<MpvDevPlayer>>()));
 
         services.AddSingleton(new DevAccount(dev.AutoSignIn));
-        services.AddHostedService<DevAccountSeeder>();
-        services.AddHostedService<DevLibrarySeeder>();
+        if (dev.Seed)
+        {
+            services.AddHostedService<DevAccountSeeder>();
+            services.AddHostedService<DevLibrarySeeder>();
+        }
         return services;
     }
 

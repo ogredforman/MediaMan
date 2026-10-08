@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
 import { listLibraries } from '../api/mediaman';
 import { AppShell } from '../components/AppShell';
 import { ApiError } from '../lib/http';
+import { clearTokens } from '../lib/session';
 import { useLiveScanProgress } from '../lib/useLiveScanProgress';
 import { useRedirectOnSignOut } from '../lib/useSession';
 
@@ -23,6 +24,13 @@ export const Route = createFileRoute('/_app')({
       if (error instanceof ApiError && error.status === 401) {
         // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect is thrown by design.
         throw redirect({ to: '/sign-in', search: { redirect: location.href } });
+      }
+      if (error instanceof ApiError && error.problem.code === 'setup.required') {
+        // No account exists, so a stored session is left over (e.g. the data was reset); without clearing it the
+        // wizard would send a "signed-in" visitor straight back here.
+        clearTokens();
+        // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect is thrown by design.
+        throw redirect({ to: '/setup' });
       }
       // Anything else (e.g. the server is unreachable) is for the shell to show, with its next action.
     }

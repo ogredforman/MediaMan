@@ -1,17 +1,10 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-// One scan per run: the server starts from fresh data, and the specs share it.
+// The setup spec has signed in and scanned the placeholder library; these specs share that server and session.
 test.describe.configure({ mode: 'serial' });
 
-async function scanLibrary(page: Page) {
+test('browses to a movie and plays it', async ({ page }) => {
   await page.goto('/');
-  const libraries = page.getByRole('list', { name: 'Libraries' });
-  await libraries.getByRole('button', { name: 'Scan Media' }).click();
-  await expect(libraries.getByText(/Media: scanned, \d+ linked/)).toBeVisible({ timeout: 30_000 });
-}
-
-test('scans the placeholder library, then browses to a movie and plays it', async ({ page }) => {
-  await scanLibrary(page);
 
   await page.getByRole('link', { name: 'Movies' }).click();
   const grid = page.getByRole('region', { name: 'Movies' });

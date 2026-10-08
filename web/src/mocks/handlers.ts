@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import {
+  getCompleteSetupMockHandler,
   getGetHealthMockHandler,
   getListLibrariesMockHandler,
   getListTitlesMockHandler,
@@ -224,6 +225,7 @@ export const handlers = [
   mockEvents.handler,
   getLoginMockHandler(() => mockTokens('signed-in')),
   getRefreshTokensMockHandler(() => mockTokens('refreshed')),
+  getCompleteSetupMockHandler(() => mockTokens('setup')),
   getListLibrariesMockHandler({ items: [mockLibrary], pageInfo: {} }),
   getStartLibraryScanMockHandler({ ...mockLibrary, scan: { state: 'queued' } }),
   getListTitlesMockHandler(({ request }) => {

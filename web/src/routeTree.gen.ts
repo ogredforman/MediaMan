@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppMoviesRouteImport } from './routes/_app/movies'
@@ -18,6 +19,11 @@ import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titl
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -48,12 +54,14 @@ const AppTitlesTitleIdRoute = AppTitlesTitleIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/movies': typeof AppMoviesRoute
   '/shows': typeof AppShowsRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
 }
 export interface FileRoutesByTo {
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/movies': typeof AppMoviesRoute
   '/shows': typeof AppShowsRoute
@@ -63,6 +71,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/_app/movies': typeof AppMoviesRoute
   '/_app/shows': typeof AppShowsRoute
@@ -71,12 +80,14 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/movies' | '/shows' | '/titles/$titleId'
+  fullPaths:
+    '/' | '/setup' | '/sign-in' | '/movies' | '/shows' | '/titles/$titleId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/sign-in' | '/movies' | '/shows' | '/' | '/titles/$titleId'
+  to: '/setup' | '/sign-in' | '/movies' | '/shows' | '/' | '/titles/$titleId'
   id:
     | '__root__'
     | '/_app'
+    | '/setup'
     | '/sign-in'
     | '/_app/movies'
     | '/_app/shows'
@@ -86,6 +97,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
 }
 
@@ -96,6 +108,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -154,6 +173,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
 }
 export const routeTree = rootRouteImport
