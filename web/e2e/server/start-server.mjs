@@ -37,7 +37,7 @@ const server = spawn(
     env: {
       ...process.env,
       ASPNETCORE_ENVIRONMENT: 'Development',
-      ASPNETCORE_URLS: `http://127.0.0.1:${port}`,
+      MediaMan__Server__Port: port,
       MediaMan__DataDirectory: dataDir,
       MediaMan__Dev__MediaPath: mediaDir,
       MediaMan__Dev__LibraryName: 'Media',

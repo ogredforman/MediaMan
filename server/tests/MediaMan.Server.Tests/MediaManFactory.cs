@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using MediaMan.Auth;
 using MediaMan.Core;
@@ -5,6 +6,7 @@ using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Fakes;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -42,6 +44,7 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
 
         builder.ConfigureTestServices(s =>
         {
+            s.AddSingleton<IStartupFilter, TestRemoteAddress>();
             s.AddSingleton<IImageDownloader>(Images);
 
             // Argon2id at its production cost makes every sign-in slow; tests only need it to work.
@@ -89,6 +92,32 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
         var tokens = (await services.GetRequiredService<SessionService>().SignInAsync(username, password, "Test", ct)).Tokens!;
         var claims = (await services.GetRequiredService<AccessTokens>().ValidateAsync(tokens.AccessToken))!;
         return new TestUser(claims.UserId, claims.SessionId, tokens.AccessToken);
+    }
+
+    /// <summary>
+    /// The in-process server has no client address, so requests come from loopback unless they send
+    /// <see cref="RemoteAddressHeader"/> (an IP, or <c>none</c> for no address). Exists only in tests.
+    /// </summary>
+    public const string RemoteAddressHeader = "X-Test-Remote-Address";
+
+    private sealed class TestRemoteAddress : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((http, nextMiddleware) =>
+            {
+                var value = http.Request.Headers[RemoteAddressHeader].ToString();
+                http.Request.Headers.Remove(RemoteAddressHeader);
+                http.Connection.RemoteIpAddress = value switch
+                {
+                    "" => IPAddress.Loopback,
+                    "none" => null,
+                    _ => IPAddress.Parse(value),
+                };
+                return nextMiddleware(http);
+            });
+            next(app);
+        };
     }
 
     public override async ValueTask DisposeAsync()

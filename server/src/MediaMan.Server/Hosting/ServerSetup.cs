@@ -33,6 +33,7 @@ public static class ServerSetup
         services.AddOptions<MediaManOptions>().Bind(section);
         services.AddSingleton<IClock, SystemClock>();
         services.AddSingleton<EventBroadcaster>();
+        services.AddMediaManBinding();
         AddAccounts(services);
 
         services.AddDbContext<MediaManDbContext>((sp, builder) =>
