@@ -1,6 +1,8 @@
 import { Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { useGetHealth } from '../api/mediaman';
+import { useGetHealth, useLogout } from '../api/mediaman';
+import { clearTokens } from '../lib/session';
+import { useSignedIn } from '../lib/useSession';
 import { ScanStatus } from './ScanStatus';
 
 const navLinks = [
@@ -30,12 +32,31 @@ export function AppShell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
         <ScanStatus />
+        <SignOutButton />
       </header>
       <main className="flex-1">{children}</main>
       <footer className="px-8 py-3 text-sm text-fg-muted">
         <ServerStatus />
       </footer>
     </div>
+  );
+}
+
+/** Shown only with a stored session (dev auto sign-in has none to end); the `_app` layout then goes to sign-in. */
+function SignOutButton() {
+  const signedIn = useSignedIn();
+  // Signed out here even when the server can't be reached to revoke the session.
+  const signOut = useLogout({ mutation: { onSettled: clearTokens } });
+  if (!signedIn) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => { signOut.mutate(); }}
+      disabled={signOut.isPending}
+      className="rounded-card px-3 py-1 text-sm text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg disabled:opacity-50"
+    >
+      Sign out
+    </button>
   );
 }
 

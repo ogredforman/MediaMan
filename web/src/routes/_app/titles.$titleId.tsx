@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TitleDetail } from '../components/TitleDetail';
+import { TitleDetail } from '../../components/TitleDetail';
 
-export const Route = createFileRoute('/titles/$titleId')({
+export const Route = createFileRoute('/_app/titles/$titleId')({
   component: TitleRoute,
 });
 

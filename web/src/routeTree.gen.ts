@@ -9,104 +9,152 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as MoviesRouteImport } from './routes/movies'
-import { Route as ShowsRouteImport } from './routes/shows'
-import { Route as TitlesTitleIdRouteImport } from './routes/titles.$titleId'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppMoviesRouteImport } from './routes/_app/movies'
+import { Route as AppShowsRouteImport } from './routes/_app/shows'
+import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titleId'
 
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const MoviesRoute = MoviesRouteImport.update({
+const AppMoviesRoute = AppMoviesRouteImport.update({
   id: '/movies',
   path: '/movies',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const ShowsRoute = ShowsRouteImport.update({
+const AppShowsRoute = AppShowsRouteImport.update({
   id: '/shows',
   path: '/shows',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
-const TitlesTitleIdRoute = TitlesTitleIdRouteImport.update({
+const AppTitlesTitleIdRoute = AppTitlesTitleIdRouteImport.update({
   id: '/titles/$titleId',
   path: '/titles/$titleId',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/movies': typeof MoviesRoute
-  '/shows': typeof ShowsRoute
-  '/titles/$titleId': typeof TitlesTitleIdRoute
+  '/': typeof AppIndexRoute
+  '/sign-in': typeof SignInRoute
+  '/movies': typeof AppMoviesRoute
+  '/shows': typeof AppShowsRoute
+  '/titles/$titleId': typeof AppTitlesTitleIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/movies': typeof MoviesRoute
-  '/shows': typeof ShowsRoute
-  '/titles/$titleId': typeof TitlesTitleIdRoute
+  '/sign-in': typeof SignInRoute
+  '/movies': typeof AppMoviesRoute
+  '/shows': typeof AppShowsRoute
+  '/': typeof AppIndexRoute
+  '/titles/$titleId': typeof AppTitlesTitleIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/movies': typeof MoviesRoute
-  '/shows': typeof ShowsRoute
-  '/titles/$titleId': typeof TitlesTitleIdRoute
+  '/_app': typeof AppRouteWithChildren
+  '/sign-in': typeof SignInRoute
+  '/_app/movies': typeof AppMoviesRoute
+  '/_app/shows': typeof AppShowsRoute
+  '/_app/': typeof AppIndexRoute
+  '/_app/titles/$titleId': typeof AppTitlesTitleIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/movies' | '/shows' | '/titles/$titleId'
+  fullPaths: '/' | '/sign-in' | '/movies' | '/shows' | '/titles/$titleId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/movies' | '/shows' | '/titles/$titleId'
-  id: '__root__' | '/' | '/movies' | '/shows' | '/titles/$titleId'
+  to: '/sign-in' | '/movies' | '/shows' | '/' | '/titles/$titleId'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/sign-in'
+    | '/_app/movies'
+    | '/_app/shows'
+    | '/_app/'
+    | '/_app/titles/$titleId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  MoviesRoute: typeof MoviesRoute
-  ShowsRoute: typeof ShowsRoute
-  TitlesTitleIdRoute: typeof TitlesTitleIdRoute
+  AppRoute: typeof AppRouteWithChildren
+  SignInRoute: typeof SignInRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/movies': {
-      id: '/movies'
+    '/_app/movies': {
+      id: '/_app/movies'
       path: '/movies'
       fullPath: '/movies'
-      preLoaderRoute: typeof MoviesRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppMoviesRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/shows': {
-      id: '/shows'
+    '/_app/shows': {
+      id: '/_app/shows'
       path: '/shows'
       fullPath: '/shows'
-      preLoaderRoute: typeof ShowsRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppShowsRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/titles/$titleId': {
-      id: '/titles/$titleId'
+    '/_app/titles/$titleId': {
+      id: '/_app/titles/$titleId'
       path: '/titles/$titleId'
       fullPath: '/titles/$titleId'
-      preLoaderRoute: typeof TitlesTitleIdRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppTitlesTitleIdRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
+interface AppRouteChildren {
+  AppMoviesRoute: typeof AppMoviesRoute
+  AppShowsRoute: typeof AppShowsRoute
+  AppIndexRoute: typeof AppIndexRoute
+  AppTitlesTitleIdRoute: typeof AppTitlesTitleIdRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppMoviesRoute: AppMoviesRoute,
+  AppShowsRoute: AppShowsRoute,
+  AppIndexRoute: AppIndexRoute,
+  AppTitlesTitleIdRoute: AppTitlesTitleIdRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  MoviesRoute: MoviesRoute,
-  ShowsRoute: ShowsRoute,
-  TitlesTitleIdRoute: TitlesTitleIdRoute,
+  AppRoute: AppRouteWithChildren,
+  SignInRoute: SignInRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

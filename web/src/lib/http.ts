@@ -1,24 +1,48 @@
-import type { Problem } from '../api/mediaman.schemas';
+// mediaman.ts imports apiFetch from here; the cycle is safe because each side only calls the other at run time.
+import { refreshTokens } from '../api/mediaman';
+import type { AuthTokens, Problem } from '../api/mediaman.schemas';
+import { clearTokens, refreshMarginMs, refreshSession, RefreshRejectedError, storedTokens } from './session';
 
 const baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? '';
-
-let getAccessToken: () => string | undefined = () => undefined;
-
-/** Sign-in (Stage 1) supplies the bearer access token through this hook. */
-export function setAccessTokenProvider(provider: () => string | undefined): void {
-  getAccessToken = provider;
-}
 
 /** The absolute URL of a contract path, e.g. `/titles`. */
 export function apiUrl(path: string): string {
   return `${baseUrl || window.location.origin}${path}`;
 }
 
-/** Request headers with the bearer access token added when signed in. */
-export function withAuth(init?: HeadersInit): Headers {
+/** `RequestInit` plus `anonymous`: send no token and never refresh (signing in and refreshing itself). */
+export type ApiRequestInit = RequestInit & { anonymous?: boolean };
+
+/**
+ * The stored session's access token, refreshed first when it's about to expire; undefined when signed out. A
+ * failed refresh (e.g. the network) leaves the old token in place, so the request still goes out and reports it.
+ */
+async function currentTokens(): Promise<AuthTokens | undefined> {
+  const tokens = storedTokens();
+  if (tokens === undefined) return undefined;
+  if (Date.parse(tokens.accessTokenExpiresAt) - Date.now() > refreshMarginMs) return tokens;
+  try {
+    return await refreshSession(tokens.refreshToken, exchangeRefreshToken);
+  } catch {
+    return tokens;
+  }
+}
+
+async function exchangeRefreshToken(refreshToken: string): Promise<AuthTokens> {
+  try {
+    return await refreshTokens({ refreshToken }, { anonymous: true });
+  } catch (error) {
+    // 400 (malformed) or 401 (expired, revoked or reused): the session is over. Anything else may pass.
+    if (error instanceof ApiError && (error.status === 400 || error.status === 401)) throw new RefreshRejectedError();
+    throw error;
+  }
+}
+
+/** Request headers with the bearer access token added when signed in, refreshing it first if it's about to expire. */
+export async function withAuth(init?: HeadersInit): Promise<Headers> {
   const headers = new Headers(init);
-  const token = getAccessToken();
-  if (token !== undefined) headers.set('Authorization', `Bearer ${token}`);
+  const tokens = await currentTokens();
+  if (tokens !== undefined) headers.set('Authorization', `Bearer ${tokens.accessToken}`);
   return headers;
 }
 
@@ -41,13 +65,11 @@ function isProblem(value: unknown): value is Problem {
   return typeof v.title === 'string' && typeof v.status === 'number' && typeof v.code === 'string';
 }
 
-/** The fetcher every generated client function calls (Orval mutator). */
-export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
-  const headers = withAuth(init.headers);
-
-  let response: Response;
+async function send(url: string, init: RequestInit, tokens: AuthTokens | undefined): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (tokens !== undefined) headers.set('Authorization', `Bearer ${tokens.accessToken}`);
   try {
-    response = await fetch(apiUrl(url), { ...init, headers });
+    return await fetch(apiUrl(url), { ...init, headers });
   } catch {
     throw new ApiError({
       title: "Can't reach the MediaMan server.",
@@ -56,9 +78,34 @@ export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<
       action: 'Check that the server is running and reachable, then try again.',
     });
   }
+}
 
-  const text = await response.text();
-  const body = parseJson(text);
+/**
+ * The fetcher every generated client function calls (Orval mutator). Signed in, it sends the access token; a
+ * `401 auth.required` (the token expired early, or another tab rotated it) refreshes once and retries, and a
+ * `401` that a refresh can't fix signs out (SPEC §7.11).
+ */
+export async function apiFetch<T>(url: string, init: ApiRequestInit = {}): Promise<T> {
+  const { anonymous = false, ...request } = init;
+  const tokens = anonymous ? undefined : await currentTokens();
+
+  let response = await send(url, request, tokens);
+  let text = await response.text();
+  let body = parseJson(text);
+
+  if (response.status === 401 && tokens !== undefined) {
+    const code = isProblem(body) ? body.code : undefined;
+    const next =
+      code === 'auth.required' ? await refreshSession(tokens.refreshToken, exchangeRefreshToken) : undefined;
+    if (next === undefined) {
+      clearTokens();
+    } else {
+      response = await send(url, request, next);
+      text = await response.text();
+      body = parseJson(text);
+      if (response.status === 401) clearTokens();
+    }
+  }
 
   if (!response.ok) {
     throw new ApiError(
