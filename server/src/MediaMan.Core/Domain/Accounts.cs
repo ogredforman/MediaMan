@@ -45,6 +45,9 @@ public class Session
     public DateTimeOffset LastSeenAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public bool Revoked { get; set; }
+
+    /// <summary>The profile picked on this device after sign-in (SPEC §7.11 step 3); null until one is picked.</summary>
+    public Guid? ActiveProfileId { get; set; }
 }
 
 public class Invite

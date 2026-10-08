@@ -111,7 +111,7 @@ The design must not preclude:
 | User | An account | id, username, passwordHash, roleId, isSuperadmin, totpSecret?, disabled, createdAt |
 | Role | A named bundle of permissions | id, name, permissions[], isPreset |
 | Profile | A Netflix-style viewer under an account | id, userId, name, avatar, pinHash?, maxRating?, audioLangPrefs[], subtitleLangPrefs[] |
-| Session | A signed-in device | id, userId, deviceName, refreshTokenHash, createdAt, lastSeenAt, expiresAt, revoked |
+| Session | A signed-in device | id, userId, deviceName, refreshTokenHash, createdAt, lastSeenAt, expiresAt, revoked, activeProfileId? |
 | Invite | A link to create an account | id, tokenHash, roleId, createdBy, expiresAt, maxUses, uses |
 | WatchState | A profile's progress on a Playable | profileId, playableId, positionSeconds, durationSeconds, watched, lastWatchedAt |
 | Indexer | A configured torrent search source | id, name, type (Cardigann/Torznab), definitionId?, settings, enabled, useFlareSolverr, health |
@@ -247,7 +247,7 @@ User 1─* SavedQualityProfile
 
 1. Username and password (plus TOTP if enabled) return a short-lived access token (15 min) and a rotating refresh token (30 days, sliding).
 2. Repeated failures are rate-limited per IP and per account (5 failures → 15 min lockout), in every mode. The Superadmin is rate-limited but can't be permanently locked.
-3. The profile picker shows after sign-in. A profile PIN is required if one is set.
+3. The profile picker shows after sign-in. A profile PIN is required if one is set. The pick is recorded on the session (each device watches as its own profile, and it lasts across token refreshes until another pick or sign-out), and profile-scoped data such as watch state follows the session's profile.
 4. Users can see and revoke their own sessions; `users.manage` can revoke anyone's except the Superadmin's.
 5. While remote access is on, abuse escalates to IP bans, like fail2ban built in. An address that keeps getting
    locked out, or that sends a burst of invalid tokens or failed requests across endpoints, is banned for growing

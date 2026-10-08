@@ -14,7 +14,7 @@ public sealed class AccountService(MediaManDbContext db, PasswordHasher hasher, 
     /// <summary>The preset role the Superadmin holds. Its permissions don't matter: the Superadmin has every one.</summary>
     public const string SuperadminRoleName = "Superadmin";
 
-    /// <summary>Creates the single Superadmin (first-run setup, SPEC §7.1).</summary>
+    /// <summary>Creates the single Superadmin (first-run setup, SPEC §7.1) with its default profile.</summary>
     /// <exception cref="ArgumentException">The username is empty or too long, or the password is too short.</exception>
     /// <exception cref="InvalidOperationException">A Superadmin already exists.</exception>
     public async Task<User> CreateSuperadminAsync(string username, string password, CancellationToken cancellationToken)
@@ -60,6 +60,7 @@ public sealed class AccountService(MediaManDbContext db, PasswordHasher hasher, 
             CreatedAt = clock.UtcNow,
         };
         db.Users.Add(user);
+        db.Profiles.Add(ProfileService.DefaultFor(user, clock));
         try
         {
             await db.SaveChangesAsync(cancellationToken);

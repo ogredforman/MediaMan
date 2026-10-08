@@ -100,7 +100,7 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
         return client;
     }
 
-    /// <summary>Creates a user whose role holds exactly <paramref name="permissions"/>, and signs it in.</summary>
+    /// <summary>Creates a user (with its default profile) whose role holds exactly <paramref name="permissions"/>, and signs it in.</summary>
     public async Task<TestUser> CreateUserAsync(CancellationToken ct, params string[] permissions)
     {
         await using var scope = Services.CreateAsyncScope();
@@ -110,15 +110,17 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
         var role = new Role { Id = Ids.New(clock), Name = "Role " + Guid.NewGuid().ToString("N"), Permissions = [.. permissions] };
         var username = "user-" + Guid.NewGuid().ToString("N");
         const string password = "a test user's password";
-        db.Roles.Add(role);
-        db.Users.Add(new User
+        var user = new User
         {
             Id = Ids.New(clock),
             Username = username,
             PasswordHash = services.GetRequiredService<PasswordHasher>().Hash(password),
             RoleId = role.Id,
             CreatedAt = clock.UtcNow,
-        });
+        };
+        db.Roles.Add(role);
+        db.Users.Add(user);
+        db.Profiles.Add(ProfileService.DefaultFor(user, clock));
         await db.SaveChangesAsync(ct);
 
         var tokens = (await services.GetRequiredService<SessionService>().SignInAsync(username, password, "Test", ct)).Tokens!;

@@ -56,6 +56,7 @@ import type {
 import type {
   AttentionFilePage,
   AuthTokens,
+  CreateProfileRequest,
   DevPlayStarted,
   EventEnvelope,
   GetArtworkParams,
@@ -68,12 +69,16 @@ import type {
   LoginRequest,
   Problem,
   ProblemResponse,
+  Profile,
+  ProfileList,
   RefreshRequest,
+  SelectProfileRequest,
   ServerModeRequest,
   ServerModeState,
   SetupRequest,
   TitleDetail,
-  TitlePage
+  TitlePage,
+  UpdateProfileRequest
 } from './mediaman.schemas';
 
 import { apiFetch } from '../lib/http';
@@ -634,6 +639,452 @@ export const useLogout = <TError = ErrorType<ProblemResponse>,
         TContext
       > => {
       return useMutation(getLogoutMutationOptions(options), queryClient);
+    }
+
+export const getSelectSessionProfileUrl = () => {
+
+
+
+
+  return `/auth/session/profile`
+}
+
+/**
+ * The profile picker shows after sign-in (SPEC §7.11 step 3). The choice is recorded on the token's session, so
+ * it lasts across token refreshes and restarts until another profile is picked or the session signs out; a new
+ * sign-in starts with none picked. Profile-scoped data (watch state, resume, Home rows) follows the session's
+ * profile. Deleting the picked profile clears it.
+ * @summary Picks the profile the signed-in session watches as.
+ */
+export const selectSessionProfile = async (selectProfileRequest: SelectProfileRequest, options?: Parameters<typeof apiFetch>[1]): Promise<Profile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<Profile>(getSelectSessionProfileUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(selectProfileRequest)
+  }
+);}
+
+
+
+
+
+export const getSelectSessionProfileMutationKey = () => ['selectSessionProfile'] as const;
+
+export const getSelectSessionProfileMutationOptions = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof selectSessionProfile>>, TError,SelectSessionProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof selectSessionProfile>>, TError,SelectSessionProfileMutationVariables, TContext> => {
+
+const mutationKey = getSelectSessionProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof selectSessionProfile>>, SelectSessionProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  selectSessionProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SelectSessionProfileMutationResult = NonNullable<Awaited<ReturnType<typeof selectSessionProfile>>>
+    export type SelectSessionProfileMutationBody = SelectProfileRequest
+    export type SelectSessionProfileMutationError = ErrorType<ProblemResponse | Problem>
+    export type SelectSessionProfileMutationVariables = {data: SelectProfileRequest}
+
+    /**
+ * @summary Picks the profile the signed-in session watches as.
+ */
+export const useSelectSessionProfile = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof selectSessionProfile>>, TError,SelectSessionProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof selectSessionProfile>>,
+        TError,
+        SelectSessionProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSelectSessionProfileMutationOptions(options), queryClient);
+    }
+
+export const getListProfilesUrl = () => {
+
+
+
+
+  return `/profiles`
+}
+
+/**
+ * Every account has at least one profile; one created before profiles existed gets its default here.
+ * @summary Lists the signed-in account's profiles, oldest first, and which one the session has picked.
+ */
+export const listProfiles = async ( options?: Parameters<typeof apiFetch>[1]): Promise<ProfileList> => {
+
+  return apiFetch<ProfileList>(getListProfilesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProfilesQueryKey = () => {
+    return [
+    `/profiles`
+    ] as const;
+    }
+
+
+export const getListProfilesQueryOptions = <TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProfilesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProfiles>>> = ({ signal }) => listProfiles({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListProfilesQueryResult = NonNullable<Awaited<ReturnType<typeof listProfiles>>>
+export type ListProfilesQueryError = ErrorType<ProblemResponse>
+
+
+export function useListProfiles<TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listProfiles>>,
+          TError,
+          Awaited<ReturnType<typeof listProfiles>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListProfiles<TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listProfiles>>,
+          TError,
+          Awaited<ReturnType<typeof listProfiles>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListProfiles<TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Lists the signed-in account's profiles, oldest first, and which one the session has picked.
+ */
+
+export function useListProfiles<TData = Awaited<ReturnType<typeof listProfiles>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listProfiles>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListProfilesQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateProfileUrl = () => {
+
+
+
+
+  return `/profiles`
+}
+
+/**
+ * @summary Adds a profile to the signed-in account.
+ */
+export const createProfile = async (createProfileRequest: CreateProfileRequest, options?: Parameters<typeof apiFetch>[1]): Promise<Profile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<Profile>(getCreateProfileUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createProfileRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateProfileMutationKey = () => ['createProfile'] as const;
+
+export const getCreateProfileMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,CreateProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,CreateProfileMutationVariables, TContext> => {
+
+const mutationKey = getCreateProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createProfile>>, CreateProfileMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createProfile(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateProfileMutationResult = NonNullable<Awaited<ReturnType<typeof createProfile>>>
+    export type CreateProfileMutationBody = CreateProfileRequest
+    export type CreateProfileMutationError = ErrorType<Problem | ProblemResponse>
+    export type CreateProfileMutationVariables = {data: CreateProfileRequest}
+
+    /**
+ * @summary Adds a profile to the signed-in account.
+ */
+export const useCreateProfile = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createProfile>>, TError,CreateProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createProfile>>,
+        TError,
+        CreateProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateProfileMutationOptions(options), queryClient);
+    }
+
+export const getUpdateProfileUrl = (profileId: string,) => {
+
+
+
+
+  return `/profiles/${profileId}`
+}
+
+/**
+ * @summary Renames a profile or changes its avatar. Omitted fields stay as they are.
+ */
+export const updateProfile = async (profileId: string,
+    updateProfileRequest: UpdateProfileRequest, options?: Parameters<typeof apiFetch>[1]): Promise<Profile> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<Profile>(getUpdateProfileUrl(profileId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(updateProfileRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateProfileMutationKey = () => ['updateProfile'] as const;
+
+export const getUpdateProfileMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,UpdateProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,UpdateProfileMutationVariables, TContext> => {
+
+const mutationKey = getUpdateProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateProfile>>, UpdateProfileMutationVariables> = (props) => {
+          const {profileId,data} = props ?? {};
+
+          return  updateProfile(profileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateProfileMutationResult = NonNullable<Awaited<ReturnType<typeof updateProfile>>>
+    export type UpdateProfileMutationBody = UpdateProfileRequest
+    export type UpdateProfileMutationError = ErrorType<Problem | ProblemResponse>
+    export type UpdateProfileMutationVariables = {profileId: string;data: UpdateProfileRequest}
+
+    /**
+ * @summary Renames a profile or changes its avatar. Omitted fields stay as they are.
+ */
+export const useUpdateProfile = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,UpdateProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateProfile>>,
+        TError,
+        UpdateProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateProfileMutationOptions(options), queryClient);
+    }
+
+export const getDeleteProfileUrl = (profileId: string,) => {
+
+
+
+
+  return `/profiles/${profileId}`
+}
+
+/**
+ * Sessions that had it picked go back to having none picked. An account always keeps one profile.
+ * @summary Deletes a profile and its watch state.
+ */
+export const deleteProfile = async (profileId: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getDeleteProfileUrl(profileId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteProfileMutationKey = () => ['deleteProfile'] as const;
+
+export const getDeleteProfileMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProfile>>, TError,DeleteProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProfile>>, TError,DeleteProfileMutationVariables, TContext> => {
+
+const mutationKey = getDeleteProfileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProfile>>, DeleteProfileMutationVariables> = (props) => {
+          const {profileId} = props ?? {};
+
+          return  deleteProfile(profileId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProfileMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProfile>>>
+
+    export type DeleteProfileMutationError = ErrorType<Problem | ProblemResponse>
+    export type DeleteProfileMutationVariables = {profileId: string}
+
+    /**
+ * @summary Deletes a profile and its watch state.
+ */
+export const useDeleteProfile = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProfile>>, TError,DeleteProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProfile>>,
+        TError,
+        DeleteProfileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteProfileMutationOptions(options), queryClient);
     }
 
 export const getGetEventsUrl = () => {

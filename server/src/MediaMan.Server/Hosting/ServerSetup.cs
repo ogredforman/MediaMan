@@ -105,6 +105,7 @@ public static class ServerSetup
         services.AddSingleton(PasswordHasher.Default);
         services.AddScoped<AccountService>();
         services.AddScoped<SessionService>();
+        services.AddScoped<ProfileService>();
 
         // Bearer tokens are validated exactly as AccessTokens validates them, times included (IClock). No authority is
         // set, so nothing is fetched. PermissionEnforcement turns the result into 401s and 403s.
@@ -207,6 +208,7 @@ public static class ServerSetup
         app.MapHealthEndpoints();
         app.MapSetupEndpoints();
         app.MapAuthEndpoints();
+        app.MapProfileEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
         app.MapArtworkEndpoints();
