@@ -19,6 +19,9 @@
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
  *   `remote_access.disabled`, before authentication (SPEC §7.12).
+ * - **First run:** until setup has created the Superadmin, every operation except `GET /health` and
+ *   `POST /setup` returns `423` with code `setup.required`, before authentication (SPEC §7.1). Clients show the
+ *   setup wizard when they see it.
  * - **Errors:** every non-2xx response is `application/problem+json` with the `Problem` schema.
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
@@ -40,6 +43,7 @@ import type {
 } from 'msw';
 
 import {
+  getCompleteSetupResponseMock,
   getDevPlayResponseMock,
   getGetArtworkResponseMock,
   getGetEventsResponseMock,
@@ -50,6 +54,7 @@ import {
   getListTitlesResponseMock,
   getLoginResponseMock,
   getRefreshTokensResponseMock,
+  getSetServerModeResponseMock,
   getStartLibraryScanResponseMock
 } from './mediaman.faker';
 
@@ -61,11 +66,12 @@ import type {
   Health,
   Library,
   LibraryPage,
+  ServerModeState,
   TitleDetail,
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -75,6 +81,30 @@ export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Para
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getGetHealthResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getCompleteSetupMockHandler = (overrideResponse?: AuthTokens | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<AuthTokens> | AuthTokens), options?: RequestHandlerOptions) => {
+  return http.post('*/setup', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCompleteSetupResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getSetServerModeMockHandler = (overrideResponse?: ServerModeState | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<ServerModeState> | ServerModeState), options?: RequestHandlerOptions) => {
+  return http.put('*/server/mode', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getSetServerModeResponseMock(),
       { status: 200
       })
   }, options)
@@ -212,6 +242,8 @@ export const getDevPlayMockHandler = (overrideResponse?: DevPlayStarted | ((info
 }
 export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
+  getCompleteSetupMockHandler(),
+  getSetServerModeMockHandler(),
   getLoginMockHandler(),
   getRefreshTokensMockHandler(),
   getLogoutMockHandler(),

@@ -1,4 +1,5 @@
 using System.Reflection;
+using MediaMan.Server.Hosting;
 
 namespace MediaMan.Server.Endpoints;
 
@@ -13,7 +14,8 @@ public static class HealthEndpoints
     public static IEndpointRouteBuilder MapHealthEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/health", () => TypedResults.Ok(new HealthResponse("healthy", _version)))
-            .RequiresPermission(PermissionMetadata.None);
+            .RequiresPermission(PermissionMetadata.None)
+            .AllowedBeforeSetup();
         return app;
     }
 }
