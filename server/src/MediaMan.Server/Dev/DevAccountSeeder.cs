@@ -12,6 +12,9 @@ public sealed class DevAccount(bool autoSignIn)
 
     /// <summary>Set by <see cref="DevAccountSeeder"/> on startup, before the server takes requests.</summary>
     public Guid? UserId { get; internal set; }
+
+    /// <summary>The session auto sign-in acts in, so it can pick a profile like a signed-in device. Set with <see cref="UserId"/>.</summary>
+    public Guid? SessionId { get; internal set; }
 }
 
 /// <summary>
@@ -22,6 +25,7 @@ public sealed partial class DevAccountSeeder(IServiceScopeFactory scopes, DevAcc
     : IHostedService
 {
     public const string Username = "dev";
+    public const string AutoSignInDevice = "Dev auto sign-in";
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -38,11 +42,28 @@ public sealed partial class DevAccountSeeder(IServiceScopeFactory scopes, DevAcc
         account.UserId = id;
         if (account.AutoSignIn)
         {
+            account.SessionId = await AutoSignInSessionAsync(scope.ServiceProvider, db, id, cancellationToken);
             LogAutoSignIn(logger, username);
         }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>The auto sign-in session from an earlier run, so its picked profile carries over, or a new one.</summary>
+    private static async Task<Guid> AutoSignInSessionAsync(IServiceProvider services, MediaManDbContext db, Guid userId, CancellationToken cancellationToken)
+    {
+        var existing = await db.Sessions.AsNoTracking()
+            .Where(s => s.UserId == userId && s.DeviceName == AutoSignInDevice && !s.Revoked)
+            .Select(s => (Guid?)s.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+        if (existing is { } id)
+        {
+            return id;
+        }
+
+        var tokens = await services.GetRequiredService<SessionService>().StartAsync(userId, AutoSignInDevice, cancellationToken);
+        return (await services.GetRequiredService<AccessTokens>().ValidateAsync(tokens.AccessToken))!.SessionId;
+    }
 
     private static async Task<(Guid, string)> CreateAsync(AccountService accounts, CancellationToken cancellationToken)
     {

@@ -38,6 +38,20 @@ public class AccountServiceTests
     }
 
     [Fact]
+    public async Task The_Superadmin_starts_with_a_default_profile_named_after_the_account()
+    {
+        await using var db = await TempDatabase.CreateMigratedAsync(Ct);
+        await using (var context = db.CreateContext())
+        {
+            await new AccountService(context, _hasher, new FakeClock()).CreateSuperadminAsync("owner", "a long password", Ct);
+        }
+
+        await using var check = db.CreateContext();
+        var user = await check.Users.SingleAsync(Ct);
+        (await check.Profiles.SingleAsync(Ct)).Should().BeEquivalentTo(new { UserId = user.Id, Name = "owner", Avatar = ProfileService.Avatars[0] });
+    }
+
+    [Fact]
     public async Task Only_one_Superadmin_can_be_created()
     {
         await using var db = await TempDatabase.CreateMigratedAsync(Ct);

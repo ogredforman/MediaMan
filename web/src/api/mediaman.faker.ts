@@ -42,6 +42,7 @@ import {
   ContentType,
   LibraryKind,
   MediaFileStatus,
+  ProfileAvatar,
   ServerMode,
   TitleKind
 } from './mediaman.schemas';
@@ -53,6 +54,8 @@ import type {
   Health,
   Library,
   LibraryPage,
+  Profile,
+  ProfileList,
   ServerModeState,
   TitleDetail,
   TitlePage
@@ -68,6 +71,14 @@ export const getSetServerModeResponseMock = (overrideResponse: Partial<Extract<S
 export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
 export const getRefreshTokensResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+
+export const getSelectSessionProfileResponseMock = (overrideResponse: Partial<Extract<Profile, object>> = {}): Profile => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), ...overrideResponse})
+
+export const getListProfilesResponseMock = (overrideResponse: Partial<Extract<ProfileList, object>> = {}): ProfileList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar))})), activeProfileId: faker.helpers.arrayElement([faker.string.uuid(), undefined]), ...overrideResponse})
+
+export const getCreateProfileResponseMock = (overrideResponse: Partial<Extract<Profile, object>> = {}): Profile => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), ...overrideResponse})
+
+export const getUpdateProfileResponseMock = (overrideResponse: Partial<Extract<Profile, object>> = {}): Profile => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), ...overrideResponse})
 
 export const getGetEventsResponseMock = (overrideResponse: Partial<Extract<EventEnvelope, object>> = {}): EventEnvelope => ({id: faker.string.alpha({length: {min: 10, max: 20}}), type: faker.helpers.fromRegExp("^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$"), at: faker.date.past().toISOString().slice(0, 19) + 'Z', data: {}, ...overrideResponse})
 

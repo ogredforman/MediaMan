@@ -144,6 +144,26 @@ public class SchemaTests
     }
 
     [Fact]
+    public async Task Profile_names_are_unique_per_account_ignoring_case()
+    {
+        await using var db = await TempDatabase.CreateMigratedAsync(Ct);
+        await using var context = db.CreateContext();
+        var role = new Role { Id = Guid.NewGuid(), Name = "Viewer" };
+        var alex = new User { Id = Guid.NewGuid(), Username = "alex", PasswordHash = "h", RoleId = role.Id };
+        var sam = new User { Id = Guid.NewGuid(), Username = "sam", PasswordHash = "h", RoleId = role.Id };
+        context.AddRange(role, alex, sam,
+            new Profile { Id = Guid.NewGuid(), UserId = alex.Id, Name = "Kids" },
+            new Profile { Id = Guid.NewGuid(), UserId = sam.Id, Name = "Kids" });
+        await context.SaveChangesAsync(Ct);
+
+        context.Add(new Profile { Id = Guid.NewGuid(), UserId = alex.Id, Name = "KIDS" });
+        var act = () => context.SaveChangesAsync(Ct);
+
+        (await act.Should().ThrowAsync<DbUpdateException>()).WithInnerException<Microsoft.Data.Sqlite.SqliteException>()
+            .WithMessage("*UNIQUE*");
+    }
+
+    [Fact]
     public async Task Deleting_a_library_removes_its_files()
     {
         await using var db = await TempDatabase.CreateMigratedAsync(Ct);

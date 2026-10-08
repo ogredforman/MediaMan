@@ -33,6 +33,7 @@ internal static class AccountsModel
         {
             b.HasKey(p => p.Id);
             b.Property(p => p.Id).ValueGeneratedNever();
+            // The database index compares Name with NOCASE (migration AddSessionActiveProfile); EF can't model an index collation.
             b.HasIndex(p => new { p.UserId, p.Name }).IsUnique();
             b.HasOne<User>().WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -43,6 +44,7 @@ internal static class AccountsModel
             b.Property(s => s.Id).ValueGeneratedNever();
             b.HasIndex(s => s.RefreshTokenHash).IsUnique();
             b.HasOne<User>().WithMany().HasForeignKey(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<Profile>().WithMany().HasForeignKey(s => s.ActiveProfileId).OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Invite>(b =>

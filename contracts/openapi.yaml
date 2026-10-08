@@ -215,6 +215,157 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /auth/session/profile:
+    put:
+      operationId: selectSessionProfile
+      summary: Picks the profile the signed-in session watches as.
+      description: |
+        The profile picker shows after sign-in (SPEC §7.11 step 3). The choice is recorded on the token's session, so
+        it lasts across token refreshes and restarts until another profile is picked or the session signs out; a new
+        sign-in starts with none picked. Profile-scoped data (watch state, resume, Home rows) follows the session's
+        profile. Deleting the picked profile clears it.
+      tags: [auth]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelectProfileRequest'
+      responses:
+        '200':
+          description: The profile is now the session's.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          description: The account has no such profile (`profile.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /profiles:
+    get:
+      operationId: listProfiles
+      summary: Lists the signed-in account's profiles, oldest first, and which one the session has picked.
+      description: Every account has at least one profile; one created before profiles existed gets its default here.
+      tags: [profiles]
+      x-permission: authenticated
+      responses:
+        '200':
+          description: The account's profiles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileList'
+        default:
+          $ref: '#/components/responses/Problem'
+    post:
+      operationId: createProfile
+      summary: Adds a profile to the signed-in account.
+      tags: [profiles]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProfileRequest'
+      responses:
+        '201':
+          description: The new profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: A field is invalid (`profile.invalid`); `errors` is keyed by field (`name`, `avatar`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: |
+            Another profile of the account has the name, ignoring case (`profile.name_taken`), or the account already
+            has 10 profiles (`profile.limit`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /profiles/{profileId}:
+    parameters:
+      - $ref: '#/components/parameters/ProfileId'
+    patch:
+      operationId: updateProfile
+      summary: Renames a profile or changes its avatar. Omitted fields stay as they are.
+      tags: [profiles]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: The updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: A field is invalid (`profile.invalid`); `errors` is keyed by field (`name`, `avatar`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The account has no such profile (`profile.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Another profile of the account has the name, ignoring case (`profile.name_taken`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      operationId: deleteProfile
+      summary: Deletes a profile and its watch state.
+      description: Sessions that had it picked go back to having none picked. An account always keeps one profile.
+      tags: [profiles]
+      x-permission: authenticated
+      responses:
+        '204':
+          description: Deleted.
+        '404':
+          description: The account has no such profile (`profile.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: It's the account's only profile (`profile.last`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /events:
     get:
       operationId: getEvents
@@ -497,6 +648,13 @@ components:
         bound to a user (SPEC §9, ADR 0008). Only operations that list it accept it.
 
   parameters:
+    ProfileId:
+      name: profileId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     Limit:
       name: limit
       in: query
@@ -689,6 +847,72 @@ components:
             type: array
             items:
               type: string
+
+    ProfileAvatar:
+      type: string
+      description: A preset avatar, a colour clients render with the profile's initial.
+      enum: [violet, blue, teal, green, amber, orange, rose, slate]
+
+    Profile:
+      type: object
+      description: A Netflix-style viewer under an account (SPEC §6.1). Watch state belongs to a profile.
+      required: [id, name, avatar]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 32
+        avatar:
+          $ref: '#/components/schemas/ProfileAvatar'
+
+    ProfileList:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/Profile'
+        activeProfileId:
+          type: string
+          format: uuid
+          description: The profile the session has picked. Absent until one is picked; clients show the picker then.
+
+    CreateProfileRequest:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: 1 to 32 characters after trimming, unique within the account ignoring case.
+        avatar:
+          $ref: '#/components/schemas/ProfileAvatar'
+
+    UpdateProfileRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          description: 1 to 32 characters after trimming, unique within the account ignoring case.
+        avatar:
+          $ref: '#/components/schemas/ProfileAvatar'
+
+    SelectProfileRequest:
+      type: object
+      required: [profileId]
+      additionalProperties: false
+      properties:
+        profileId:
+          type: string
+          format: uuid
 
     PageInfo:
       type: object

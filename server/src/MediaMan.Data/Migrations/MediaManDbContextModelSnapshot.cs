@@ -597,6 +597,9 @@ namespace MediaMan.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ActiveProfileId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CreatedAt")
                         .HasColumnType("INTEGER");
 
@@ -621,6 +624,8 @@ namespace MediaMan.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ActiveProfileId");
 
                     b.HasIndex("RefreshTokenHash")
                         .IsUnique();
@@ -956,6 +961,11 @@ namespace MediaMan.Data.Migrations
 
             modelBuilder.Entity("MediaMan.Core.Domain.Session", b =>
                 {
+                    b.HasOne("MediaMan.Core.Domain.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("ActiveProfileId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("MediaMan.Core.Domain.User", null)
                         .WithMany()
                         .HasForeignKey("UserId")

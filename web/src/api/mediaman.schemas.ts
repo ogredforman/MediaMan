@@ -172,6 +172,59 @@ export interface Problem {
 }
 
 /**
+ * A preset avatar, a colour clients render with the profile's initial.
+ */
+export type ProfileAvatar = typeof ProfileAvatar[keyof typeof ProfileAvatar];
+
+
+export const ProfileAvatar = {
+  violet: 'violet',
+  blue: 'blue',
+  teal: 'teal',
+  green: 'green',
+  amber: 'amber',
+  orange: 'orange',
+  rose: 'rose',
+  slate: 'slate',
+} as const;
+
+/**
+ * A Netflix-style viewer under an account (SPEC §6.1). Watch state belongs to a profile.
+ */
+export interface Profile {
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 32
+     */
+  name: string;
+  avatar: ProfileAvatar;
+}
+
+export interface ProfileList {
+  /** @minItems 1 */
+  items: Profile[];
+  /** The profile the session has picked. Absent until one is picked; clients show the picker then. */
+  activeProfileId?: string;
+}
+
+export interface CreateProfileRequest {
+  /** 1 to 32 characters after trimming, unique within the account ignoring case. */
+  name: string;
+  avatar?: ProfileAvatar;
+}
+
+export interface UpdateProfileRequest {
+  /** 1 to 32 characters after trimming, unique within the account ignoring case. */
+  name?: string;
+  avatar?: ProfileAvatar;
+}
+
+export interface SelectProfileRequest {
+  profileId: string;
+}
+
+/**
  * Paging state returned by every list operation, alongside its `items`.
  */
 export interface PageInfo {

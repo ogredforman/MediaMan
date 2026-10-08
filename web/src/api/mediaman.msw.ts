@@ -44,6 +44,7 @@ import type {
 
 import {
   getCompleteSetupResponseMock,
+  getCreateProfileResponseMock,
   getDevPlayResponseMock,
   getGetArtworkResponseMock,
   getGetEventsResponseMock,
@@ -51,11 +52,14 @@ import {
   getGetTitleResponseMock,
   getListAttentionFilesResponseMock,
   getListLibrariesResponseMock,
+  getListProfilesResponseMock,
   getListTitlesResponseMock,
   getLoginResponseMock,
   getRefreshTokensResponseMock,
+  getSelectSessionProfileResponseMock,
   getSetServerModeResponseMock,
-  getStartLibraryScanResponseMock
+  getStartLibraryScanResponseMock,
+  getUpdateProfileResponseMock
 } from './mediaman.faker';
 
 import type {
@@ -66,12 +70,14 @@ import type {
   Health,
   Library,
   LibraryPage,
+  Profile,
+  ProfileList,
   ServerModeState,
   TitleDetail,
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -136,6 +142,64 @@ export const getRefreshTokensMockHandler = (overrideResponse?: AuthTokens | ((in
 
 export const getLogoutMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
   return http.post('*/auth/logout', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
+export const getSelectSessionProfileMockHandler = (overrideResponse?: Profile | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<Profile> | Profile), options?: RequestHandlerOptions) => {
+  return http.put('*/auth/session/profile', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getSelectSessionProfileResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getListProfilesMockHandler = (overrideResponse?: ProfileList | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<ProfileList> | ProfileList), options?: RequestHandlerOptions) => {
+  return http.get('*/profiles', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListProfilesResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getCreateProfileMockHandler = (overrideResponse?: Profile | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<Profile> | Profile), options?: RequestHandlerOptions) => {
+  return http.post('*/profiles', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCreateProfileResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
+export const getUpdateProfileMockHandler = (overrideResponse?: Profile | ((info: Parameters<Parameters<typeof http.patch>[1]>[0]) => Promise<Profile> | Profile), options?: RequestHandlerOptions) => {
+  return http.patch('*/profiles/:profileId', async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getUpdateProfileResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getDeleteProfileMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.delete('*/profiles/:profileId', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
   if (typeof overrideResponse === 'function') {await overrideResponse(info); }
 
     return new HttpResponse(null,
@@ -247,6 +311,11 @@ export const getMediaManAPIMock = () => [
   getLoginMockHandler(),
   getRefreshTokensMockHandler(),
   getLogoutMockHandler(),
+  getSelectSessionProfileMockHandler(),
+  getListProfilesMockHandler(),
+  getCreateProfileMockHandler(),
+  getUpdateProfileMockHandler(),
+  getDeleteProfileMockHandler(),
   getGetEventsMockHandler(),
   getListLibrariesMockHandler(),
   getStartLibraryScanMockHandler(),

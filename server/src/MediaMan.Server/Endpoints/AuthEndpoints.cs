@@ -57,10 +57,14 @@ public static class AuthEndpoints
                 "The session expired or was signed out, or the account is disabled.", "Sign in again.");
     }
 
-    /// <summary>Revokes the token's session. The dev configuration's auto sign-in has no session, so there's nothing to end.</summary>
+    /// <summary>
+    /// Revokes the token's session. A request without a token is the dev configuration's auto sign-in, whose session
+    /// stays: there's no sign-in to go back to.
+    /// </summary>
     private static async Task<NoContent> LogoutAsync(HttpContext http, SessionService sessions, CancellationToken ct)
     {
-        if (http.Features.Get<CurrentUser>()?.SessionId is { } sessionId)
+        if (http.Request.Headers.ContainsKey(HeaderNames.Authorization)
+            && http.Features.Get<CurrentUser>()?.SessionId is { } sessionId)
         {
             await sessions.RevokeAsync(sessionId, ct);
         }

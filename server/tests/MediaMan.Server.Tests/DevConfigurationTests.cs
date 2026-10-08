@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
@@ -7,6 +8,7 @@ using MediaMan.Fakes;
 using MediaMan.Metadata.Tmdb;
 using MediaMan.Playback.Probing;
 using MediaMan.Server.Dev;
+using MediaMan.Server.Endpoints;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -173,6 +175,32 @@ public sealed class DevConfigurationTests : IDisposable
 
         libraries.StatusCode.Should().Be(HttpStatusCode.OK);
         logout.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task Auto_sign_in_has_a_session_that_picks_profiles_and_outlives_sign_out()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var dataDirectory = Path.Combine(Path.GetDirectoryName(_mediaPath)!, "data");
+        var settings = new Dictionary<string, string> { ["MediaMan:Dev:AutoSignIn"] = "true" };
+        Guid profileId;
+        await using (var first = DevFactory(dataDirectory, settings))
+        {
+            using var client = first.CreateClient();
+            var list = await client.GetFromJsonAsync<ProfileList>(new Uri("/profiles", UriKind.Relative), JsonSerializerOptions.Web, ct);
+            profileId = list!.Items.Single().Id;
+            using var picked = await client.PutAsJsonAsync(new Uri("/auth/session/profile", UriKind.Relative), new { profileId }, ct);
+            using var logout = await client.PostAsync(new Uri("/auth/logout", UriKind.Relative), null, ct);
+            using var after = await client.GetAsync(new Uri("/libraries", UriKind.Relative), ct);
+
+            picked.StatusCode.Should().Be(HttpStatusCode.OK);
+            after.StatusCode.Should().Be(HttpStatusCode.OK, "signing out without a token doesn't end auto sign-in");
+        }
+
+        await using var second = DevFactory(dataDirectory, settings);
+        using var restarted = second.CreateClient();
+        var again = await restarted.GetFromJsonAsync<ProfileList>(new Uri("/profiles", UriKind.Relative), JsonSerializerOptions.Web, ct);
+        again!.ActiveProfileId.Should().Be(profileId, "the pick carries over a restart");
     }
 
     [Fact]

@@ -11,8 +11,10 @@ using Microsoft.Net.Http.Headers;
 namespace MediaMan.Server.Endpoints;
 
 /// <summary>The signed-in user of a request, set by <see cref="PermissionEnforcement"/>.</summary>
-/// <param name="SessionId">The session the access token belongs to; null for the dev configuration's auto sign-in.</param>
-public sealed record CurrentUser(Guid UserId, Guid? SessionId, IReadOnlySet<string> Permissions);
+/// <param name="SessionId">The session the access token belongs to (for the dev configuration's auto sign-in, the dev
+/// account's session); null only if the dev account has none.</param>
+/// <param name="ProfileId">The profile the session has picked (SPEC §7.11 step 3); null until one is picked.</param>
+public sealed record CurrentUser(Guid UserId, Guid? SessionId, IReadOnlySet<string> Permissions, Guid? ProfileId = null);
 
 /// <summary>
 /// Enforces the <see cref="PermissionMetadata"/> every route declares (SPEC §5, §9). Routes other than
@@ -92,9 +94,9 @@ public sealed class PermissionEnforcement(RequestDelegate next)
 #if MEDIAMAN_DEV
         // Dev configuration only (SPEC §8 setup [P]): a request with no token at all is the dev Superadmin.
         if (!http.Request.Headers.ContainsKey(HeaderNames.Authorization)
-            && http.RequestServices.GetService<DevAccount>() is { AutoSignIn: true, UserId: { } devUserId })
+            && http.RequestServices.GetService<DevAccount>() is { AutoSignIn: true, UserId: { } devUserId } devAccount)
         {
-            var user = await LoadAsync(db, devUserId, sessionId: null, ct);
+            var user = await LoadAsync(db, devUserId, devAccount.SessionId, ct);
             return user is null ? (null, SessionExpired) : (user, null);
         }
 #endif
@@ -107,10 +109,19 @@ public sealed class PermissionEnforcement(RequestDelegate next)
     /// <summary>The user if they exist and aren't disabled, and (with a session) the session is theirs and live.</summary>
     private static async Task<CurrentUser?> LoadAsync(MediaManDbContext db, Guid userId, Guid? sessionId, CancellationToken ct)
     {
-        if (sessionId is { } sid
-            && !await db.Sessions.AnyAsync(s => s.Id == sid && s.UserId == userId && !s.Revoked, ct))
+        Guid? profileId = null;
+        if (sessionId is { } sid)
         {
-            return null;
+            var session = await db.Sessions.AsNoTracking()
+                .Where(s => s.Id == sid && s.UserId == userId && !s.Revoked)
+                .Select(s => new { s.ActiveProfileId })
+                .SingleOrDefaultAsync(ct);
+            if (session is null)
+            {
+                return null;
+            }
+
+            profileId = session.ActiveProfileId;
         }
 
         var row = await db.Users.AsNoTracking()
@@ -119,7 +130,7 @@ public sealed class PermissionEnforcement(RequestDelegate next)
             .SingleOrDefaultAsync(ct);
         return row is null || row.User.Disabled
             ? null
-            : new CurrentUser(userId, sessionId, AccountService.PermissionsOf(row.User, row.Role));
+            : new CurrentUser(userId, sessionId, AccountService.PermissionsOf(row.User, row.Role), profileId);
     }
 
     // A new result each time: problem details are filled in per request.
