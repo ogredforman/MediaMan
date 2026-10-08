@@ -21,9 +21,23 @@ public sealed class MediaManOptions
     /// <summary>Dev configuration (SPEC §8 setup [P]); honoured only in the Development environment of a Debug build.</summary>
     public DevOptions Dev { get; set; } = new();
 
+    public ServerOptions Server { get; set; } = new();
+
     public ToolsOptions Tools { get; set; } = new();
 
     public MetadataOptions Metadata { get; set; } = new();
+}
+
+/// <summary>How the server listens (SPEC §7.1 step 3); <see cref="ServerBinding"/> applies it.</summary>
+public sealed class ServerOptions
+{
+    /// <summary>The default port; the SPEC doesn't fix one.</summary>
+    public const int DefaultPort = 8420;
+
+    /// <summary>Local listens on loopback only, Server on the local network. Setup records the choice (PLAN 2.4b).</summary>
+    public ServerMode Mode { get; set; } = ServerMode.Local;
+
+    public int Port { get; set; } = DefaultPort;
 }
 
 /// <summary>Metadata provider settings (SPEC §8 metadata [M]); Settings → Metadata edits them in PLAN 2.22.</summary>

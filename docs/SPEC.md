@@ -152,7 +152,8 @@ User 1─* SavedQualityProfile
 
 1. The server starts with an empty database and serves the setup wizard. Every other API call returns `423 SetupRequired`.
 2. The user creates the Superadmin (username and password, minimum 12 characters).
-3. The user picks a mode. **Local** binds the server to `127.0.0.1` only. **Server** binds to the LAN interface.
+3. The user picks a mode. **Local** binds the server to `127.0.0.1` only. **Server** listens on every interface (port 8420 by default) and
+   relies on the local-network guard (7.12 step 1), so a changing LAN address needs no reconfiguration.
    Remote access isn't offered here: it starts off, so either mode serves only the local network until it's turned
    on in Settings (7.12).
 4. The user adds a first library (path, content type). An unreadable path is shown inline and the step can't be completed until it's fixed.
@@ -259,11 +260,11 @@ User 1─* SavedQualityProfile
 ### 7.12 Remote access
 
 1. Remote access is off by default. While it's off, the server serves only clients on the local network:
-   loopback, private LAN ranges (RFC 1918, IPv6 unique-local and link-local) and the Tailscale ranges
+   loopback, private LAN ranges (RFC 1918, IPv4 and IPv6 link-local, IPv6 unique-local) and the Tailscale ranges
    (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`). Any other client gets `403` (`remote_access.disabled`) saying that
    remote access is off and how to turn it on. A request carrying forwarding headers (`Forwarded`,
    `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) is treated as outside, so a tunnel or proxy on the same
-   machine can't expose the server by accident.
+   machine can't expose the server by accident. A request whose client address is unknown is treated as outside too.
 2. Tailscale needs no switch: tailnet devices count as the local network, so Server mode plus Tailscale works as-is.
    It's the recommended option.
 3. Only the Superadmin turns remote access on, in Settings → Remote access. That opens a guided setup: pick
