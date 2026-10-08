@@ -19,6 +19,9 @@
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
  *   `remote_access.disabled`, before authentication (SPEC §7.12).
+ * - **First run:** until setup has created the Superadmin, every operation except `GET /health` and
+ *   `POST /setup` returns `423` with code `setup.required`, before authentication (SPEC §7.1). Clients show the
+ *   setup wizard when they see it.
  * - **Errors:** every non-2xx response is `application/problem+json` with the `Problem` schema.
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
@@ -68,6 +71,69 @@ export interface AuthTokens {
   /** Opaque. Store it securely: it's a credential. It works once, until `refreshTokenExpiresAt`. */
   refreshToken: string;
   refreshTokenExpiresAt: string;
+}
+
+/**
+ * `local` listens on this computer only (loopback); `server` listens on the local network, every interface
+ * (SPEC §7.1 step 3). Either way, clients outside the local network are refused while remote access is off.
+ */
+export type ServerMode = typeof ServerMode[keyof typeof ServerMode];
+
+
+export const ServerMode = {
+  local: 'local',
+  server: 'server',
+} as const;
+
+export type ContentType = typeof ContentType[keyof typeof ContentType];
+
+
+export const ContentType = {
+  movies: 'movies',
+  shows: 'shows',
+  anime: 'anime',
+  mixed: 'mixed',
+} as const;
+
+/**
+ * The first library. It's an External library, so MediaMan only reads it (SPEC §5).
+ */
+export interface SetupLibrary {
+  /**
+     * A full path to a folder the server can read, e.g. `D:\Movies` or `/mnt/media/movies`.
+     * @minLength 1
+     */
+  path: string;
+  contentType: ContentType;
+  /** Defaults to the folder's name. */
+  name?: string;
+}
+
+export interface SetupRequest {
+  /**
+     * @minLength 1
+     * @maxLength 64
+     */
+  username: string;
+  /** @minLength 12 */
+  password: string;
+  mode: ServerMode;
+  library: SetupLibrary;
+  /**
+     * How the Superadmin's first session is listed. Defaults to the client's User-Agent.
+     * @maxLength 100
+     */
+  deviceName?: string;
+}
+
+export interface ServerModeRequest {
+  mode: ServerMode;
+}
+
+export interface ServerModeState {
+  mode: ServerMode;
+  /** True when the recorded mode differs from the one the server is running in. */
+  restartRequired: boolean;
 }
 
 /**
@@ -138,16 +204,6 @@ export type LibraryKind = typeof LibraryKind[keyof typeof LibraryKind];
 export const LibraryKind = {
   external: 'external',
   managed: 'managed',
-} as const;
-
-export type ContentType = typeof ContentType[keyof typeof ContentType];
-
-
-export const ContentType = {
-  movies: 'movies',
-  shows: 'shows',
-  anime: 'anime',
-  mixed: 'mixed',
 } as const;
 
 export type ScanStateState = typeof ScanStateState[keyof typeof ScanStateState];

@@ -19,6 +19,9 @@
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
  *   `remote_access.disabled`, before authentication (SPEC §7.12).
+ * - **First run:** until setup has created the Superadmin, every operation except `GET /health` and
+ *   `POST /setup` returns `423` with code `setup.required`, before authentication (SPEC §7.1). Clients show the
+ *   setup wizard when they see it.
  * - **Errors:** every non-2xx response is `application/problem+json` with the `Problem` schema.
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
@@ -66,6 +69,9 @@ import type {
   Problem,
   ProblemResponse,
   RefreshRequest,
+  ServerModeRequest,
+  ServerModeState,
+  SetupRequest,
   TitleDetail,
   TitlePage
 } from './mediaman.schemas';
@@ -193,6 +199,185 @@ export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TErr
 
 
 
+
+export const getCompleteSetupUrl = () => {
+
+
+
+
+  return `/setup`
+}
+
+/**
+ * One atomic step: either everything is created or nothing is. Unauthenticated, and only until it succeeds;
+ * after that it returns `409`. The response signs the new Superadmin in, as `POST /auth/login` would, and the
+ * first library's scan is queued. The mode takes effect when the server next starts.
+ * @summary First-run setup: creates the Superadmin, records the mode and adds the first library (SPEC §7.1).
+ */
+export const completeSetup = async (setupRequest: SetupRequest, options?: Parameters<typeof apiFetch>[1]): Promise<AuthTokens> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<AuthTokens>(getCompleteSetupUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(setupRequest)
+  }
+);}
+
+
+
+
+
+export const getCompleteSetupMutationKey = () => ['completeSetup'] as const;
+
+export const getCompleteSetupMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeSetup>>, TError,CompleteSetupMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeSetup>>, TError,CompleteSetupMutationVariables, TContext> => {
+
+const mutationKey = getCompleteSetupMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeSetup>>, CompleteSetupMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  completeSetup(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteSetupMutationResult = NonNullable<Awaited<ReturnType<typeof completeSetup>>>
+    export type CompleteSetupMutationBody = SetupRequest
+    export type CompleteSetupMutationError = ErrorType<Problem | ProblemResponse>
+    export type CompleteSetupMutationVariables = {data: SetupRequest}
+
+    /**
+ * @summary First-run setup: creates the Superadmin, records the mode and adds the first library (SPEC §7.1).
+ */
+export const useCompleteSetup = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeSetup>>, TError,CompleteSetupMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeSetup>>,
+        TError,
+        CompleteSetupMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteSetupMutationOptions(options), queryClient);
+    }
+
+export const getSetServerModeUrl = () => {
+
+
+
+
+  return `/server/mode`
+}
+
+/**
+ * @summary Records where the server listens; takes effect when the server restarts (SPEC §7.1 step 3, §8 setup).
+ */
+export const setServerMode = async (serverModeRequest: ServerModeRequest, options?: Parameters<typeof apiFetch>[1]): Promise<ServerModeState> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<ServerModeState>(getSetServerModeUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serverModeRequest)
+  }
+);}
+
+
+
+
+
+export const getSetServerModeMutationKey = () => ['setServerMode'] as const;
+
+export const getSetServerModeMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setServerMode>>, TError,SetServerModeMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setServerMode>>, TError,SetServerModeMutationVariables, TContext> => {
+
+const mutationKey = getSetServerModeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setServerMode>>, SetServerModeMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  setServerMode(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetServerModeMutationResult = NonNullable<Awaited<ReturnType<typeof setServerMode>>>
+    export type SetServerModeMutationBody = ServerModeRequest
+    export type SetServerModeMutationError = ErrorType<Problem | ProblemResponse>
+    export type SetServerModeMutationVariables = {data: ServerModeRequest}
+
+    /**
+ * @summary Records where the server listens; takes effect when the server restarts (SPEC §7.1 step 3, §8 setup).
+ */
+export const useSetServerMode = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setServerMode>>, TError,SetServerModeMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setServerMode>>,
+        TError,
+        SetServerModeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetServerModeMutationOptions(options), queryClient);
+    }
 
 export const getLoginUrl = () => {
 

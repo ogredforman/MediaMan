@@ -58,11 +58,20 @@ public sealed class SessionService(MediaManDbContext db, PasswordHasher hasher, 
             return SignInResult.Failed(SignInFailure.InvalidCredentials);
         }
 
+        return SignInResult.Success(await StartAsync(user.Id, deviceName, cancellationToken));
+    }
+
+    /// <summary>
+    /// Starts a session for a user whose identity is already established, e.g. the Superadmin setup just created
+    /// (SPEC §7.1). Saves through the shared context, so it joins any transaction the caller has open.
+    /// </summary>
+    public async Task<AuthTokens> StartAsync(Guid userId, string? deviceName, CancellationToken cancellationToken)
+    {
         var now = clock.UtcNow;
         var session = new Session
         {
             Id = Ids.New(clock),
-            UserId = user.Id,
+            UserId = userId,
             DeviceName = DeviceNameOf(deviceName),
             RefreshTokenHash = "",
             CreatedAt = now,
@@ -74,7 +83,7 @@ public sealed class SessionService(MediaManDbContext db, PasswordHasher hasher, 
         db.Sessions.Add(session);
         await db.SaveChangesAsync(cancellationToken);
 
-        return SignInResult.Success(TokensFor(session, refreshToken));
+        return TokensFor(session, refreshToken);
     }
 
     public async Task<SignInResult> RefreshAsync(string refreshToken, CancellationToken cancellationToken)

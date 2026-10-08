@@ -11,18 +11,17 @@ namespace MediaMan.Server.Tests;
 /// <summary><c>POST /auth/login</c>, <c>POST /auth/refresh</c> and <c>POST /auth/logout</c> (SPEC §7.11).</summary>
 public sealed class AuthApiTests : IAsyncLifetime
 {
-    private const string Password = "a long password";
+    private const string Password = MediaManFactory.SuperadminPassword;
 
     private readonly MediaManFactory _factory = new();
     private HttpClient _client = null!;
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    public async ValueTask InitializeAsync()
+    public ValueTask InitializeAsync()
     {
         _client = _factory.CreateClient();
-        await using var scope = _factory.Services.CreateAsyncScope();
-        await scope.ServiceProvider.GetRequiredService<AccountService>().CreateSuperadminAsync("owner", Password, Ct);
+        return ValueTask.CompletedTask;
     }
 
     public async ValueTask DisposeAsync()

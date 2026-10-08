@@ -24,7 +24,8 @@ public sealed record ListenPlan(bool Loopback, int Port, string Scheme);
 /// </summary>
 public static class ServerBinding
 {
-    public static ListenPlan Plan(ServerOptions options)
+    /// <summary>The listen plan for <paramref name="options"/>; a mode recorded by setup wins over the configured one.</summary>
+    public static ListenPlan Plan(ServerOptions options, ServerMode? recordedMode = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (options.Port is < 1 or > 65535)
@@ -33,14 +34,15 @@ public static class ServerBinding
                 $"{MediaManOptions.SectionName}:Server:Port is {options.Port}; set it to a port from 1 to 65535.");
         }
 
-        return new ListenPlan(options.Mode == ServerMode.Local, options.Port, Uri.UriSchemeHttp);
+        return new ListenPlan((recordedMode ?? options.Mode) == ServerMode.Local, options.Port, Uri.UriSchemeHttp);
     }
 
     public static IServiceCollection AddMediaManBinding(this IServiceCollection services)
     {
-        services.AddOptions<KestrelServerOptions>().Configure<IOptions<MediaManOptions>>((kestrel, options) =>
+        services.AddSingleton<ServerModes>();
+        services.AddOptions<KestrelServerOptions>().Configure<IOptions<MediaManOptions>, ServerModes>((kestrel, options, modes) =>
         {
-            var plan = Plan(options.Value.Server);
+            var plan = Plan(options.Value.Server, modes.RecordedAtStartup);
             if (plan.Loopback)
             {
                 kestrel.ListenLocalhost(plan.Port); // IPv4 and IPv6 loopback, whichever the machine has
@@ -56,6 +58,8 @@ public static class ServerBinding
     /// <summary>Refuses clients outside the local network before anything else of ours runs (SPEC §7.12 step 1).</summary>
     public static WebApplication UseLocalNetworkGuard(this WebApplication app)
     {
+        // Read the recorded mode now, before anything can change it, so the mode in use is known (PUT /server/mode).
+        _ = app.Services.GetRequiredService<ServerModes>();
         app.UseMiddleware<LocalNetworkGuard>();
         return app;
     }

@@ -14,6 +14,12 @@ public sealed class ServerBindingTests
         ServerBinding.Plan(new ServerOptions { Mode = ServerMode.Server })
             .Should().Be(new ListenPlan(Loopback: false, ServerOptions.DefaultPort, "http"));
 
+    [Theory]
+    [InlineData(ServerMode.Local, ServerMode.Server, false)]
+    [InlineData(ServerMode.Server, ServerMode.Local, true)]
+    public void The_mode_setup_recorded_wins_over_the_configured_one(ServerMode configured, ServerMode recorded, bool loopback) =>
+        ServerBinding.Plan(new ServerOptions { Mode = configured }, recorded).Loopback.Should().Be(loopback);
+
     [Fact]
     public void Local_is_the_default() =>
         ServerBinding.Plan(new ServerOptions()).Loopback.Should().BeTrue();

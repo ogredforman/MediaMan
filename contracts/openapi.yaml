@@ -21,6 +21,9 @@ info:
       outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
       forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
       `remote_access.disabled`, before authentication (SPEC §7.12).
+    - **First run:** until setup has created the Superadmin, every operation except `GET /health` and
+      `POST /setup` returns `423` with code `setup.required`, before authentication (SPEC §7.1). Clients show the
+      setup wizard when they see it.
     - **Errors:** every non-2xx response is `application/problem+json` with the `Problem` schema.
       `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
     - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
@@ -52,6 +55,75 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /setup:
+    post:
+      operationId: completeSetup
+      summary: "First-run setup: creates the Superadmin, records the mode and adds the first library (SPEC §7.1)."
+      description: |
+        One atomic step: either everything is created or nothing is. Unauthenticated, and only until it succeeds;
+        after that it returns `409`. The response signs the new Superadmin in, as `POST /auth/login` would, and the
+        first library's scan is queued. The mode takes effect when the server next starts.
+      tags: [setup]
+      security: []
+      x-permission: none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetupRequest'
+      responses:
+        '200':
+          description: Setup is complete and the Superadmin is signed in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '400':
+          description: |
+            Some fields are invalid (`setup.invalid`). `errors` is keyed by field (`username`, `password`, `mode`,
+            `library`, `library.path`, `library.contentType`) so the wizard can show each message inline.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: Setup is already complete (`setup.complete`). Sign in instead.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /server/mode:
+    put:
+      operationId: setServerMode
+      summary: "Records where the server listens; takes effect when the server restarts (SPEC §7.1 step 3, §8 setup)."
+      tags: [setup]
+      x-permission: server.control
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServerModeRequest'
+      responses:
+        '200':
+          description: The mode is recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerModeState'
+        '400':
+          description: The mode is missing or unknown (`bad_request`); `errors.mode` says why.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         default:
           $ref: '#/components/responses/Problem'
 
@@ -515,6 +587,69 @@ components:
         refreshTokenExpiresAt:
           type: string
           format: date-time
+
+    ServerMode:
+      type: string
+      description: |
+        `local` listens on this computer only (loopback); `server` listens on the local network, every interface
+        (SPEC §7.1 step 3). Either way, clients outside the local network are refused while remote access is off.
+      enum: [local, server]
+
+    SetupRequest:
+      type: object
+      required: [username, password, mode, library]
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 64
+        password:
+          type: string
+          minLength: 12
+        mode:
+          $ref: '#/components/schemas/ServerMode'
+        library:
+          $ref: '#/components/schemas/SetupLibrary'
+        deviceName:
+          type: string
+          maxLength: 100
+          description: How the Superadmin's first session is listed. Defaults to the client's User-Agent.
+
+    SetupLibrary:
+      type: object
+      description: The first library. It's an External library, so MediaMan only reads it (SPEC §5).
+      required: [path, contentType]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+          minLength: 1
+          description: A full path to a folder the server can read, e.g. `D:\Movies` or `/mnt/media/movies`.
+        contentType:
+          $ref: '#/components/schemas/ContentType'
+        name:
+          type: string
+          description: Defaults to the folder's name.
+
+    ServerModeRequest:
+      type: object
+      required: [mode]
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: '#/components/schemas/ServerMode'
+
+    ServerModeState:
+      type: object
+      required: [mode, restartRequired]
+      additionalProperties: false
+      properties:
+        mode:
+          $ref: '#/components/schemas/ServerMode'
+        restartRequired:
+          type: boolean
+          description: True when the recorded mode differs from the one the server is running in.
 
     Problem:
       type: object

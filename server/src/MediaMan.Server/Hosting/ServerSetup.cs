@@ -17,6 +17,7 @@ using MediaMan.Server.Endpoints;
 using MediaMan.Server.Events;
 using MediaMan.Server.LibraryApi;
 using MediaMan.Server.Scanning;
+using MediaMan.Server.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -45,6 +46,8 @@ public static class ServerSetup
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
+        services.AddSingleton<SetupState>();
+        services.AddScoped<SetupService>();
         services.AddScoped<LibraryQueries>();
         AddMetadata(services);
         AddScanning(services);
@@ -202,6 +205,7 @@ public static class ServerSetup
     public static WebApplication MapMediaManEndpoints(this WebApplication app)
     {
         app.MapHealthEndpoints();
+        app.MapSetupEndpoints();
         app.MapAuthEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();

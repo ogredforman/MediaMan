@@ -19,6 +19,9 @@
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
  *   `remote_access.disabled`, before authentication (SPEC §7.12).
+ * - **First run:** until setup has created the Superadmin, every operation except `GET /health` and
+ *   `POST /setup` returns `423` with code `setup.required`, before authentication (SPEC §7.1). Clients show the
+ *   setup wizard when they see it.
  * - **Errors:** every non-2xx response is `application/problem+json` with the `Problem` schema.
  *   `code` is stable and machine-readable; `action` tells the user what to do next (SPEC §11).
  * - **Pagination:** list operations take the `limit` and `cursor` parameters and return their items
@@ -39,6 +42,7 @@ import {
   ContentType,
   LibraryKind,
   MediaFileStatus,
+  ServerMode,
   TitleKind
 } from './mediaman.schemas';
 import type {
@@ -49,12 +53,17 @@ import type {
   Health,
   Library,
   LibraryPage,
+  ServerModeState,
   TitleDetail,
   TitlePage
 } from './mediaman.schemas';
 
 
 export const getGetHealthResponseMock = (overrideResponse: Partial<Extract<Health, object>> = {}): Health => ({status: faker.helpers.arrayElement(['healthy'] as const), version: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
+
+export const getCompleteSetupResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+
+export const getSetServerModeResponseMock = (overrideResponse: Partial<Extract<ServerModeState, object>> = {}): ServerModeState => ({mode: faker.helpers.arrayElement(Object.values(ServerMode)), restartRequired: faker.datatype.boolean(), ...overrideResponse})
 
 export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 

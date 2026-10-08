@@ -79,6 +79,17 @@ demote, disable or change the role of the stored Superadmin row (SPEC §5, §7.1
 - **Enforcement:** routes opt in with `AllowsSignedUrl()`; `PermissionEnforcement` lets a request through on a valid
   signature for its own path, and anything else falls through to the bearer check (`401 auth.required`).
 
+## First-run setup (PLAN 2.4b)
+
+- **The gate:** `SetupGate` runs after the local-network guard and before authentication. Until a Superadmin exists,
+  every route except health and `POST /setup` (opted in with `AllowedBeforeSetup()`) is `423 setup.required`. Once
+  a Superadmin exists the state is cached for the process: the Superadmin can't be deleted, so it never reverts.
+- **Unauthenticated only once:** `POST /setup` is open only while setup is required, and answers `409 setup.complete`
+  afterwards. The local-network guard still applies, so before setup only local clients can claim the server.
+- **Atomic:** the Superadmin, the recorded mode (the `server.mode` Setting) and the first library are saved in one
+  transaction, together with the new session. A process-wide lock serializes attempts, and the Superadmin unique
+  index is the backstop across processes.
+
 ## Consequences
 
 - Backups need the key file with the database (ADR 0003); losing it means re-entering secrets and signing in again.

@@ -11,7 +11,9 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace MediaMan.Server.Tests;
 
@@ -29,6 +31,15 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
 
     /// <summary>Extra service registrations applied after the server's own, e.g. fakes for the scan pipeline.</summary>
     public Action<IServiceCollection>? ConfigureServices { get; init; }
+
+    /// <summary>
+    /// Creates the Superadmin (<see cref="SuperadminUsername"/>) when the host starts, so setup is complete and routes
+    /// don't answer <c>423</c>. Off for tests of setup itself. The dev configuration seeds its own Superadmin.
+    /// </summary>
+    public bool CompleteSetup { get; init; } = true;
+
+    public const string SuperadminUsername = "owner";
+    public const string SuperadminPassword = "the owner's long password";
 
     /// <summary>Stands in for the real image downloader in every test, so no test fetches artwork over the network.</summary>
     public FakeImageDownloader Images { get; } = new();
@@ -56,7 +67,28 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
         }
     }
 
-    /// <summary>A client signed in as a user holding every permission (not the Superadmin, so setup stays free).</summary>
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+        if (CompleteSetup)
+        {
+            Task.Run(() => CreateSuperadminAsync(host.Services)).GetAwaiter().GetResult();
+        }
+
+        return host;
+    }
+
+    private static async Task CreateSuperadminAsync(IServiceProvider services)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<MediaManDbContext>();
+        if (!await db.Users.AnyAsync(u => u.IsSuperadmin))
+        {
+            await scope.ServiceProvider.GetRequiredService<AccountService>().CreateSuperadminAsync(SuperadminUsername, SuperadminPassword, CancellationToken.None);
+        }
+    }
+
+    /// <summary>A client signed in as a user holding every permission (not the Superadmin).</summary>
     public async Task<HttpClient> CreateSignedInClientAsync(CancellationToken ct) =>
         CreateClient(await CreateUserAsync(ct, [.. Permissions.All]));
 
