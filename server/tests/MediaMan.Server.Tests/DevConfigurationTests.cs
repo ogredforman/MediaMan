@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
@@ -205,6 +206,37 @@ public sealed class DevConfigurationTests : IDisposable
         using var response = await client.GetAsync(new Uri("/libraries", UriKind.Relative), TestContext.Current.CancellationToken);
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Without_seeding_the_server_starts_un_set_up_until_setup_runs()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var settings = new Dictionary<string, string>
+        {
+            ["MediaMan:Dev:MediaPath"] = _mediaPath,
+            ["MediaMan:Dev:Seed"] = "false",
+            ["MediaMan:Dev:AutoSignIn"] = "true",
+        };
+        await using var factory = new MediaManFactory("Development", settings) { CompleteSetup = false };
+        using var client = factory.CreateClient();
+
+        using var before = await client.GetAsync(new Uri("/libraries", UriKind.Relative), ct);
+        (await SuperadminsAsync(factory, ct)).Should().BeEmpty();
+        (await LibrariesAsync(factory, ct)).Should().BeEmpty();
+
+        using var setup = await client.PostAsJsonAsync(
+            new Uri("/setup", UriKind.Relative),
+            new { username = "owner", password = "correct horse battery", mode = "local", library = new { path = _mediaPath, contentType = "mixed" } },
+            ct);
+        using var after = await client.GetAsync(new Uri("/libraries", UriKind.Relative), ct);
+
+        before.StatusCode.Should().Be((HttpStatusCode)423);
+        (await before.Content.ReadAsStringAsync(ct)).Should().Contain("setup.required");
+        setup.StatusCode.Should().Be(HttpStatusCode.OK);
+        after.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "auto sign-in has no dev account to act as");
+        (await SuperadminsAsync(factory, ct)).Should().ContainSingle().Which.Username.Should().Be("owner");
+        (await LibrariesAsync(factory, ct)).Should().ContainSingle().Which.RootPaths.Should().Equal(_mediaPath);
     }
 
     private static async Task<List<User>> SuperadminsAsync(MediaManFactory factory, CancellationToken ct)

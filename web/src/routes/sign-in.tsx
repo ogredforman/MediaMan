@@ -27,5 +27,10 @@ export const Route = createFileRoute('/sign-in')({
 function SignInRoute() {
   const { redirect: target } = Route.useSearch();
   const router = useRouter();
-  return <SignInForm onSignedIn={() => { router.history.push(target ?? '/'); }} />;
+  return (
+    <SignInForm
+      onSignedIn={() => { router.history.push(target ?? '/'); }}
+      onSetupRequired={() => { router.history.push('/setup'); }}
+    />
+  );
 }

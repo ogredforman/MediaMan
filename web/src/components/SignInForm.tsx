@@ -4,8 +4,11 @@ import { storeTokens } from '../lib/session';
 
 const inputClass = 'rounded-card bg-bg px-3 py-2 text-fg';
 
-/** Username and password sign-in (SPEC §7.11 step 1); `onSignedIn` runs once the tokens are stored. */
-export function SignInForm({ onSignedIn }: { onSignedIn: () => void }) {
+/**
+ * Username and password sign-in (SPEC §7.11 step 1); `onSignedIn` runs once the tokens are stored, and
+ * `onSetupRequired` when the server has no account yet (`423 setup.required`).
+ */
+export function SignInForm({ onSignedIn, onSetupRequired }: { onSignedIn: () => void; onSetupRequired: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const signIn = useLogin({
@@ -13,6 +16,9 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void }) {
       onSuccess: (tokens) => {
         storeTokens(tokens);
         onSignedIn();
+      },
+      onError: (error) => {
+        if (error.problem.code === 'setup.required') onSetupRequired();
       },
     },
     request: { anonymous: true },

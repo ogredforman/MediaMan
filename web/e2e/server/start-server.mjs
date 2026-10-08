@@ -1,6 +1,7 @@
 // Starts the MediaMan server in the dev configuration on the fakes for the server e2e run
 // (playwright.server.config.ts): a fresh data directory and a media folder of empty placeholder files that match
-// the FakeMetadataProvider fixtures, and the fake player so Play never launches MPV.
+// the FakeMetadataProvider fixtures, and the fake player so Play never launches MPV. Nothing is seeded: the
+// setup spec creates the Superadmin and adds the folder as the first library through the wizard.
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -42,8 +43,8 @@ const server = spawn(
       MediaMan__Dev__MediaPath: mediaDir,
       MediaMan__Dev__LibraryName: 'Media',
       MediaMan__Dev__Providers__Player: 'Fake',
-      // Until the setup e2e (PLAN 2.5b) signs in for real: requests without a token act as the dev Superadmin.
-      MediaMan__Dev__AutoSignIn: 'true',
+      // Start un-set-up: setup.spec.ts runs the wizard on this media folder and the other specs reuse its session.
+      MediaMan__Dev__Seed: 'false',
     },
   },
 );

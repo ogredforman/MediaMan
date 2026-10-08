@@ -87,6 +87,12 @@ public sealed class DevOptions
     /// </summary>
     public bool AutoSignIn { get; set; }
 
+    /// <summary>
+    /// Seeds the dev Superadmin and the media folder's library on startup. Off, the server starts un-set-up and
+    /// answers <c>423 setup.required</c> until the setup wizard runs (the web e2e run tests setup this way).
+    /// </summary>
+    public bool Seed { get; set; } = true;
+
     public DevProviders Providers { get; set; } = new();
 }
 

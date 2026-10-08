@@ -1,18 +1,28 @@
 import { defineConfig, devices } from '@playwright/test';
+import { sessionFile } from './e2e/server/session';
 
 const webPort = 5175;
 const serverPort = 5181;
 const ci = process.env.CI !== undefined;
 
 // Runs against the real server on fakes (dev configuration, e2e/server/start-server.mjs) behind the Vite dev
-// server, which proxies /api/* to it so the UI and API share an origin. Each run starts from fresh data.
+// server, which proxies /api/* to it so the UI and API share an origin. Each run starts from fresh, un-set-up data:
+// the setup project runs the wizard first, and the other specs reuse its signed-in session.
 export default defineConfig({
   testDir: './e2e/server',
   forbidOnly: ci,
   retries: ci ? 1 : 0,
   reporter: ci ? 'github' : 'list',
   use: { baseURL: `http://localhost:${String(webPort)}`, trace: 'on-first-retry' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'setup', testMatch: /setup\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'chromium',
+      testIgnore: /setup\.spec\.ts/,
+      dependencies: ['setup'],
+      use: { ...devices['Desktop Chrome'], storageState: sessionFile },
+    },
+  ],
   webServer: [
     {
       command: `node e2e/server/start-server.mjs ${String(serverPort)}`,
