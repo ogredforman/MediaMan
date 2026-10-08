@@ -6,6 +6,8 @@
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
  *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
+ *   An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
+ *   `<img>` tags can load it; a signature that's invalid or expired counts as no token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -368,8 +370,9 @@ export const MediaFileStatus = {
  */
 export interface ArtworkRef {
   /**
-     * Where the client loads the image, relative to the API base. Treat it as opaque and load it as-is: sign-in
-     * may add a signature to it.
+     * Where the client loads the image, relative to the API base. Treat it as opaque and load it as-is: it
+     * carries a signature (`exp` and `sig`) so it loads without a bearer token. The URL stays the same for the
+     * whole UTC day and stays valid for at least a day after it's returned.
      */
   url: string;
   /** The image's dominant color as `#RRGGBB`, for tinting heroes (SPEC §11). */
@@ -554,5 +557,16 @@ limit?: LimitParameter;
  * Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
  */
 cursor?: CursorParameter;
+};
+
+export type GetArtworkParams = {
+/**
+ * When the signed URL expires, in Unix seconds. Part of an `ArtworkRef.url`; clients never build it.
+ */
+exp?: number;
+/**
+ * The URL's signature. Part of an `ArtworkRef.url`; clients never build it.
+ */
+sig?: string;
 };
 

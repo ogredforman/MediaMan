@@ -26,6 +26,7 @@ public sealed class ContractCoverageTests
             operation.Should().NotBeNull($"{route.Method} {route.Path} is mapped, so the contract must declare it");
             route.Permission.Should().NotBeNull($"{route.Method} {route.Path} must declare its permission");
             route.Permission.Should().Be(operation!.Permission, $"{route.Method} {route.Path} must match the contract's x-permission");
+            route.SignedUrl.Should().Be(operation.AcceptsSignedUrl, $"{route.Method} {route.Path} must accept signed URLs exactly when the contract lists signedUrl");
         }
     }
 
@@ -77,7 +78,7 @@ public sealed class ContractCoverageTests
         }
     }
 
-    internal static async Task<List<(string Method, string Path, string? Permission)>> MappedRoutesAsync(MediaManFactory? factory = null)
+    internal static async Task<List<(string Method, string Path, string? Permission, bool SignedUrl)>> MappedRoutesAsync(MediaManFactory? factory = null)
     {
         await using var owned = factory is null ? new MediaManFactory() : null;
         factory ??= owned!;
@@ -89,6 +90,7 @@ public sealed class ContractCoverageTests
             .SelectMany(e => (e.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods ?? []).Select(method => (
                 Method: method,
                 Path: "/" + e.RoutePattern.RawText!.TrimStart('/'),
-                e.Metadata.GetMetadata<PermissionMetadata>()?.Permission)))];
+                e.Metadata.GetMetadata<PermissionMetadata>()?.Permission,
+                SignedUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is not null)))];
     }
 }

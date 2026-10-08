@@ -18,4 +18,16 @@ public static class PermissionMetadataExtensions
     public static TBuilder RequiresPermission<TBuilder>(this TBuilder builder, string permission)
         where TBuilder : IEndpointConventionBuilder =>
         builder.WithMetadata(new PermissionMetadata(permission));
+
+    /// <summary>Accepts a valid, unexpired <c>?exp=…&amp;sig=…</c> from <c>UrlSigner</c> in place of a bearer token.</summary>
+    public static TBuilder AllowsSignedUrl<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder =>
+        builder.WithMetadata(new SignedUrlMetadata());
 }
+
+/// <summary>
+/// The endpoint also accepts a URL signed by <c>UrlSigner</c> in place of a bearer token; mirrors the contract's
+/// <c>signedUrl</c> security scheme. The signature isn't bound to a user, so it's issued only in responses to callers
+/// who already hold the route's permission.
+/// </summary>
+public sealed record SignedUrlMetadata;

@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
 using MediaMan.Fakes;
@@ -148,6 +149,22 @@ public sealed class ArtworkApiTests : IAsyncLifetime
         (await response.Content.ReadAsStringAsync(Ct)).Should().Contain("artwork.cache_in_library");
         _factory.Images.Requests.Should().BeEmpty();
         Directory.Exists(Path.Combine(_factory.DataDirectory, "cache", "artwork")).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task The_url_a_title_carries_is_signed_and_loads_without_a_token()
+    {
+        _factory.Images.Serve("alien-poster", TestImages.Solid("#336699"));
+        var id = await AddArtworkAsync("https://img.example/alien-poster.jpg");
+
+        var title = await _client.GetFromJsonAsync<TitleDetail>(new Uri($"/titles/{_titleId}", UriKind.Relative), Ct);
+        using var anonymous = _factory.CreateClient();
+        using var response = await anonymous.GetAsync(new Uri(title!.Poster!.Url, UriKind.Relative), Ct);
+        using var unsigned = await anonymous.GetAsync(new Uri(ArtworkEndpoints.UrlOf(id), UriKind.Relative), Ct);
+
+        title.Poster.Url.Should().StartWith($"{ArtworkEndpoints.UrlOf(id)}?exp=").And.Contain("&sig=");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        unsigned.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private async Task<HttpResponseMessage> GetAsync(Guid artworkId) =>

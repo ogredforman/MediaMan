@@ -45,6 +45,16 @@ public sealed class PermissionEnforcement(RequestDelegate next)
             return;
         }
 
+        // A signed URL stands in for a token (e.g. artwork in <img>). One that doesn't verify falls through to the token check.
+        if (endpoint.Metadata.GetMetadata<SignedUrlMetadata>() is not null
+            && http.Request.Query.ContainsKey(UrlSigner.SignatureParameter)
+            && http.RequestServices.GetRequiredService<UrlSigner>().IsValid(http.Request.Path.Value ?? "",
+                http.Request.Query[UrlSigner.ExpiresParameter].ToString(), http.Request.Query[UrlSigner.SignatureParameter].ToString()))
+        {
+            await next(http);
+            return;
+        }
+
         var (user, failure) = await ResolveAsync(http);
         if (user is null)
         {

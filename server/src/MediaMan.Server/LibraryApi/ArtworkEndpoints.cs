@@ -1,3 +1,4 @@
+using MediaMan.Auth;
 using MediaMan.Core;
 using MediaMan.Library.Images;
 using MediaMan.Server.Endpoints;
@@ -9,12 +10,15 @@ namespace MediaMan.Server.LibraryApi;
 /// <summary>Serves cached artwork images, fetching any that aren't cached yet (SPEC §8 metadata [M]).</summary>
 public static class ArtworkEndpoints
 {
-    /// <summary>The URL an <c>ArtworkRef</c> carries. Clients load it as-is, so sign-in may add a signature later.</summary>
+    /// <summary>The path of an image; an <c>ArtworkRef</c> carries it signed by <see cref="SignedUrlOf"/>.</summary>
     public static string UrlOf(Guid artworkId) => $"/artwork/{artworkId}";
+
+    /// <summary>The URL an <c>ArtworkRef</c> carries: signed, so <c>&lt;img&gt;</c> loads it without a token (ADR 0008).</summary>
+    public static string SignedUrlOf(this UrlSigner signer, Guid artworkId) => signer.Sign(UrlOf(artworkId));
 
     public static IEndpointRouteBuilder MapArtworkEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/artwork/{artworkId}", GetArtworkAsync).RequiresPermission(Permissions.LibraryView);
+        app.MapGet("/artwork/{artworkId}", GetArtworkAsync).RequiresPermission(Permissions.LibraryView).AllowsSignedUrl();
         return app;
     }
 
