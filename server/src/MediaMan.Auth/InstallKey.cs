@@ -18,6 +18,9 @@ public sealed class InstallKey
     /// <summary>Subkey for signing access tokens (HS256) with <c>AccessTokens</c>.</summary>
     public const string AccessTokens = "access-tokens";
 
+    /// <summary>Subkey for signing URLs loaded without a token, such as artwork, with <c>UrlSigner</c>.</summary>
+    public const string ArtworkUrls = "artwork-urls";
+
     private readonly byte[] _key;
 
     private InstallKey(byte[] key) => _key = key;

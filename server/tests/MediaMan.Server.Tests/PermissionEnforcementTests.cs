@@ -73,10 +73,33 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         var forged = ForgedToken(outsider);
         var holders = new Dictionary<string, TestUser>();
 
-        foreach (var (method, template, permission) in routes)
+        routes.Should().Contain(r => r.SignedUrl);
+        var signer = factory.Services.GetRequiredService<UrlSigner>();
+        var installKey = factory.Services.GetRequiredService<InstallKey>().Derive(InstallKey.ArtworkUrls);
+        var expiredSigner = new UrlSigner(installKey, new FakeClock(DateTimeOffset.UtcNow - TimeSpan.FromDays(3)));
+        var foreignSigner = new UrlSigner(new byte[InstallKey.SizeBytes], new FakeClock(DateTimeOffset.UtcNow));
+
+        foreach (var (method, template, permission, signedUrl) in routes)
         {
             var path = RouteParameter().Replace(template, _ => Guid.NewGuid().ToString());
             var route = $"{method} {template}";
+
+            if (signedUrl)
+            {
+                // A signed URL stands in for a token; any other signature counts as no token at all.
+                var signed = signer.Sign(path);
+                var otherPath = RouteParameter().Replace(template, _ => Guid.NewGuid().ToString());
+                using (var allowed = await SendAsync(factory, method, signed, token: null))
+                {
+                    allowed.StatusCode.Should().NotBe(HttpStatusCode.Unauthorized, $"{route} with a signed URL");
+                    allowed.StatusCode.Should().NotBe(HttpStatusCode.Forbidden, $"{route} with a signed URL");
+                }
+
+                await AssertProblemAsync(factory, method, otherPath + signed[path.Length..], null, HttpStatusCode.Unauthorized, "auth.required", $"{route} signed for another path");
+                await AssertProblemAsync(factory, method, signed[..^1] + (signed[^1] == 'A' ? 'B' : 'A'), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with a tampered signature");
+                await AssertProblemAsync(factory, method, expiredSigner.Sign(path), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with an expired signature");
+                await AssertProblemAsync(factory, method, foreignSigner.Sign(path), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} signed with another key");
+            }
 
             if (permission == PermissionMetadata.None)
             {

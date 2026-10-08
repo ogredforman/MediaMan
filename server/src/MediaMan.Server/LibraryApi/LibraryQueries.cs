@@ -1,3 +1,4 @@
+using MediaMan.Auth;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
 using MediaMan.Server.Scanning;
@@ -6,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace MediaMan.Server.LibraryApi;
 
 /// <summary>Read-only queries behind the library endpoints. Writes nothing.</summary>
-public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans)
+public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, UrlSigner urls)
 {
     // Names sort case-insensitively, so "alien" files next to "Aliens".
     private const string NameCollation = "NOCASE";
@@ -272,5 +273,5 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans)
             file.Parsed?.Group);
     }
 
-    private static ArtworkRef? Ref(Artwork? artwork) => artwork is null ? null : new ArtworkRef(ArtworkEndpoints.UrlOf(artwork.Id), artwork.DominantColor);
+    private ArtworkRef? Ref(Artwork? artwork) => artwork is null ? null : new ArtworkRef(urls.SignedUrlOf(artwork.Id), artwork.DominantColor);
 }

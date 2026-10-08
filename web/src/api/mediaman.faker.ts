@@ -6,6 +6,8 @@
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
  *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
+ *   An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
+ *   `<img>` tags can load it; a signature that's invalid or expired counts as no token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).

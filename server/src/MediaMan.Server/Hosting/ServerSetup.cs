@@ -86,6 +86,18 @@ public static class ServerSetup
                 CryptographicOperations.ZeroMemory(key);
             }
         });
+        services.AddSingleton(sp =>
+        {
+            var key = sp.GetRequiredService<InstallKey>().Derive(InstallKey.ArtworkUrls);
+            try
+            {
+                return new UrlSigner(key, sp.GetRequiredService<IClock>());
+            }
+            finally
+            {
+                CryptographicOperations.ZeroMemory(key);
+            }
+        });
         services.AddSingleton(PasswordHasher.Default);
         services.AddScoped<AccountService>();
         services.AddScoped<SessionService>();

@@ -195,6 +195,10 @@ public sealed record ContractOperation(string Path, string Method, JsonObject No
 {
     public string? Permission => Node["x-permission"]?.GetValue<string>();
 
+    /// <summary>Lists the <c>signedUrl</c> security scheme, so a signed URL stands in for a bearer token.</summary>
+    public bool AcceptsSignedUrl => Node["security"] is JsonArray security
+        && security.Any(s => s is JsonObject requirement && requirement.ContainsKey("signedUrl"));
+
     /// <summary>Mapped only in the dev configuration (SPEC §13), so it's absent from every other server.</summary>
     public bool DevOnly => Node["x-dev-only"]?.GetValue<bool>() ?? false;
 

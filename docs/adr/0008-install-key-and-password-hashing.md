@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-07
-- **PLAN task:** 2.3, 2.3b
+- **PLAN task:** 2.3, 2.3b, 2.3c, 2.3d
 
 ## Context
 
@@ -65,6 +65,19 @@ demote, disable or change the role of the stored Superadmin row (SPEC §5, §7.1
   the stored one or a seeded `dev` account with a random password. With `MediaMan:Dev:AutoSignIn`, a request with no
   `Authorization` header at all acts as it, without a session; an invalid token is still refused. Release builds don't
   contain this code.
+
+## Signed artwork URLs (PLAN 2.3d)
+
+- **Why:** `<img>` requests can't send a bearer token, so `ArtworkRef.url` carries `?exp=…&sig=…` and
+  `GET /artwork/{artworkId}` accepts it in place of a token (the contract's `signedUrl` security scheme).
+- **Signature:** `UrlSigner`, HMAC-SHA256 of `<path>
+<exp>` on the `artwork-urls` subkey, base64url, compared in
+  constant time. Not bound to a user: it's only issued in responses to callers holding `library.view`, and artwork
+  is low-value, so a signed-out user's URLs staying valid until they expire is accepted.
+- **Expiry:** the next UTC midnight plus one day, so a URL is the same all day (browsers cache by URL) and stays
+  valid 24–48 hours. Times come from `IClock`.
+- **Enforcement:** routes opt in with `AllowsSignedUrl()`; `PermissionEnforcement` lets a request through on a valid
+  signature for its own path, and anything else falls through to the bearer check (`401 auth.required`).
 
 ## Consequences
 

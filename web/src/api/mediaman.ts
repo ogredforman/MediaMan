@@ -6,6 +6,8 @@
  *
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
  *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
+ *   An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
+ *   `<img>` tags can load it; a signature that's invalid or expired counts as no token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -49,6 +51,7 @@ import type {
   AuthTokens,
   DevPlayStarted,
   EventEnvelope,
+  GetArtworkParams,
   Health,
   Library,
   LibraryPage,
@@ -1058,12 +1061,20 @@ export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError
 
 
 
-export const getGetArtworkUrl = (artworkId: string,) => {
+export const getGetArtworkUrl = (artworkId: string,
+    params?: GetArtworkParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/artwork/${artworkId}`
+  return stringifiedParams.length > 0 ? `/artwork/${artworkId}?${stringifiedParams}` : `/artwork/${artworkId}`
 }
 
 /**
@@ -1073,9 +1084,10 @@ export const getGetArtworkUrl = (artworkId: string,) => {
  * an id's image never changes, so clients may cache it indefinitely.
  * @summary A cached artwork image. Clients don't build this path; they load an `ArtworkRef.url` as-is.
  */
-export const getArtwork = async (artworkId: string, options?: Parameters<typeof apiFetch>[1]): Promise<Blob> => {
+export const getArtwork = async (artworkId: string,
+    params?: GetArtworkParams, options?: Parameters<typeof apiFetch>[1]): Promise<Blob> => {
 
-  return apiFetch<Blob>(getGetArtworkUrl(artworkId),
+  return apiFetch<Blob>(getGetArtworkUrl(artworkId,params),
   {
     ...options,
     method: 'GET'
@@ -1088,23 +1100,25 @@ export const getArtwork = async (artworkId: string, options?: Parameters<typeof 
 
 
 
-export const getGetArtworkQueryKey = (artworkId: string,) => {
+export const getGetArtworkQueryKey = (artworkId: string,
+    params?: GetArtworkParams,) => {
     return [
-    `/artwork/${artworkId}`
+    `/artwork/${artworkId}`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getGetArtworkQueryOptions = <TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+export const getGetArtworkQueryOptions = <TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(artworkId: string,
+    params?: GetArtworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetArtworkQueryKey(artworkId);
+  const queryKey =  queryOptions?.queryKey ?? getGetArtworkQueryKey(artworkId,params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtwork>>> = ({ signal }) => getArtwork(artworkId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getArtwork>>> = ({ signal }) => getArtwork(artworkId,params, { signal, ...requestOptions });
 
 
 
@@ -1118,7 +1132,8 @@ export type GetArtworkQueryError = ErrorType<Problem>
 
 
 export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
- artworkId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>> & Pick<
+ artworkId: string,
+    params: undefined |  GetArtworkParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getArtwork>>,
           TError,
@@ -1128,7 +1143,8 @@ export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TE
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
- artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>> & Pick<
+ artworkId: string,
+    params?: GetArtworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getArtwork>>,
           TError,
@@ -1138,7 +1154,8 @@ export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TE
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
- artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ artworkId: string,
+    params?: GetArtworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -1146,11 +1163,12 @@ export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TE
  */
 
 export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TError = ErrorType<Problem>>(
- artworkId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ artworkId: string,
+    params?: GetArtworkParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getArtwork>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getGetArtworkQueryOptions(artworkId,options)
+  const queryOptions = getGetArtworkQueryOptions(artworkId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

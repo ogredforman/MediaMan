@@ -192,10 +192,10 @@ public sealed class LibraryApiTests : IAsyncLifetime
         body.RootElement.GetProperty("code").GetString().Should().Be(code);
     }
 
-    /// <summary>The artwork URL is served by this server, from the image the provider gave.</summary>
+    /// <summary>The artwork URL is signed and served by this server, from the image the provider gave.</summary>
     private async Task AssertServesArtworkAsync(string url, string sourceUrl)
     {
-        url.Should().MatchRegex("^/artwork/[0-9a-f-]{36}$");
+        url.Should().MatchRegex(@"^/artwork/[0-9a-f-]{36}\?exp=[0-9]+&sig=[A-Za-z0-9_-]{43}$");
         using var response = await _client.GetAsync(new Uri(url, UriKind.Relative), Ct);
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         _factory.Images.Requests.Should().Contain(new Uri(sourceUrl));

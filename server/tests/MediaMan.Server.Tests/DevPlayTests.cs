@@ -116,7 +116,7 @@ public sealed class DevPlayTests : IAsyncLifetime
 
         foreach (var operation in ContractDocument.Instance.Operations.Where(o => o.DevOnly))
         {
-            routes.Should().Contain((operation.Method, operation.Path, operation.Permission));
+            routes.Should().Contain((operation.Method, operation.Path, operation.Permission, false));
         }
 
         factory.Services.GetRequiredService<IDevPlayer>().Should().BeOfType<MpvDevPlayer>("MPV is the default player");
