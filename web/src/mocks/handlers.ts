@@ -7,6 +7,7 @@ import {
   getRefreshTokensMockHandler,
   getMediaManAPIMock,
 } from '../api/mediaman.msw';
+import { mockAttention } from './attention';
 import { mockLibraries } from './libraries';
 import { mockProfiles } from './profiles';
 import type { AuthTokens, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
@@ -226,6 +227,7 @@ export const handlers = [
   }),
   ...mockProfiles.handlers,
   ...mockLibraries.handlers,
+  ...mockAttention.handlers,
   getListTitlesMockHandler(({ request }) => {
     const kind = new URL(request.url).searchParams.get('kind');
     return { items: mockTitles.filter((t) => kind === null || t.kind === kind), pageInfo: {} };

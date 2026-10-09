@@ -14,6 +14,7 @@ import { Route as ProfilesRouteImport } from './routes/profiles'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
+import { Route as AppAttentionRouteImport } from './routes/_app/attention'
 import { Route as AppMoviesRouteImport } from './routes/_app/movies'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppShowsRouteImport } from './routes/_app/shows'
@@ -43,6 +44,11 @@ const SignInRoute = SignInRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAttentionRoute = AppAttentionRouteImport.update({
+  id: '/attention',
+  path: '/attention',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMoviesRoute = AppMoviesRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
+  '/attention': typeof AppAttentionRoute
   '/movies': typeof AppMoviesRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/shows': typeof AppShowsRoute
@@ -92,6 +99,7 @@ export interface FileRoutesByTo {
   '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
+  '/attention': typeof AppAttentionRoute
   '/movies': typeof AppMoviesRoute
   '/shows': typeof AppShowsRoute
   '/': typeof AppIndexRoute
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
+  '/_app/attention': typeof AppAttentionRoute
   '/_app/movies': typeof AppMoviesRoute
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/shows': typeof AppShowsRoute
@@ -120,6 +129,7 @@ export interface FileRouteTypes {
     | '/profiles'
     | '/setup'
     | '/sign-in'
+    | '/attention'
     | '/movies'
     | '/settings'
     | '/shows'
@@ -131,6 +141,7 @@ export interface FileRouteTypes {
     | '/profiles'
     | '/setup'
     | '/sign-in'
+    | '/attention'
     | '/movies'
     | '/shows'
     | '/'
@@ -143,6 +154,7 @@ export interface FileRouteTypes {
     | '/profiles'
     | '/setup'
     | '/sign-in'
+    | '/_app/attention'
     | '/_app/movies'
     | '/_app/settings'
     | '/_app/shows'
@@ -194,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/attention': {
+      id: '/_app/attention'
+      path: '/attention'
+      fullPath: '/attention'
+      preLoaderRoute: typeof AppAttentionRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/movies': {
@@ -256,6 +275,7 @@ const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppAttentionRoute: typeof AppAttentionRoute
   AppMoviesRoute: typeof AppMoviesRoute
   AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppShowsRoute: typeof AppShowsRoute
@@ -264,6 +284,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAttentionRoute: AppAttentionRoute,
   AppMoviesRoute: AppMoviesRoute,
   AppSettingsRoute: AppSettingsRouteWithChildren,
   AppShowsRoute: AppShowsRoute,

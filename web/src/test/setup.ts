@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from '../mocks/node';
+import { mockAttention } from '../mocks/attention';
 import { mockLibraries } from '../mocks/libraries';
 import { mockProfiles } from '../mocks/profiles';
 
@@ -20,6 +21,7 @@ afterEach(() => {
   server.resetHandlers();
   mockProfiles.reset();
   mockLibraries.reset();
+  mockAttention.reset();
 });
 afterAll(() => {
   server.close();
