@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as ProfilesRouteImport } from './routes/profiles'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
@@ -19,6 +20,11 @@ import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titl
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfilesRoute = ProfilesRouteImport.update({
+  id: '/profiles',
+  path: '/profiles',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -54,6 +60,7 @@ const AppTitlesTitleIdRoute = AppTitlesTitleIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/movies': typeof AppMoviesRoute
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
 }
 export interface FileRoutesByTo {
+  '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/movies': typeof AppMoviesRoute
@@ -71,6 +79,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/_app/movies': typeof AppMoviesRoute
@@ -81,12 +90,26 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/setup' | '/sign-in' | '/movies' | '/shows' | '/titles/$titleId'
+    | '/'
+    | '/profiles'
+    | '/setup'
+    | '/sign-in'
+    | '/movies'
+    | '/shows'
+    | '/titles/$titleId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/setup' | '/sign-in' | '/movies' | '/shows' | '/' | '/titles/$titleId'
+  to:
+    | '/profiles'
+    | '/setup'
+    | '/sign-in'
+    | '/movies'
+    | '/shows'
+    | '/'
+    | '/titles/$titleId'
   id:
     | '__root__'
     | '/_app'
+    | '/profiles'
     | '/setup'
     | '/sign-in'
     | '/_app/movies'
@@ -97,6 +120,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  ProfilesRoute: typeof ProfilesRoute
   SetupRoute: typeof SetupRoute
   SignInRoute: typeof SignInRoute
 }
@@ -108,6 +132,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profiles': {
+      id: '/profiles'
+      path: '/profiles'
+      fullPath: '/profiles'
+      preLoaderRoute: typeof ProfilesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -173,6 +204,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ProfilesRoute: ProfilesRoute,
   SetupRoute: SetupRoute,
   SignInRoute: SignInRoute,
 }

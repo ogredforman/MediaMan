@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from '../mocks/node';
+import { mockProfiles } from '../mocks/profiles';
 
 // jsdom doesn't implement scrolling; the router's scroll restoration calls it on every navigation.
 window.scrollTo = () => undefined;
@@ -13,6 +14,7 @@ afterEach(() => {
   cleanup();
   localStorage.clear();
   server.resetHandlers();
+  mockProfiles.reset();
 });
 afterAll(() => {
   server.close();
