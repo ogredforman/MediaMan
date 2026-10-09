@@ -62,7 +62,9 @@ import type {
   GetArtworkParams,
   Health,
   Library,
+  LibraryCreateRequest,
   LibraryPage,
+  LibraryUpdateRequest,
   ListAttentionFilesParams,
   ListLibrariesParams,
   ListTitlesParams,
@@ -1295,6 +1297,366 @@ export function useListLibraries<TData = Awaited<ReturnType<typeof listLibraries
 
 
 
+
+export const getCreateLibraryUrl = () => {
+
+
+
+
+  return `/libraries`
+}
+
+/**
+ * Each root must be a full path to a folder the server can read. Roots can't overlap: a folder can't be inside,
+ * or contain, another root of this or any other library, or contain the server's data directory. MediaMan only
+ * reads an External library (SPEC §5). Managed libraries arrive in a later stage.
+ * @summary Adds an External library of one or more folders and queues its first scan (SPEC §8 libraries).
+ */
+export const createLibrary = async (libraryCreateRequest: LibraryCreateRequest, options?: Parameters<typeof apiFetch>[1]): Promise<Library> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<Library>(getCreateLibraryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryCreateRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateLibraryMutationKey = () => ['createLibrary'] as const;
+
+export const getCreateLibraryMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLibrary>>, TError,CreateLibraryMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLibrary>>, TError,CreateLibraryMutationVariables, TContext> => {
+
+const mutationKey = getCreateLibraryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLibrary>>, CreateLibraryMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLibrary(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof createLibrary>>>
+    export type CreateLibraryMutationBody = LibraryCreateRequest
+    export type CreateLibraryMutationError = ErrorType<Problem | ProblemResponse>
+    export type CreateLibraryMutationVariables = {data: LibraryCreateRequest}
+
+    /**
+ * @summary Adds an External library of one or more folders and queues its first scan (SPEC §8 libraries).
+ */
+export const useCreateLibrary = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLibrary>>, TError,CreateLibraryMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createLibrary>>,
+        TError,
+        CreateLibraryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLibraryMutationOptions(options), queryClient);
+    }
+
+export const getGetLibraryUrl = (libraryId: string,) => {
+
+
+
+
+  return `/libraries/${libraryId}`
+}
+
+/**
+ * @summary Gets one library with its scan state.
+ */
+export const getLibrary = async (libraryId: string, options?: Parameters<typeof apiFetch>[1]): Promise<Library> => {
+
+  return apiFetch<Library>(getGetLibraryUrl(libraryId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLibraryQueryKey = (libraryId: string,) => {
+    return [
+    `/libraries/${libraryId}`
+    ] as const;
+    }
+
+
+export const getGetLibraryQueryOptions = <TData = Awaited<ReturnType<typeof getLibrary>>, TError = ErrorType<ProblemResponse>>(libraryId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLibrary>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLibraryQueryKey(libraryId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLibrary>>> = ({ signal }) => getLibrary(libraryId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: libraryId !== null && libraryId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLibrary>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetLibraryQueryResult = NonNullable<Awaited<ReturnType<typeof getLibrary>>>
+export type GetLibraryQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetLibrary<TData = Awaited<ReturnType<typeof getLibrary>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLibrary>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLibrary>>,
+          TError,
+          Awaited<ReturnType<typeof getLibrary>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLibrary<TData = Awaited<ReturnType<typeof getLibrary>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLibrary>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLibrary>>,
+          TError,
+          Awaited<ReturnType<typeof getLibrary>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLibrary<TData = Awaited<ReturnType<typeof getLibrary>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLibrary>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Gets one library with its scan state.
+ */
+
+export function useGetLibrary<TData = Awaited<ReturnType<typeof getLibrary>>, TError = ErrorType<ProblemResponse>>(
+ libraryId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLibrary>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetLibraryQueryOptions(libraryId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateLibraryUrl = (libraryId: string,) => {
+
+
+
+
+  return `/libraries/${libraryId}`
+}
+
+/**
+ * Fields left out stay as they are. `rootPaths` replaces the whole list and follows the same rules as creating a
+ * library. Files under a removed root leave the library at once; nothing on disk is touched (SPEC §5). Adding a
+ * root queues a scan. Roots can't change while the library's scan is running (`409` `library.scan_running`).
+ * @summary Renames a library or changes its content type, roots or scan interval.
+ */
+export const updateLibrary = async (libraryId: string,
+    libraryUpdateRequest: LibraryUpdateRequest, options?: Parameters<typeof apiFetch>[1]): Promise<Library> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<Library>(getUpdateLibraryUrl(libraryId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(libraryUpdateRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateLibraryMutationKey = () => ['updateLibrary'] as const;
+
+export const getUpdateLibraryMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLibrary>>, TError,UpdateLibraryMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLibrary>>, TError,UpdateLibraryMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLibraryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLibrary>>, UpdateLibraryMutationVariables> = (props) => {
+          const {libraryId,data} = props ?? {};
+
+          return  updateLibrary(libraryId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof updateLibrary>>>
+    export type UpdateLibraryMutationBody = LibraryUpdateRequest
+    export type UpdateLibraryMutationError = ErrorType<Problem | ProblemResponse>
+    export type UpdateLibraryMutationVariables = {libraryId: string;data: LibraryUpdateRequest}
+
+    /**
+ * @summary Renames a library or changes its content type, roots or scan interval.
+ */
+export const useUpdateLibrary = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLibrary>>, TError,UpdateLibraryMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateLibrary>>,
+        TError,
+        UpdateLibraryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLibraryMutationOptions(options), queryClient);
+    }
+
+export const getDeleteLibraryUrl = (libraryId: string,) => {
+
+
+
+
+  return `/libraries/${libraryId}`
+}
+
+/**
+ * Needs `server.control`, since the Admin preset can't delete libraries (SPEC §8 accounts). A queued scan is
+ * dropped; a running one makes this return `409` `library.scan_running`.
+ * @summary Removes a library and its files from MediaMan; nothing on disk is touched (SPEC §5).
+ */
+export const deleteLibrary = async (libraryId: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getDeleteLibraryUrl(libraryId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteLibraryMutationKey = () => ['deleteLibrary'] as const;
+
+export const getDeleteLibraryMutationOptions = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLibrary>>, TError,DeleteLibraryMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteLibrary>>, TError,DeleteLibraryMutationVariables, TContext> => {
+
+const mutationKey = getDeleteLibraryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteLibrary>>, DeleteLibraryMutationVariables> = (props) => {
+          const {libraryId} = props ?? {};
+
+          return  deleteLibrary(libraryId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteLibraryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteLibrary>>>
+
+    export type DeleteLibraryMutationError = ErrorType<ProblemResponse | Problem>
+    export type DeleteLibraryMutationVariables = {libraryId: string}
+
+    /**
+ * @summary Removes a library and its files from MediaMan; nothing on disk is touched (SPEC §5).
+ */
+export const useDeleteLibrary = <TError = ErrorType<ProblemResponse | Problem>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteLibrary>>, TError,DeleteLibraryMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteLibrary>>,
+        TError,
+        DeleteLibraryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteLibraryMutationOptions(options), queryClient);
+    }
 
 export const getStartLibraryScanUrl = (libraryId: string,) => {
 

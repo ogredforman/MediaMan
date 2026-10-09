@@ -402,6 +402,126 @@ paths:
           $ref: '#/components/responses/Problem'
         default:
           $ref: '#/components/responses/Problem'
+    post:
+      operationId: createLibrary
+      summary: Adds an External library of one or more folders and queues its first scan (SPEC §8 libraries).
+      description: |
+        Each root must be a full path to a folder the server can read. Roots can't overlap: a folder can't be inside,
+        or contain, another root of this or any other library, or contain the server's data directory. MediaMan only
+        reads an External library (SPEC §5). Managed libraries arrive in a later stage.
+      tags: [library]
+      x-permission: library.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibraryCreateRequest'
+      responses:
+        '201':
+          description: The library is added and its first scan is queued when scanning is available.
+          headers:
+            Location:
+              description: The new library's URL.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+        '400':
+          description: |
+            Some fields are invalid (`library.invalid`). `errors` is keyed by field (`name`, `contentType`,
+            `rootPaths`, `rootPaths[N]` for the Nth root from 0, `scanIntervalMinutes`) so each message can be shown inline.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /libraries/{libraryId}:
+    get:
+      operationId: getLibrary
+      summary: Gets one library with its scan state.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - $ref: '#/components/parameters/LibraryId'
+      responses:
+        '200':
+          description: The library.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+        '404':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    patch:
+      operationId: updateLibrary
+      summary: Renames a library or changes its content type, roots or scan interval.
+      description: |
+        Fields left out stay as they are. `rootPaths` replaces the whole list and follows the same rules as creating a
+        library. Files under a removed root leave the library at once; nothing on disk is touched (SPEC §5). Adding a
+        root queues a scan. Roots can't change while the library's scan is running (`409` `library.scan_running`).
+      tags: [library]
+      x-permission: library.manage
+      parameters:
+        - $ref: '#/components/parameters/LibraryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LibraryUpdateRequest'
+      responses:
+        '200':
+          description: The library as it is now.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Library'
+        '400':
+          description: Some fields are invalid (`library.invalid`); `errors` is keyed by field as for `createLibrary`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The library's scan is running (`library.scan_running`). Try again when it finishes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      operationId: deleteLibrary
+      summary: Removes a library and its files from MediaMan; nothing on disk is touched (SPEC §5).
+      description: |
+        Needs `server.control`, since the Admin preset can't delete libraries (SPEC §8 accounts). A queued scan is
+        dropped; a running one makes this return `409` `library.scan_running`.
+      tags: [library]
+      x-permission: server.control
+      parameters:
+        - $ref: '#/components/parameters/LibraryId'
+      responses:
+        '204':
+          description: The library is removed.
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          description: The library's scan is running (`library.scan_running`). Try again when it finishes.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
 
   /libraries/{libraryId}/scan:
     post:
@@ -973,6 +1093,49 @@ components:
           minimum: 0
         scan:
           $ref: '#/components/schemas/ScanState'
+
+    LibraryCreateRequest:
+      type: object
+      required: [contentType, rootPaths]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Defaults to the first root's folder name.
+        contentType:
+          $ref: '#/components/schemas/ContentType'
+        rootPaths:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+            description: A full path to a folder the server can read, e.g. `D:\Movies` or `/mnt/media/movies`.
+        scanIntervalMinutes:
+          type: integer
+          description: Minutes between full scans, 15 to 10080 (a week), or 0 for none. Defaults to 360 (6 hours).
+
+    LibraryUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        contentType:
+          $ref: '#/components/schemas/ContentType'
+        rootPaths:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items:
+            type: string
+            minLength: 1
+        scanIntervalMinutes:
+          type: integer
 
     LibraryPage:
       type: object

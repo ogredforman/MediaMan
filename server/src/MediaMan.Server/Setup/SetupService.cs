@@ -5,6 +5,7 @@ using MediaMan.Data;
 using MediaMan.Server.Hosting;
 using MediaMan.Server.LibraryApi;
 using MediaMan.Server.Scanning;
+using Microsoft.Extensions.Options;
 
 namespace MediaMan.Server.Setup;
 
@@ -33,11 +34,9 @@ public sealed class SetupService(
     SessionService sessions,
     SetupState state,
     ScanCoordinator scans,
+    IOptions<MediaManOptions> options,
     IClock clock)
 {
-    /// <summary>Default full-scan interval, 6 hours (PLAN 2.8).</summary>
-    public const int DefaultScanIntervalMinutes = 360;
-
     private static readonly SetupOutcome _alreadyComplete = new(null, SetupFailure.AlreadyComplete, null);
 
     public async Task<SetupOutcome> CompleteAsync(SetupRequest request, string? fallbackDeviceName, CancellationToken cancellationToken)
@@ -48,7 +47,7 @@ public sealed class SetupService(
             return _alreadyComplete;
         }
 
-        var errors = Validate(request, out var mode, out var contentType, out var rootPath);
+        var errors = Validate(request, options.Value.DataDirectory, out var mode, out var contentType, out var rootPath);
         if (errors.Count > 0)
         {
             return new SetupOutcome(null, SetupFailure.Invalid, errors);
@@ -78,11 +77,11 @@ public sealed class SetupService(
             var library = new Core.Domain.Library
             {
                 Id = Ids.New(clock),
-                Name = string.IsNullOrEmpty(name) ? NameOf(rootPath) : name,
+                Name = string.IsNullOrEmpty(name) ? LibraryRoots.NameOf(rootPath) : name,
                 Kind = LibraryKind.External,
                 ContentType = contentType,
                 RootPaths = [rootPath],
-                ScanIntervalMinutes = DefaultScanIntervalMinutes,
+                ScanIntervalMinutes = LibraryService.DefaultScanIntervalMinutes,
             };
             db.Libraries.Add(library);
             await db.SaveChangesAsync(cancellationToken);
@@ -106,7 +105,7 @@ public sealed class SetupService(
 
     /// <summary>Every invalid field at once, keyed as the contract names them, so the wizard can show each inline.</summary>
     private static Dictionary<string, string[]> Validate(
-        SetupRequest request, out ServerMode mode, out ContentType contentType, out string rootPath)
+        SetupRequest request, string dataDirectory, out ServerMode mode, out ContentType contentType, out string rootPath)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         contentType = default;
@@ -144,7 +143,7 @@ public sealed class SetupService(
             errors["library.contentType"] = ["Choose what the folder contains: movies, shows, anime or mixed."];
         }
 
-        if (PathProblem(library.Path, out rootPath) is { } problem)
+        if ((LibraryRoots.PathProblem(library.Path, out rootPath) ?? LibraryRoots.DataDirectoryProblem(rootPath, dataDirectory)) is { } problem)
         {
             errors["library.path"] = [problem];
         }
@@ -152,41 +151,4 @@ public sealed class SetupService(
         return errors;
     }
 
-    /// <summary>Why the folder can't be a library root, or null with its normalized full path.</summary>
-    private static string? PathProblem(string? path, out string rootPath)
-    {
-        rootPath = "";
-        path = path?.Trim();
-        if (string.IsNullOrEmpty(path))
-        {
-            return "Enter the folder that holds your media.";
-        }
-
-        if (!Path.IsPathFullyQualified(path))
-        {
-            return "Enter the full path to the folder, starting from the drive or root.";
-        }
-
-        rootPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-        if (!Directory.Exists(rootPath))
-        {
-            return "This folder doesn't exist or can't be reached. Check the path, and that the drive is connected.";
-        }
-
-        try
-        {
-            using var entries = Directory.EnumerateFileSystemEntries(rootPath).GetEnumerator();
-            entries.MoveNext();
-        }
-        catch (Exception e) when (e is UnauthorizedAccessException or IOException)
-        {
-            return "MediaMan can't read this folder. Give the account the server runs as permission to read it, or pick another folder.";
-        }
-
-        return null;
-    }
-
-    /// <summary>The folder's name; a drive or filesystem root has none, so it's named by its path.</summary>
-    private static string NameOf(string rootPath) =>
-        Path.GetFileName(rootPath) is { Length: > 0 } name ? name : rootPath;
 }

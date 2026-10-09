@@ -374,6 +374,39 @@ export interface Library {
   scan: ScanState;
 }
 
+export interface LibraryCreateRequest {
+  /**
+     * Defaults to the first root's folder name.
+     * @maxLength 100
+     */
+  name?: string;
+  contentType: ContentType;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     */
+  rootPaths: string[];
+  /** Minutes between full scans, 15 to 10080 (a week), or 0 for none. Defaults to 360 (6 hours). */
+  scanIntervalMinutes?: number;
+}
+
+export interface LibraryUpdateRequest {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  name?: string;
+  contentType?: ContentType;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     * @items.minLength 1
+     */
+  rootPaths?: string[];
+  scanIntervalMinutes?: number;
+}
+
 export interface LibraryPage {
   items: Library[];
   pageInfo: PageInfo;

@@ -2,6 +2,7 @@ using MediaMan.Core;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
 using MediaMan.Server.Hosting;
+using MediaMan.Server.LibraryApi;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -17,9 +18,6 @@ public sealed partial class DevLibrarySeeder(
     IClock clock,
     ILogger<DevLibrarySeeder> logger) : IHostedService
 {
-    /// <summary>Default full-scan interval, 6 hours (PLAN 2.8).</summary>
-    public const int DefaultScanIntervalMinutes = 360;
-
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         var dev = options.Value.Dev;
@@ -46,7 +44,7 @@ public sealed partial class DevLibrarySeeder(
             Kind = LibraryKind.External,
             ContentType = dev.ContentType,
             RootPaths = [mediaPath],
-            ScanIntervalMinutes = DefaultScanIntervalMinutes,
+            ScanIntervalMinutes = LibraryService.DefaultScanIntervalMinutes,
         });
         await db.SaveChangesAsync(cancellationToken);
         LogRegistered(logger, mediaPath);

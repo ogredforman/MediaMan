@@ -19,7 +19,7 @@ public sealed class ScanCoordinatorTests
 
         var queued = coordinator.Request(_library);
         var again = coordinator.Request(_library);
-        coordinator.Start(_library);
+        coordinator.TryStart(_library).Should().BeTrue();
         var whileRunning = coordinator.Request(_library);
 
         queued.State.Should().Be("queued");
@@ -36,7 +36,7 @@ public sealed class ScanCoordinatorTests
         var coordinator = Create(available: true);
         var started = _clock.UtcNow;
         coordinator.Request(_library);
-        coordinator.Start(_library);
+        coordinator.TryStart(_library).Should().BeTrue();
         coordinator.Enter(_library, ScanPhase.Matching);
         coordinator.Get(_library).Should().BeEquivalentTo(new { State = "running", Phase = "matching", StartedAt = started });
         _clock.Advance(TimeSpan.FromMinutes(2));
@@ -47,6 +47,23 @@ public sealed class ScanCoordinatorTests
 
         var idle = new ScanSummary(started, started.AddMinutes(2), "succeeded", counts, null);
         next.Should().Be(new ScanState("queued", null, null, idle));
+    }
+
+    [Fact]
+    public void A_forgotten_queued_scan_is_skipped_and_a_running_one_is_kept()
+    {
+        var coordinator = Create(available: true);
+        var running = Guid.NewGuid();
+        coordinator.Request(_library);
+        coordinator.Request(running);
+        coordinator.TryStart(running).Should().BeTrue();
+
+        coordinator.TryForget(_library).Should().BeTrue();
+        coordinator.TryForget(running).Should().BeFalse("a running scan can't be dropped");
+
+        coordinator.Get(_library).State.Should().Be("idle");
+        coordinator.TryStart(_library).Should().BeFalse("the worker skips a forgotten library");
+        coordinator.Get(running).State.Should().Be("running");
     }
 
     [Fact]

@@ -44,11 +44,13 @@ import type {
 
 import {
   getCompleteSetupResponseMock,
+  getCreateLibraryResponseMock,
   getCreateProfileResponseMock,
   getDevPlayResponseMock,
   getGetArtworkResponseMock,
   getGetEventsResponseMock,
   getGetHealthResponseMock,
+  getGetLibraryResponseMock,
   getGetTitleResponseMock,
   getListAttentionFilesResponseMock,
   getListLibrariesResponseMock,
@@ -59,6 +61,7 @@ import {
   getSelectSessionProfileResponseMock,
   getSetServerModeResponseMock,
   getStartLibraryScanResponseMock,
+  getUpdateLibraryResponseMock,
   getUpdateProfileResponseMock
 } from './mediaman.faker';
 
@@ -77,7 +80,7 @@ import type {
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -232,6 +235,52 @@ export const getListLibrariesMockHandler = (overrideResponse?: LibraryPage | ((i
   }, options)
 }
 
+export const getCreateLibraryMockHandler = (overrideResponse?: Library | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<Library> | Library), options?: RequestHandlerOptions) => {
+  return http.post('*/libraries', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCreateLibraryResponseMock(),
+      { status: 201
+      })
+  }, options)
+}
+
+export const getGetLibraryMockHandler = (overrideResponse?: Library | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Library> | Library), options?: RequestHandlerOptions) => {
+  return http.get('*/libraries/:libraryId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetLibraryResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getUpdateLibraryMockHandler = (overrideResponse?: Library | ((info: Parameters<Parameters<typeof http.patch>[1]>[0]) => Promise<Library> | Library), options?: RequestHandlerOptions) => {
+  return http.patch('*/libraries/:libraryId', async (info: Parameters<Parameters<typeof http.patch>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getUpdateLibraryResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getDeleteLibraryMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.delete('*/libraries/:libraryId', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
 export const getStartLibraryScanMockHandler = (overrideResponse?: Library | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<Library> | Library), options?: RequestHandlerOptions) => {
   return http.post('*/libraries/:libraryId/scan', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -318,6 +367,10 @@ export const getMediaManAPIMock = () => [
   getDeleteProfileMockHandler(),
   getGetEventsMockHandler(),
   getListLibrariesMockHandler(),
+  getCreateLibraryMockHandler(),
+  getGetLibraryMockHandler(),
+  getUpdateLibraryMockHandler(),
+  getDeleteLibraryMockHandler(),
   getStartLibraryScanMockHandler(),
   getListAttentionFilesMockHandler(),
   getListTitlesMockHandler(),
