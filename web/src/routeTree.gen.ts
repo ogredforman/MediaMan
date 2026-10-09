@@ -15,7 +15,10 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppMoviesRouteImport } from './routes/_app/movies'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppShowsRouteImport } from './routes/_app/shows'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings.index'
+import { Route as AppSettingsLibrariesRouteImport } from './routes/_app/settings.libraries'
 import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titleId'
 
 const AppRoute = AppRouteImport.update({
@@ -47,10 +50,25 @@ const AppMoviesRoute = AppMoviesRouteImport.update({
   path: '/movies',
   getParentRoute: () => AppRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppShowsRoute = AppShowsRouteImport.update({
   id: '/shows',
   path: '/shows',
   getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsLibrariesRoute = AppSettingsLibrariesRouteImport.update({
+  id: '/libraries',
+  path: '/libraries',
+  getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppTitlesTitleIdRoute = AppTitlesTitleIdRouteImport.update({
   id: '/titles/$titleId',
@@ -64,8 +82,11 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/movies': typeof AppMoviesRoute
+  '/settings': typeof AppSettingsRouteWithChildren
   '/shows': typeof AppShowsRoute
+  '/settings/libraries': typeof AppSettingsLibrariesRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
+  '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/profiles': typeof ProfilesRoute
@@ -74,7 +95,9 @@ export interface FileRoutesByTo {
   '/movies': typeof AppMoviesRoute
   '/shows': typeof AppShowsRoute
   '/': typeof AppIndexRoute
+  '/settings/libraries': typeof AppSettingsLibrariesRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
+  '/settings': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -83,9 +106,12 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/sign-in': typeof SignInRoute
   '/_app/movies': typeof AppMoviesRoute
+  '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/shows': typeof AppShowsRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/libraries': typeof AppSettingsLibrariesRoute
   '/_app/titles/$titleId': typeof AppTitlesTitleIdRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -95,8 +121,11 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sign-in'
     | '/movies'
+    | '/settings'
     | '/shows'
+    | '/settings/libraries'
     | '/titles/$titleId'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/profiles'
@@ -105,7 +134,9 @@ export interface FileRouteTypes {
     | '/movies'
     | '/shows'
     | '/'
+    | '/settings/libraries'
     | '/titles/$titleId'
+    | '/settings'
   id:
     | '__root__'
     | '/_app'
@@ -113,9 +144,12 @@ export interface FileRouteTypes {
     | '/setup'
     | '/sign-in'
     | '/_app/movies'
+    | '/_app/settings'
     | '/_app/shows'
     | '/_app/'
+    | '/_app/settings/libraries'
     | '/_app/titles/$titleId'
+    | '/_app/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -169,12 +203,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMoviesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/shows': {
       id: '/_app/shows'
       path: '/shows'
       fullPath: '/shows'
       preLoaderRoute: typeof AppShowsRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/libraries': {
+      id: '/_app/settings/libraries'
+      path: '/libraries'
+      fullPath: '/settings/libraries'
+      preLoaderRoute: typeof AppSettingsLibrariesRouteImport
+      parentRoute: typeof AppSettingsRoute
     }
     '/_app/titles/$titleId': {
       id: '/_app/titles/$titleId'
@@ -186,8 +241,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppSettingsRouteChildren {
+  AppSettingsLibrariesRoute: typeof AppSettingsLibrariesRoute
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
+}
+
+const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsLibrariesRoute: AppSettingsLibrariesRoute,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
+}
+
+const AppSettingsRouteWithChildren = AppSettingsRoute._addFileChildren(
+  AppSettingsRouteChildren,
+)
+
 interface AppRouteChildren {
   AppMoviesRoute: typeof AppMoviesRoute
+  AppSettingsRoute: typeof AppSettingsRouteWithChildren
   AppShowsRoute: typeof AppShowsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppTitlesTitleIdRoute: typeof AppTitlesTitleIdRoute
@@ -195,6 +265,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppMoviesRoute: AppMoviesRoute,
+  AppSettingsRoute: AppSettingsRouteWithChildren,
   AppShowsRoute: AppShowsRoute,
   AppIndexRoute: AppIndexRoute,
   AppTitlesTitleIdRoute: AppTitlesTitleIdRoute,

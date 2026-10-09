@@ -10,13 +10,12 @@ import {
 } from '../api/mediaman';
 import { ProfileAvatar as Avatars, type Profile, type ProfileAvatar, type ProfileList } from '../api/mediaman.schemas';
 import type { ApiError } from '../lib/http';
+import { FieldError, type FieldErrors } from './FormField';
+import { buttonClass, inputClass } from './formClasses';
 
 /** Matches the server's rules (SPEC §7.11); the server checks them again. */
 const maximumProfiles = 10;
 const maximumNameLength = 32;
-
-const buttonClass =
-  'rounded-card px-4 py-2 font-medium transition-opacity duration-(--motion-fast) hover:opacity-90 disabled:opacity-50';
 
 // Whole class names, so Tailwind finds them.
 const avatarColours: Record<ProfileAvatar, string> = {
@@ -186,8 +185,6 @@ function Screen({ heading, children }: { heading: string; children: ReactNode })
   );
 }
 
-type FieldErrors = Record<string, string[]>;
-
 /** Adds a profile (`profile` undefined) or edits one: name, preset avatar, and delete with a confirmation. */
 function ProfileForm({
   profile,
@@ -292,7 +289,7 @@ function ProfileForm({
                 setName(e.target.value);
                 setErrors(({ name: _, ...rest }) => rest);
               }}
-              className="rounded-card bg-bg px-3 py-2 text-fg"
+              className={inputClass}
             />
           </label>
           <FieldError messages={errors.name} />
@@ -369,14 +366,5 @@ function ProfileForm({
         )}
       </form>
     </main>
-  );
-}
-
-function FieldError({ messages }: { messages: string[] | undefined }) {
-  if (messages === undefined || messages.length === 0) return null;
-  return (
-    <p role="alert" className="text-sm text-highlight">
-      {messages.join(' ')}
-    </p>
   );
 }

@@ -28,6 +28,8 @@ for (const parts of placeholders) {
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, '');
 }
+// An empty folder the libraries spec adds as a second library.
+mkdirSync(path.join(workDir, 'Extra'), { recursive: true });
 
 // The dev configuration only exists in Debug builds, so this builds Debug even where CI builds Release.
 const server = spawn(

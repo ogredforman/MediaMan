@@ -17,6 +17,8 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Whole-app renders are slow under a full parallel run; above the 5 s findBy* wait in setup.ts.
+    testTimeout: 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
   },
 });
