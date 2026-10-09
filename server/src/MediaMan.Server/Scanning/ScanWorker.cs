@@ -32,7 +32,11 @@ public sealed partial class ScanWorker(ScanCoordinator coordinator, IServiceScop
 
     private async Task RunAsync(Guid libraryId, CancellationToken ct)
     {
-        coordinator.Start(libraryId);
+        if (!coordinator.TryStart(libraryId))
+        {
+            return;
+        }
+
         ScanResult? scan = null;
         MatchRunResult? match = null;
         ImportResult? import = null;

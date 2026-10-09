@@ -7,12 +7,18 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace MediaMan.Server.LibraryApi;
 
-/// <summary>Library browsing (libraries, the title grid, title detail), scanning and the attention list (SPEC §7.2, §8 browsing).</summary>
+/// <summary>Library management and browsing (libraries, the title grid, title detail), scanning and the attention list (SPEC §7.2, §8).</summary>
 public static class LibraryEndpoints
 {
     public static IEndpointRouteBuilder MapLibraryEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/libraries", ListLibrariesAsync).RequiresPermission(Permissions.LibraryView);
+        app.MapPost("/libraries", CreateLibraryAsync).RequiresPermission(Permissions.LibraryManage);
+        app.MapGet("/libraries/{libraryId}", GetLibraryAsync).RequiresPermission(Permissions.LibraryView);
+        app.MapPatch("/libraries/{libraryId}", UpdateLibraryAsync).RequiresPermission(Permissions.LibraryManage);
+
+        // The Admin preset can't delete libraries (SPEC §8 accounts); server.control is what sets it apart.
+        app.MapDelete("/libraries/{libraryId}", DeleteLibraryAsync).RequiresPermission(Permissions.ServerControl);
         app.MapPost("/libraries/{libraryId}/scan", StartScanAsync).RequiresPermission(Permissions.LibraryManage);
         app.MapGet("/libraries/{libraryId}/attention", ListAttentionAsync).RequiresPermission(Permissions.LibraryManage);
         app.MapGet("/titles", ListTitlesAsync).RequiresPermission(Permissions.LibraryView);
@@ -30,6 +36,54 @@ public static class LibraryEndpoints
 
         return TypedResults.Ok(await queries.ListLibrariesAsync(page, ct));
     }
+
+    private static async Task<Results<Created<LibraryDto>, ValidationProblem>> CreateLibraryAsync(
+        LibraryCreateRequest request, LibraryService libraries, CancellationToken ct)
+    {
+        var outcome = await libraries.CreateAsync(request, ct);
+        return outcome.Library is { } library
+            ? TypedResults.Created($"/libraries/{library.Id}", library)
+            : Invalid(outcome.Errors!);
+    }
+
+    private static async Task<Results<Ok<LibraryDto>, ProblemHttpResult>> GetLibraryAsync(
+        Guid libraryId, LibraryQueries queries, CancellationToken ct) =>
+        await queries.GetLibraryAsync(libraryId, ct) is { } library ? TypedResults.Ok(library) : LibraryNotFound();
+
+    private static async Task<Results<Ok<LibraryDto>, ValidationProblem, ProblemHttpResult>> UpdateLibraryAsync(
+        Guid libraryId, LibraryUpdateRequest request, LibraryService libraries, CancellationToken ct)
+    {
+        var outcome = await libraries.UpdateAsync(libraryId, request, ct);
+        return outcome switch
+        {
+            { Library: { } library } => TypedResults.Ok(library),
+            { Failure: LibraryFailure.Invalid } => Invalid(outcome.Errors!),
+            { Failure: LibraryFailure.ScanRunning } => ScanRunning(),
+            _ => LibraryNotFound(),
+        };
+    }
+
+    private static async Task<Results<NoContent, ProblemHttpResult>> DeleteLibraryAsync(
+        Guid libraryId, LibraryService libraries, CancellationToken ct) =>
+        await libraries.DeleteAsync(libraryId, ct) switch
+        {
+            null => TypedResults.NoContent(),
+            LibraryFailure.ScanRunning => ScanRunning(),
+            _ => LibraryNotFound(),
+        };
+
+    private static ValidationProblem Invalid(IDictionary<string, string[]> errors) =>
+        TypedResults.ValidationProblem(errors, "One or more fields are invalid; each one says why.",
+            title: "Some library details need fixing.", extensions: new Dictionary<string, object?>
+            {
+                [Problems.CodeKey] = "library.invalid",
+                [Problems.ActionKey] = "Fix the highlighted fields, then save.",
+            });
+
+    private static ProblemHttpResult ScanRunning() =>
+        Problems.Result(StatusCodes.Status409Conflict, "library.scan_running", "The library is being scanned.",
+            "The library's folders can't change, and it can't be removed, while its scan is running.",
+            "Wait for the scan to finish, then try again.");
 
     private static async Task<Results<Accepted<LibraryDto>, ProblemHttpResult>> StartScanAsync(
         Guid libraryId, LibraryQueries queries, ScanCoordinator scans, CancellationToken ct)

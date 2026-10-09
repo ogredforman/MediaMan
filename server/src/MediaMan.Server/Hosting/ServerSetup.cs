@@ -49,6 +49,7 @@ public static class ServerSetup
         services.AddSingleton<SetupState>();
         services.AddScoped<SetupService>();
         services.AddScoped<LibraryQueries>();
+        services.AddScoped<LibraryService>();
         AddMetadata(services);
         AddScanning(services);
 

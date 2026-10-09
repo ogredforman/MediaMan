@@ -65,12 +65,42 @@ public sealed class ScanCoordinator(EventBroadcaster events, IClock clock, IServ
         }
     }
 
-    internal void Start(Guid libraryId) => Update(libraryId, s => s with
+    /// <summary>Drops the library's state and any queued scan, for a library being deleted. False while its scan is running.</summary>
+    public bool TryForget(Guid libraryId)
     {
-        State = Wire.Name(ScanStatus.Running),
-        Phase = Wire.Name(ScanPhase.Scanning),
-        StartedAt = clock.UtcNow,
-    });
+        lock (_lock)
+        {
+            if (_states.GetValueOrDefault(libraryId, _idle).State == Wire.Name(ScanStatus.Running))
+            {
+                return false;
+            }
+
+            // The id stays in the channel; the worker skips it, since it's no longer queued.
+            _states.Remove(libraryId);
+            return true;
+        }
+    }
+
+    /// <summary>Marks a queued scan running; false when it was forgotten while queued, so there's nothing to run.</summary>
+    internal bool TryStart(Guid libraryId)
+    {
+        lock (_lock)
+        {
+            var current = _states.GetValueOrDefault(libraryId, _idle);
+            if (current.State != Wire.Name(ScanStatus.Queued))
+            {
+                return false;
+            }
+
+            Set(libraryId, current with
+            {
+                State = Wire.Name(ScanStatus.Running),
+                Phase = Wire.Name(ScanPhase.Scanning),
+                StartedAt = clock.UtcNow,
+            });
+            return true;
+        }
+    }
 
     internal void Enter(Guid libraryId, ScanPhase phase) => Update(libraryId, s => s with { Phase = Wire.Name(phase) });
 
