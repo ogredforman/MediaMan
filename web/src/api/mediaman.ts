@@ -56,6 +56,7 @@ import type {
 import type {
   AttentionFilePage,
   AuthTokens,
+  CatalogSearchResult,
   CreateProfileRequest,
   DevPlayStarted,
   EventEnvelope,
@@ -69,11 +70,14 @@ import type {
   ListLibrariesParams,
   ListTitlesParams,
   LoginRequest,
+  MediaFileMatch,
+  MediaFileMatchRequest,
   Problem,
   ProblemResponse,
   Profile,
   ProfileList,
   RefreshRequest,
+  SearchCatalogParams,
   SelectProfileRequest,
   ServerModeRequest,
   ServerModeState,
@@ -1853,6 +1857,210 @@ export function useListAttentionFiles<TData = Awaited<ReturnType<typeof listAtte
 
 
 
+
+export const getSearchCatalogUrl = (params: SearchCatalogParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/catalog/search?${stringifiedParams}` : `/catalog/search`
+}
+
+/**
+ * Results come from the configured metadata provider, best first, at most 20. They aren't limited to titles in
+ * the library; pick one and send its `titleRef` to `PUT /media-files/{mediaFileId}/match`.
+ * @summary Searches the metadata provider's catalog by name, for "Fix match" (SPEC §7.3 step 2).
+ */
+export const searchCatalog = async (params: SearchCatalogParams, options?: Parameters<typeof apiFetch>[1]): Promise<CatalogSearchResult> => {
+
+  return apiFetch<CatalogSearchResult>(getSearchCatalogUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchCatalogQueryKey = (params?: SearchCatalogParams,) => {
+    return [
+    `/catalog/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchCatalogQueryOptions = <TData = Awaited<ReturnType<typeof searchCatalog>>, TError = ErrorType<Problem | ProblemResponse>>(params: SearchCatalogParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchCatalog>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchCatalogQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchCatalog>>> = ({ signal }) => searchCatalog(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchCatalog>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SearchCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof searchCatalog>>>
+export type SearchCatalogQueryError = ErrorType<Problem | ProblemResponse>
+
+
+export function useSearchCatalog<TData = Awaited<ReturnType<typeof searchCatalog>>, TError = ErrorType<Problem | ProblemResponse>>(
+ params: SearchCatalogParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchCatalog>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof searchCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchCatalog<TData = Awaited<ReturnType<typeof searchCatalog>>, TError = ErrorType<Problem | ProblemResponse>>(
+ params: SearchCatalogParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchCatalog>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof searchCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchCatalog<TData = Awaited<ReturnType<typeof searchCatalog>>, TError = ErrorType<Problem | ProblemResponse>>(
+ params: SearchCatalogParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchCatalog>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Searches the metadata provider's catalog by name, for "Fix match" (SPEC §7.3 step 2).
+ */
+
+export function useSearchCatalog<TData = Awaited<ReturnType<typeof searchCatalog>>, TError = ErrorType<Problem | ProblemResponse>>(
+ params: SearchCatalogParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchCatalog>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSearchCatalogQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRelinkMediaFileUrl = (mediaFileId: string,) => {
+
+
+
+
+  return `/media-files/${mediaFileId}/match`
+}
+
+/**
+ * Replaces the file's links with the chosen title (and, for a show, the season and episodes), marks it matched
+ * and removes its MatchReview. The choice is recorded as an override for the file's path, so rescans keep it
+ * even when the file changes or comes back after being missing. Works on files that need attention and on
+ * files already matched ("Fix match" on any title). Only the database changes; files on disk are never touched.
+ * For a show, leave `season` and `episodes` out to use what the file name says.
+ * @summary Links a file to the title the user picked and remembers the choice for its path (SPEC §7.3 step 3).
+ */
+export const relinkMediaFile = async (mediaFileId: string,
+    mediaFileMatchRequest: MediaFileMatchRequest, options?: Parameters<typeof apiFetch>[1]): Promise<MediaFileMatch> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<MediaFileMatch>(getRelinkMediaFileUrl(mediaFileId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mediaFileMatchRequest)
+  }
+);}
+
+
+
+
+
+export const getRelinkMediaFileMutationKey = () => ['relinkMediaFile'] as const;
+
+export const getRelinkMediaFileMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof relinkMediaFile>>, TError,RelinkMediaFileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof relinkMediaFile>>, TError,RelinkMediaFileMutationVariables, TContext> => {
+
+const mutationKey = getRelinkMediaFileMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof relinkMediaFile>>, RelinkMediaFileMutationVariables> = (props) => {
+          const {mediaFileId,data} = props ?? {};
+
+          return  relinkMediaFile(mediaFileId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RelinkMediaFileMutationResult = NonNullable<Awaited<ReturnType<typeof relinkMediaFile>>>
+    export type RelinkMediaFileMutationBody = MediaFileMatchRequest
+    export type RelinkMediaFileMutationError = ErrorType<Problem | ProblemResponse>
+    export type RelinkMediaFileMutationVariables = {mediaFileId: string;data: MediaFileMatchRequest}
+
+    /**
+ * @summary Links a file to the title the user picked and remembers the choice for its path (SPEC §7.3 step 3).
+ */
+export const useRelinkMediaFile = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof relinkMediaFile>>, TError,RelinkMediaFileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof relinkMediaFile>>,
+        TError,
+        RelinkMediaFileMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRelinkMediaFileMutationOptions(options), queryClient);
+    }
 
 export const getListTitlesUrl = (params?: ListTitlesParams,) => {
   const normalizedParams = new URLSearchParams();

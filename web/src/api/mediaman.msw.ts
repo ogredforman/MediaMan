@@ -58,6 +58,8 @@ import {
   getListTitlesResponseMock,
   getLoginResponseMock,
   getRefreshTokensResponseMock,
+  getRelinkMediaFileResponseMock,
+  getSearchCatalogResponseMock,
   getSelectSessionProfileResponseMock,
   getSetServerModeResponseMock,
   getStartLibraryScanResponseMock,
@@ -68,11 +70,13 @@ import {
 import type {
   AttentionFilePage,
   AuthTokens,
+  CatalogSearchResult,
   DevPlayStarted,
   EventEnvelope,
   Health,
   Library,
   LibraryPage,
+  MediaFileMatch,
   Profile,
   ProfileList,
   ServerModeState,
@@ -80,7 +84,7 @@ import type {
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -305,6 +309,30 @@ export const getListAttentionFilesMockHandler = (overrideResponse?: AttentionFil
   }, options)
 }
 
+export const getSearchCatalogMockHandler = (overrideResponse?: CatalogSearchResult | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<CatalogSearchResult> | CatalogSearchResult), options?: RequestHandlerOptions) => {
+  return http.get('*/catalog/search', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getSearchCatalogResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getRelinkMediaFileMockHandler = (overrideResponse?: MediaFileMatch | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<MediaFileMatch> | MediaFileMatch), options?: RequestHandlerOptions) => {
+  return http.put('*/media-files/:mediaFileId/match', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getRelinkMediaFileResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getListTitlesMockHandler = (overrideResponse?: TitlePage | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<TitlePage> | TitlePage), options?: RequestHandlerOptions) => {
   return http.get('*/titles', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -373,6 +401,8 @@ export const getMediaManAPIMock = () => [
   getDeleteLibraryMockHandler(),
   getStartLibraryScanMockHandler(),
   getListAttentionFilesMockHandler(),
+  getSearchCatalogMockHandler(),
+  getRelinkMediaFileMockHandler(),
   getListTitlesMockHandler(),
   getGetTitleMockHandler(),
   getGetArtworkMockHandler(),

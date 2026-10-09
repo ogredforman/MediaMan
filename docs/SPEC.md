@@ -108,6 +108,7 @@ The design must not preclude:
 | FileLink | Links a MediaFile to the Playables it contains | mediaFileId, playableId, part (for multi-episode files) |
 | Artwork | A cached image | id, titleId? / seasonId? / episodeId? (exactly one owner; ADR 0002), type (poster/backdrop/logo/still), url, localPath, dominantColor |
 | MatchReview | A low-confidence or failed match awaiting a user | id, mediaFileId, candidates[] (titleRef, score), reason |
+| MatchOverride | A user's "Fix match" choice for a path, followed on every rescan instead of a search (7.3) | id, libraryId, path, titleRef, kind, season?, episodes[], absoluteEpisode?, createdAt |
 | User | An account | id, username, passwordHash, roleId, isSuperadmin, totpSecret?, disabled, createdAt |
 | Role | A named bundle of permissions | id, name, permissions[], isPreset |
 | Profile | A Netflix-style viewer under an account | id, userId, name, avatar, pinHash?, maxRating?, audioLangPrefs[], subtitleLangPrefs[] |
@@ -136,6 +137,7 @@ MediaFile *─* Playable              (via FileLink; one file can hold several e
 Title(Show) 1─* Season 1─* Episode
 Title 1─* Artwork, Season 1─* Artwork, Episode 1─* Artwork
 MediaFile 1─0..1 MatchReview
+Library 1─* MatchOverride          (keyed by path, so it outlives the MediaFile row)
 Role 1─* User 1─* Profile 1─* WatchState *─1 Playable
 User 1─* Session
 Role 1─* Invite
