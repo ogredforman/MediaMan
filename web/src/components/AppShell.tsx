@@ -10,6 +10,7 @@ const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/movies', label: 'Movies' },
   { to: '/shows', label: 'Shows' },
+  { to: '/attention', label: 'Needs attention' },
   { to: '/settings', label: 'Settings' },
 ] as const;
 

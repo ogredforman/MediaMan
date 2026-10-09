@@ -1,9 +1,12 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useDevPlay, useGetTitle } from '../api/mediaman';
 import type { Episode, MediaVersion, Season, TitleDetail as Title } from '../api/mediaman.schemas';
 import { ApiError, artworkSrc } from '../lib/http';
 import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
+import type { FixMatchFile } from '../lib/fixMatch';
+import { FixMatchDialog } from './FixMatchDialog';
+import { buttonClass } from './formClasses';
 
 const hexColor = /^#[0-9a-f]{6}$/i;
 
@@ -256,6 +259,54 @@ function PlayButton({ playableId, label }: { playableId: string; label: string }
   );
 }
 
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** The title's files that can be relinked (not missing), each once, with the season and episodes it holds. */
+function relinkableFiles(title: Title): FixMatchFile[] {
+  const files = new Map<string, FixMatchFile>();
+  for (const version of title.playable?.versions ?? []) {
+    if (version.status !== 'missing') files.set(version.mediaFileId, { mediaFileId: version.mediaFileId, fileName: version.fileName });
+  }
+  for (const season of orderSeasons(title.seasons ?? [])) {
+    for (const [mediaFileId, numbers] of episodesByFile(season.episodes)) {
+      const version = season.episodes.flatMap((e) => e.versions).find((v) => v.mediaFileId === mediaFileId);
+      if (version === undefined || version.status === 'missing' || files.has(mediaFileId)) continue;
+      const episodes = [...numbers].sort((a, b) => a - b);
+      const first = episodes[0] ?? 0;
+      const last = episodes[episodes.length - 1] ?? 0;
+      const label = `S${pad(season.number)}E${pad(first)}${last === first ? '' : `–E${pad(last)}`}`;
+      files.set(mediaFileId, { mediaFileId, fileName: version.fileName, label, season: season.number, episodes });
+    }
+  }
+  return [...files.values()];
+}
+
+/** "Fix match" on any title (SPEC §7.3): relinks one of its files, then opens the title the file now belongs to. */
+function FixMatchButton({ title }: { title: Title }) {
+  const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const files = relinkableFiles(title);
+  if (files.length === 0) return null;
+  return (
+    <>
+      <button type="button" onClick={() => { setOpen(true); }} className={`${buttonClass} bg-surface text-fg shadow-soft`}>
+        Fix match
+      </button>
+      {open && (
+        <FixMatchDialog
+          files={files}
+          search={{ query: title.name, year: title.year, kind: title.kind }}
+          onClose={() => { setOpen(false); }}
+          onMatched={async (match) => {
+            setOpen(false);
+            await navigate({ to: '/titles/$titleId', params: { titleId: match.titleId } });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 function Hero({ title }: { title: Title }) {
   const color = title.backdrop?.dominantColor ?? title.poster?.dominantColor;
   // The tint comes from the artwork (SPEC §11); anything that isn't `#RRGGBB` falls back to the accent token.
@@ -305,7 +356,10 @@ function Hero({ title }: { title: Title }) {
             </ul>
           )}
           {title.overview !== undefined && <p className="text-fg">{title.overview}</p>}
-          {title.playable && isPlayable(title.playable.versions) && <PlayButton playableId={title.playable.id} label="Play" />}
+          <div className="flex flex-wrap items-start gap-3">
+            {title.playable && isPlayable(title.playable.versions) && <PlayButton playableId={title.playable.id} label="Play" />}
+            <FixMatchButton title={title} />
+          </div>
         </div>
       </div>
     </div>
