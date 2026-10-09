@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { SetupRequest } from '../api/mediaman.schemas';
 import { mockTokens } from '../mocks/handlers';
 import { server } from '../mocks/node';
+import { mockProfiles } from '../mocks/profiles';
 import { storedTokens, storeTokens } from '../lib/session';
 import { renderApp } from '../test/renderApp';
 
@@ -30,7 +31,7 @@ async function reachLibraryStep(user: UserEvent) {
 
 describe('setup wizard', () => {
   it('sends an un-set-up server to the wizard', async () => {
-    server.use(http.get('*/libraries', setupRequired));
+    server.use(http.get('*/profiles', setupRequired));
     const { router } = renderApp('/movies');
 
     expect(await screen.findByRole('heading', { name: 'Create the owner account' })).toBeInTheDocument();
@@ -39,7 +40,7 @@ describe('setup wizard', () => {
 
   it('drops a left-over session and shows the wizard, rather than looping back to Home', async () => {
     storeTokens(mockTokens('stale'));
-    server.use(http.get('*/libraries', setupRequired));
+    server.use(http.get('*/profiles', setupRequired));
     const { router } = renderApp('/');
 
     expect(await screen.findByRole('heading', { name: 'Create the owner account' })).toBeInTheDocument();
@@ -74,11 +75,12 @@ describe('setup wizard', () => {
     expect(await screen.findByRole('heading', { name: 'Create the owner account' })).toBeInTheDocument();
   });
 
-  it('walks one step per screen, then signs the owner in and lands on Home', async () => {
+  it("walks one step per screen, then signs the owner in, asks who's watching and lands on Home", async () => {
     let sent: SetupRequest | undefined;
     server.use(
       http.post('*/setup', async ({ request }) => {
         sent = (await request.json()) as SetupRequest;
+        mockProfiles.clearPick();
         return HttpResponse.json({
           accessToken: 'access-setup',
           accessTokenExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
@@ -101,6 +103,8 @@ describe('setup wizard', () => {
     await user.selectOptions(screen.getByLabelText('Contains'), 'movies');
     await user.click(screen.getByRole('button', { name: 'Finish setup' }));
 
+    expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'owner' }));
     await waitFor(() => { expect(router.state.location.pathname).toBe('/'); });
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument();
     expect(storedTokens()?.accessToken).toBe('access-setup');

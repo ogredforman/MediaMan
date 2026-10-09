@@ -9,6 +9,7 @@ import {
   getMediaManAPIMock,
   getStartLibraryScanMockHandler,
 } from '../api/mediaman.msw';
+import { mockProfiles } from './profiles';
 import type { AuthTokens, Library, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
 
 export const mockHealth = { status: 'healthy', version: '0.0.0-mock' } as const;
@@ -223,9 +224,16 @@ function mockVersionsOf(playableId: string): MediaVersion[] | undefined {
 export const handlers = [
   getGetHealthMockHandler(mockHealth),
   mockEvents.handler,
-  getLoginMockHandler(() => mockTokens('signed-in')),
+  getLoginMockHandler(() => {
+    mockProfiles.clearPick();
+    return mockTokens('signed-in');
+  }),
   getRefreshTokensMockHandler(() => mockTokens('refreshed')),
-  getCompleteSetupMockHandler(() => mockTokens('setup')),
+  getCompleteSetupMockHandler(() => {
+    mockProfiles.clearPick();
+    return mockTokens('setup');
+  }),
+  ...mockProfiles.handlers,
   getListLibrariesMockHandler({ items: [mockLibrary], pageInfo: {} }),
   getStartLibraryScanMockHandler({ ...mockLibrary, scan: { state: 'queued' } }),
   getListTitlesMockHandler(({ request }) => {

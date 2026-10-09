@@ -1,17 +1,11 @@
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { SignInForm } from '../components/SignInForm';
+import { safeRedirect } from '../lib/redirect';
 import { isSignedIn } from '../lib/session';
 
 interface SignInSearch {
   /** Where to go after signing in: a path on this site. */
   redirect?: string;
-}
-
-// Only same-site paths: `//host` and `/\host` are other sites to a browser.
-function safeRedirect(value: unknown): string | undefined {
-  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\')
-    ? value
-    : undefined;
 }
 
 export const Route = createFileRoute('/sign-in')({

@@ -1,8 +1,9 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import { useGetHealth, useLogout } from '../api/mediaman';
+import { useGetHealth, useListProfiles, useLogout } from '../api/mediaman';
 import { clearTokens } from '../lib/session';
 import { useSignedIn } from '../lib/useSession';
+import { AvatarTile } from './ProfilePicker';
 import { ScanStatus } from './ScanStatus';
 
 const navLinks = [
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
         <ScanStatus />
+        <SwitchProfile />
         <SignOutButton />
       </header>
       <main className="flex-1">{children}</main>
@@ -39,6 +41,24 @@ export function AppShell({ children }: { children: ReactNode }) {
         <ServerStatus />
       </footer>
     </div>
+  );
+}
+
+/** The session's profile; picking another goes through the picker and comes back here (SPEC §7.11 step 3). */
+function SwitchProfile() {
+  const profiles = useListProfiles().data;
+  const profile = profiles?.items.find((p) => p.id === profiles.activeProfileId);
+  const href = useRouterState({ select: (state) => state.location.href });
+  return (
+    <Link
+      to="/profiles"
+      search={{ redirect: href }}
+      aria-label={profile === undefined ? 'Switch profile' : `Switch profile (${profile.name})`}
+      className="flex items-center gap-2 rounded-card px-3 py-1 text-sm text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg"
+    >
+      {profile !== undefined && <AvatarTile name={profile.name} avatar={profile.avatar} size="small" />}
+      <span>{profile?.name ?? 'Switch profile'}</span>
+    </Link>
   );
 }
 

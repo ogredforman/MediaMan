@@ -2,7 +2,7 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import { mockLibrary, mockTokens } from '../mocks/handlers';
+import { mockTokens } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { storedTokens, storeTokens } from '../lib/session';
 import { renderApp } from '../test/renderApp';
@@ -10,19 +10,20 @@ import { renderApp } from '../test/renderApp';
 const problem = (status: number, code: string, title: string, action: string) =>
   HttpResponse.json({ title, status, code, action }, { status, headers: { 'Content-Type': 'application/problem+json' } });
 
-/** Libraries answer only with the token `login` hands out, like a server with auto sign-in off. */
+/** The session probe answers only with the token `login` hands out, like a server with auto sign-in off. */
 function requireSignIn() {
   server.use(
-    http.get('*/libraries', ({ request }) =>
+    // Falls through to the mock profile store when signed in.
+    http.get('*/profiles', ({ request }) =>
       request.headers.get('Authorization') === 'Bearer access-signed-in'
-        ? HttpResponse.json({ items: [mockLibrary], pageInfo: {} })
+        ? undefined
         : problem(401, 'auth.required', 'Sign in to continue.', 'Sign in again.'),
     ),
   );
 }
 
 describe('sign-in', () => {
-  it('sends a signed-out visitor to sign-in and back to the page they asked for', async () => {
+  it('sends a signed-out visitor to sign-in, then the profile picker, and back to the page they asked for', async () => {
     requireSignIn();
     const user = userEvent.setup();
     const { router } = renderApp('/movies');
@@ -34,6 +35,9 @@ describe('sign-in', () => {
     await user.type(screen.getByLabelText('Password'), 'correct horse battery');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
+    // A new sign-in has no profile picked, so the picker comes first.
+    expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'owner' }));
     expect(await screen.findByRole('heading', { name: 'Movies' })).toBeInTheDocument();
     expect(storedTokens()?.accessToken).toBe('access-signed-in');
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
