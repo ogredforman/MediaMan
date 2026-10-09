@@ -1,5 +1,6 @@
 using MediaMan.Core.Modules;
 using MediaMan.Fakes;
+using MediaMan.Library.Watching;
 using MediaMan.Metadata.Images;
 using MediaMan.Metadata.Tmdb;
 using MediaMan.Playback.Probing;
@@ -27,7 +28,8 @@ public static class DevConfiguration
             {
                 ExecutablePath = sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
             }));
-        AddProvider<IFileWatcher>(services, providers.FileWatcher, "FileWatcher", "PLAN 2.8", () => new FakeFileWatcher());
+        AddProvider<IFileWatcher>(services, providers.FileWatcher, "FileWatcher", "PLAN 2.8", () => new FakeFileWatcher(),
+            _ => new FileSystemFileWatcher());
         AddProvider<IDevPlayer>(services, providers.Player, "Player", "PLAN 1.12", () => new FakeDevPlayer(),
             sp => new MpvDevPlayer(
                 sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.MpvPath,

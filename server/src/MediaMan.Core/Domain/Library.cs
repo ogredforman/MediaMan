@@ -32,6 +32,12 @@ public class Library
     public ContentType ContentType { get; set; }
     public List<string> RootPaths { get; set; } = [];
     public int ScanIntervalMinutes { get; set; }
+
+    /// <summary>When the scan in progress started; still set at startup means the last scan was interrupted, so it resumes.</summary>
+    public DateTimeOffset? ScanStartedAt { get; set; }
+
+    /// <summary>When the last scan finished, succeeded or failed; the periodic full scan is due <see cref="ScanIntervalMinutes"/> after it.</summary>
+    public DateTimeOffset? LastScanFinishedAt { get; set; }
 }
 
 /// <summary>A video file found on disk.</summary>

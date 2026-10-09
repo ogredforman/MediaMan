@@ -8,6 +8,7 @@ using MediaMan.Fakes;
 using MediaMan.Server.LibraryApi;
 using MediaMan.Server.Scanning;
 using MediaMan.Server.Tests.Conformance;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MediaMan.Server.Tests;
@@ -73,6 +74,7 @@ public sealed class ScanApiTests : IAsyncLifetime
         await _factory.DisposeAsync();
         if (Directory.Exists(_media))
         {
+            SetReadOnly(_media, readOnly: false);
             Directory.Delete(_media, recursive: true);
         }
     }
@@ -122,6 +124,29 @@ public sealed class ScanApiTests : IAsyncLifetime
             "the scan caches each poster and records its color");
         var libraries = await GetAsync<LibraryPage>("/libraries");
         libraries.Items.Should().ContainSingle().Which.Scan.Should().BeEquivalentTo(progress[^1]);
+    }
+
+    [Fact]
+    public async Task Scanning_a_read_only_external_library_leaves_every_file_and_folder_as_it_was()
+    {
+        // Sidecars next to the videos: a scan must never add, rewrite or remove them (SPEC §5).
+        foreach (var sidecar in new[] { "Movies/The.Matrix.1999.1080p.nfo", "Movies/poster.jpg", "Shows/Breaking Bad/Season 1/Breaking.Bad.S01E01-E03.720p.en.srt" })
+        {
+            await File.WriteAllTextAsync(Path.Combine([_media, .. sidecar.Split('/')]), "sidecar", Ct);
+        }
+
+        SetReadOnly(_media, readOnly: true);
+        var before = Snapshot(_media);
+
+        await ScanAndWaitAsync();
+
+        Snapshot(_media).Should().Equal(before);
+        var counts = _factory.Services.GetRequiredService<ScanCoordinator>().Get(_libraryId).LastScan!.Counts;
+        counts.Linked.Should().Be(2, "a read-only library still scans and matches");
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var library = await scope.ServiceProvider.GetRequiredService<MediaManDbContext>().Libraries.AsNoTracking().SingleAsync(l => l.Id == _libraryId, Ct);
+        library.ScanStartedAt.Should().BeNull("the scan finished");
+        library.LastScanFinishedAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -196,6 +221,44 @@ public sealed class ScanApiTests : IAsyncLifetime
         }
 
         coordinator.Get(_libraryId).LastScan!.Outcome.Should().Be("succeeded");
+    }
+
+    /// <summary>Every file and folder under <paramref name="root"/> with its size, write time and attributes.</summary>
+    private static List<string> Snapshot(string root) =>
+    [
+        .. new DirectoryInfo(root).EnumerateFileSystemInfos("*", SearchOption.AllDirectories)
+            .Select(e => $"{Path.GetRelativePath(root, e.FullName)}|{(e as FileInfo)?.Length}|{e.LastWriteTimeUtc.Ticks}|{e.Attributes}")
+            .Order(StringComparer.Ordinal),
+    ];
+
+    /// <summary>Read-only files everywhere; on Unix the folders too, so any attempt to write fails rather than slipping by.</summary>
+    private static void SetReadOnly(string root, bool readOnly)
+    {
+        const UnixFileMode readable = UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
+        const UnixFileMode traversable = readable | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+        var folders = new[] { root }.Concat(Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories)).ToList();
+        if (!OperatingSystem.IsWindows())
+        {
+            // Folders first when unlocking, so their files can be listed and changed.
+            foreach (var folder in readOnly ? Enumerable.Empty<string>() : folders)
+            {
+                File.SetUnixFileMode(folder, traversable | UnixFileMode.UserWrite);
+            }
+        }
+
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+        {
+            File.SetAttributes(file, readOnly ? File.GetAttributes(file) | FileAttributes.ReadOnly : File.GetAttributes(file) & ~FileAttributes.ReadOnly);
+        }
+
+        if (!OperatingSystem.IsWindows() && readOnly)
+        {
+            // Deepest first, so each folder is still listable while its children are locked.
+            foreach (var folder in folders.OrderByDescending(f => f.Length))
+            {
+                File.SetUnixFileMode(folder, traversable);
+            }
+        }
     }
 
     private async Task<T> GetAsync<T>(string url)

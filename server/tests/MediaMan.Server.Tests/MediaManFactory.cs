@@ -6,6 +6,7 @@ using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Fakes;
+using MediaMan.Server.Scanning;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -44,6 +45,12 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
     /// <summary>Stands in for the real image downloader in every test, so no test fetches artwork over the network.</summary>
     public FakeImageDownloader Images { get; } = new();
 
+    /// <summary>Stands in for the real file watcher, so tests raise changes instead of waiting for the OS.</summary>
+    public FakeFileWatcher FileWatcher { get; } = new();
+
+    /// <summary>Runs <see cref="ScanScheduler"/> as a hosted service; off by default, so scans start only when a test asks.</summary>
+    public bool RunScanScheduler { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
@@ -57,6 +64,11 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
         {
             s.AddSingleton<IStartupFilter, TestRemoteAddress>();
             s.AddSingleton<IImageDownloader>(Images);
+            s.AddSingleton<IFileWatcher>(FileWatcher);
+            if (!RunScanScheduler)
+            {
+                s.Remove(s.Single(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(ScanScheduler)));
+            }
 
             // Argon2id at its production cost makes every sign-in slow; tests only need it to work.
             s.AddSingleton(new PasswordHasher(new Argon2Parameters(MemoryKib: 1024, Iterations: 1, Parallelism: 1)));

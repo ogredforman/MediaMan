@@ -8,6 +8,7 @@ using MediaMan.Library.Images;
 using MediaMan.Library.Importing;
 using MediaMan.Library.Matching;
 using MediaMan.Library.Scanning;
+using MediaMan.Library.Watching;
 using MediaMan.Metadata.Images;
 using MediaMan.Metadata.Tmdb;
 #if MEDIAMAN_DEV
@@ -57,6 +58,7 @@ public static class ServerSetup
         services.AddHostedService<DatabaseMigrator>();
         AddDevConfiguration(services, section.Get<MediaManOptions>()?.Dev ?? new DevOptions(), environment);
         services.AddHostedService<ScanWorker>();
+        services.AddHostedService<ScanScheduler>();
         return services;
     }
 
@@ -166,6 +168,7 @@ public static class ServerSetup
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryMatcher>(sp));
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<MetadataImporter>(sp));
         services.AddSingleton<ScanCoordinator>();
+        services.AddSingleton<IFileWatcher, FileSystemFileWatcher>();
     }
 
     /// <summary>
