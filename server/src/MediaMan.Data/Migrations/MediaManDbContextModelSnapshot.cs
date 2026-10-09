@@ -366,6 +366,9 @@ namespace MediaMan.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("LastScanFinishedAt")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -375,6 +378,9 @@ namespace MediaMan.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("ScanIntervalMinutes")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ScanStartedAt")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
