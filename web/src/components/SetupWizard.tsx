@@ -1,12 +1,10 @@
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState, type ChangeEvent, type ReactNode, type SubmitEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from 'react';
 import { useCompleteSetup } from '../api/mediaman';
 import type { ContentType, ServerMode } from '../api/mediaman.schemas';
 import { storeTokens } from '../lib/session';
-
-const inputClass = 'rounded-card bg-bg px-3 py-2 text-fg';
-const buttonClass =
-  'rounded-card px-4 py-2 font-medium transition-opacity duration-(--motion-fast) hover:opacity-90 disabled:opacity-50';
+import { Field, FieldError, type FieldErrors } from './FormField';
+import { buttonClass, inputClass } from './formClasses';
 
 /** Matches the server's rule (SPEC §7.1 step 2); the server checks it again. */
 const minimumPasswordLength = 12;
@@ -25,8 +23,6 @@ function stepOf(field: string): Step {
   if (field === 'library' || field.startsWith('library.')) return 'library';
   return 'account';
 }
-
-type FieldErrors = Record<string, string[]>;
 
 /**
  * The first-run setup wizard (SPEC §7.1): one step per screen, with the whole setup sent in one `POST /setup`
@@ -283,42 +279,6 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         </div>
       </form>
     </main>
-  );
-}
-
-function Field({
-  label,
-  field,
-  errors,
-  hint,
-  children,
-}: {
-  label: string;
-  field: string;
-  errors: FieldErrors;
-  hint?: string;
-  children: ReactNode;
-}) {
-  const messages = errors[field];
-  return (
-    <div className="flex flex-col gap-1">
-      {/* The label wraps the control, so the control is named by it; an error is announced when it appears. */}
-      <label className="flex flex-col gap-1 text-sm text-fg-muted">
-        {label}
-        {children}
-      </label>
-      {hint !== undefined && <p className="text-xs text-fg-muted">{hint}</p>}
-      <FieldError messages={messages} />
-    </div>
-  );
-}
-
-function FieldError({ messages }: { messages: string[] | undefined }) {
-  if (messages === undefined || messages.length === 0) return null;
-  return (
-    <p role="alert" className="text-sm text-highlight">
-      {messages.join(' ')}
-    </p>
   );
 }
 

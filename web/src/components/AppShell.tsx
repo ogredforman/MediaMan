@@ -10,6 +10,7 @@ const navLinks = [
   { to: '/', label: 'Home' },
   { to: '/movies', label: 'Movies' },
   { to: '/shows', label: 'Shows' },
+  { to: '/settings', label: 'Settings' },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -23,7 +24,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <li key={link.to}>
                 <Link
                   to={link.to}
-                  activeOptions={{ exact: true }}
+                  activeOptions={{ exact: link.to === '/' }}
                   className="rounded-card px-3 py-1 text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg [&.active]:text-fg"
                 >
                   {link.label}

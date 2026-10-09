@@ -2,15 +2,14 @@ import { http, HttpResponse } from 'msw';
 import {
   getCompleteSetupMockHandler,
   getGetHealthMockHandler,
-  getListLibrariesMockHandler,
   getListTitlesMockHandler,
   getLoginMockHandler,
   getRefreshTokensMockHandler,
   getMediaManAPIMock,
-  getStartLibraryScanMockHandler,
 } from '../api/mediaman.msw';
+import { mockLibraries } from './libraries';
 import { mockProfiles } from './profiles';
-import type { AuthTokens, Library, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
+import type { AuthTokens, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
 
 export const mockHealth = { status: 'healthy', version: '0.0.0-mock' } as const;
 
@@ -25,15 +24,7 @@ export function mockTokens(tag = 'mock'): AuthTokens {
   };
 }
 
-export const mockLibrary: Library = {
-  id: '01920000-0000-7000-8000-000000000001',
-  name: 'Media',
-  kind: 'external',
-  contentType: 'mixed',
-  rootPaths: ['/media'],
-  scanIntervalMinutes: 0,
-  scan: { state: 'idle' },
-};
+export { mockLibrary } from './libraries';
 
 // No poster URLs: mock mode makes no outbound requests, so these render as stand-in cards.
 export const mockTitles: TitleSummary[] = [
@@ -234,8 +225,7 @@ export const handlers = [
     return mockTokens('setup');
   }),
   ...mockProfiles.handlers,
-  getListLibrariesMockHandler({ items: [mockLibrary], pageInfo: {} }),
-  getStartLibraryScanMockHandler({ ...mockLibrary, scan: { state: 'queued' } }),
+  ...mockLibraries.handlers,
   getListTitlesMockHandler(({ request }) => {
     const kind = new URL(request.url).searchParams.get('kind');
     return { items: mockTitles.filter((t) => kind === null || t.kind === kind), pageInfo: {} };

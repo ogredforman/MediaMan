@@ -21,6 +21,20 @@ function describeScan(library: Library): string {
   return library.name;
 }
 
+/** The library's scan state in words; a failed last scan is an alert with what to do next. */
+export function ScanStateText({ library }: { library: Library }) {
+  const last = library.scan.lastScan;
+  if (library.scan.state === 'idle' && last?.outcome === 'failed') {
+    return (
+      <span role="alert">
+        {library.name}: the last scan failed ({last.error?.detail ?? 'unknown error'}). Scan again, or check the server
+        log.
+      </span>
+    );
+  }
+  return <span role="status">{describeScan(library)}</span>;
+}
+
 export function ScanLibraryButton({ library }: { library: Library }) {
   const queryClient = useQueryClient();
   const scan = useStartLibraryScan({
@@ -61,23 +75,12 @@ export function ScanStatus() {
 
   return (
     <ul aria-label="Libraries" className="ml-auto flex flex-col items-end gap-1 text-sm text-fg-muted">
-      {libraries.data.items.map((library) => {
-        const last = library.scan.lastScan;
-        const failed = library.scan.state === 'idle' && last?.outcome === 'failed';
-        return (
-          <li key={library.id} className="flex items-center gap-3">
-            {failed ? (
-              <span role="alert">
-                {library.name}: the last scan failed ({last.error?.detail ?? 'unknown error'}). Scan again, or check the
-                server log.
-              </span>
-            ) : (
-              <span role="status">{describeScan(library)}</span>
-            )}
-            <ScanLibraryButton library={library} />
-          </li>
-        );
-      })}
+      {libraries.data.items.map((library) => (
+        <li key={library.id} className="flex items-center gap-3">
+          <ScanStateText library={library} />
+          <ScanLibraryButton library={library} />
+        </li>
+      ))}
     </ul>
   );
 }

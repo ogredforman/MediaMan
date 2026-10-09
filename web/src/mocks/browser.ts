@@ -1,10 +1,14 @@
 import { http, HttpResponse } from 'msw';
 import { setupWorker } from 'msw/browser';
 import type { ScanState } from '../api/mediaman.schemas';
-import { handlers, mockEvents, mockLibrary } from './handlers';
+import { handlers, mockEvents } from './handlers';
+import { mockLibraries } from './libraries';
 
 // Mock mode only: a Scan click plays a short scan over the event stream, so live progress can be seen without a server.
-const simulatedScan = http.post('*/libraries/:libraryId/scan', () => {
+const simulatedScan = http.post('*/libraries/:libraryId/scan', ({ params }) => {
+  const libraryId = String(params.libraryId);
+  const library = mockLibraries.get(libraryId);
+  if (library === undefined) return undefined; // The store's handler answers with a 404.
   const startedAt = new Date().toISOString();
   const steps: ScanState[] = [
     { state: 'running', phase: 'scanning', startedAt },
@@ -35,12 +39,14 @@ const simulatedScan = http.post('*/libraries/:libraryId/scan', () => {
   steps.forEach((scan, i) => {
     setTimeout(
       () => {
-        mockEvents.send('scan.progress', { libraryId: mockLibrary.id, scan });
+        mockLibraries.setScan(libraryId, scan);
+        mockEvents.send('scan.progress', { libraryId, scan });
       },
       1000 * (i + 1),
     );
   });
-  return HttpResponse.json({ ...mockLibrary, scan: { state: 'queued' } }, { status: 202 });
+  mockLibraries.setScan(libraryId, { ...library.scan, state: 'queued' });
+  return HttpResponse.json({ ...library, scan: { ...library.scan, state: 'queued' } }, { status: 202 });
 });
 
 export const worker = setupWorker(simulatedScan, ...handlers);
