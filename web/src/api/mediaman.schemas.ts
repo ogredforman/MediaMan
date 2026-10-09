@@ -500,6 +500,38 @@ export interface AttentionFilePage {
   pageInfo: PageInfo;
 }
 
+/**
+ * A title in the metadata provider's catalog.
+ */
+export interface CatalogCandidate {
+  /** The title's provider id as `provider:value`, e.g. `tmdb:movie/603` (ADR 0006). */
+  titleRef: string;
+  kind: TitleKind;
+  name: string;
+  year?: number;
+  overview?: string;
+  posterUrl?: string;
+}
+
+export interface CatalogSearchResult {
+  items: CatalogCandidate[];
+}
+
+export interface MediaFileMatchRequest {
+  /** The chosen title's provider id, from a MatchReview candidate or a catalog search. */
+  titleRef: string;
+  /**
+     * For a show, the season holding `episodes` (0 for specials). Required with `episodes`.
+     * @minimum 0
+     */
+  season?: number;
+  /**
+     * For a show, the episodes the file holds, in order (several for a multi-episode file).
+     * @items.minimum 1
+     */
+  episodes?: number[];
+}
+
 export type MediaFileStatus = typeof MediaFileStatus[keyof typeof MediaFileStatus];
 
 
@@ -510,6 +542,13 @@ export const MediaFileStatus = {
   ignored: 'ignored',
   missing: 'missing',
 } as const;
+
+export interface MediaFileMatch {
+  mediaFileId: string;
+  /** The title the file now belongs to, for opening its detail page. */
+  titleId: string;
+  status: MediaFileStatus;
+}
 
 /**
  * An image of a title, season or episode.
@@ -682,6 +721,25 @@ limit?: LimitParameter;
  * Opaque cursor from a previous page's `nextCursor`. Omit for the first page.
  */
 cursor?: CursorParameter;
+};
+
+export type SearchCatalogParams = {
+/**
+ * The title's name, or part of it.
+ * @minLength 1
+ * @maxLength 200
+ */
+query: string;
+/**
+ * The release year; it ranks results, it doesn't filter them.
+ * @minimum 1870
+ * @maximum 2200
+ */
+year?: number;
+/**
+ * Only movies or only shows; both when absent.
+ */
+kind?: TitleKind;
 };
 
 export type ListTitlesParams = {

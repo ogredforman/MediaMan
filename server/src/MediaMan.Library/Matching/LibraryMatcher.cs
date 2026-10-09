@@ -45,7 +45,7 @@ public sealed record MatchRunResult(IReadOnlyList<MatchDecision> Decisions, int 
 /// and leaves the file Pending for the importer. Otherwise it writes a MatchReview with the top candidates and marks
 /// the file <see cref="MediaFileStatus.NeedsAttention"/>; it never links a best guess. Provider errors are retried
 /// with backoff; if they persist, the run stops calling the provider and the remaining files stay Pending for the
-/// next scan, never marked wrong.
+/// next scan, never marked wrong. A file with a <see cref="MatchOverride"/> for its path is decided from it, without a search.
 /// </summary>
 public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provider, IClock clock, MatcherOptions options)
 {
@@ -63,6 +63,9 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
         var reviews = await db.MatchReviews
             .Where(r => fileIds.Contains(r.MediaFileId))
             .ToDictionaryAsync(r => r.MediaFileId, ct);
+        var overrides = await db.MatchOverrides
+            .Where(o => o.LibraryId == libraryId)
+            .ToDictionaryAsync(o => o.Path, ct);
 
         var run = new ProviderSession(provider, options);
         var decisions = new List<MatchDecision>();
@@ -70,6 +73,19 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
         var deferred = 0;
         foreach (var file in files)
         {
+            reviews.TryGetValue(file.Id, out var existing);
+            if (overrides.TryGetValue(file.Path, out var chosen))
+            {
+                // The user's Fix match choice for this path stands; no search (SPEC §7.3 step 3).
+                decisions.Add(FromOverride(file.Id, chosen));
+                if (existing is not null)
+                {
+                    db.MatchReviews.Remove(existing);
+                }
+
+                continue;
+            }
+
             if (run.ProviderDown)
             {
                 deferred++;
@@ -88,7 +104,6 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
             }
 
             var reason = Judge(ranked);
-            reviews.TryGetValue(file.Id, out var existing);
             if (reason is null)
             {
                 var parsed = file.Parsed!;
@@ -129,6 +144,10 @@ public sealed class LibraryMatcher(MediaManDbContext db, IMetadataProvider provi
         await db.SaveChangesAsync(ct);
         return new MatchRunResult(decisions, reviewed, deferred);
     }
+
+    /// <summary>The decision a recorded override stands for; it scores 1, as the user chose it.</summary>
+    public static MatchDecision FromOverride(Guid mediaFileId, MatchOverride chosen) =>
+        new(mediaFileId, chosen.TitleRef, chosen.Kind, chosen.Season, chosen.Episodes, chosen.AbsoluteEpisode, 1);
 
     /// <summary>Null when the best candidate is confident and clear of the runner-up; otherwise the review reason.</summary>
     private string? Judge(List<MatchCandidate> ranked)

@@ -388,6 +388,47 @@ namespace MediaMan.Data.Migrations
                     b.ToTable("Libraries");
                 });
 
+            modelBuilder.Entity("MediaMan.Core.Domain.MatchOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("AbsoluteEpisode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.PrimitiveCollection<string>("Episodes")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("LibraryId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Season")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TitleRef")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LibraryId", "Path")
+                        .IsUnique();
+
+                    b.ToTable("MatchOverrides");
+                });
+
             modelBuilder.Entity("MediaMan.Core.Domain.MatchReview", b =>
                 {
                     b.Property<Guid>("Id")
@@ -903,6 +944,15 @@ namespace MediaMan.Data.Migrations
                     b.HasOne("MediaMan.Core.Domain.Role", null)
                         .WithMany()
                         .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MediaMan.Core.Domain.MatchOverride", b =>
+                {
+                    b.HasOne("MediaMan.Core.Domain.Library", null)
+                        .WithMany()
+                        .HasForeignKey("LibraryId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

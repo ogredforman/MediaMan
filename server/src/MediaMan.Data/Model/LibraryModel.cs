@@ -1,3 +1,4 @@
+using MediaMan.Core;
 using MediaMan.Core.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,6 +40,15 @@ internal static class LibraryModel
             b.HasIndex(r => r.MediaFileId).IsUnique();
             b.Property(r => r.Candidates).HasJsonConversion();
             b.HasOne<MediaFile>().WithOne().HasForeignKey<MatchReview>(r => r.MediaFileId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MatchOverride>(b =>
+        {
+            b.HasKey(o => o.Id);
+            b.Property(o => o.Id).ValueGeneratedNever();
+            b.HasIndex(o => new { o.LibraryId, o.Path }).IsUnique();
+            b.Property(o => o.TitleRef).HasConversion(v => v.ToString(), v => ExternalId.Parse(v));
+            b.HasOne<Library>().WithMany().HasForeignKey(o => o.LibraryId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

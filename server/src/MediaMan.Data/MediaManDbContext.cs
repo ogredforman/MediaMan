@@ -17,6 +17,7 @@ public class MediaManDbContext(DbContextOptions<MediaManDbContext> options, ISec
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
     public DbSet<FileLink> FileLinks => Set<FileLink>();
     public DbSet<MatchReview> MatchReviews => Set<MatchReview>();
+    public DbSet<MatchOverride> MatchOverrides => Set<MatchOverride>();
 
     public DbSet<Title> Titles => Set<Title>();
     public DbSet<Season> Seasons => Set<Season>();

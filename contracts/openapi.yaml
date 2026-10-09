@@ -581,6 +581,124 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /catalog/search:
+    get:
+      operationId: searchCatalog
+      summary: Searches the metadata provider's catalog by name, for "Fix match" (SPEC §7.3 step 2).
+      description: |
+        Results come from the configured metadata provider, best first, at most 20. They aren't limited to titles in
+        the library; pick one and send its `titleRef` to `PUT /media-files/{mediaFileId}/match`.
+      tags: [library]
+      x-permission: library.manage
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: The title's name, or part of it.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+        - name: year
+          in: query
+          required: false
+          description: The release year; it ranks results, it doesn't filter them.
+          schema:
+            type: integer
+            minimum: 1870
+            maximum: 2200
+        - name: kind
+          in: query
+          required: false
+          description: Only movies or only shows; both when absent.
+          schema:
+            $ref: '#/components/schemas/TitleKind'
+      responses:
+        '200':
+          description: The matching titles, best first; `items` may be empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogSearchResult'
+        '400':
+          description: The query is empty or too long, or `year` or `kind` is invalid (`catalog.invalid`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          description: The metadata provider didn't answer (`metadata.unavailable`); search again in a moment.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /media-files/{mediaFileId}/match:
+    put:
+      operationId: relinkMediaFile
+      summary: Links a file to the title the user picked and remembers the choice for its path (SPEC §7.3 step 3).
+      description: |
+        Replaces the file's links with the chosen title (and, for a show, the season and episodes), marks it matched
+        and removes its MatchReview. The choice is recorded as an override for the file's path, so rescans keep it
+        even when the file changes or comes back after being missing. Works on files that need attention and on
+        files already matched ("Fix match" on any title). Only the database changes; files on disk are never touched.
+        For a show, leave `season` and `episodes` out to use what the file name says.
+      tags: [library]
+      x-permission: library.manage
+      parameters:
+        - $ref: '#/components/parameters/MediaFileId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MediaFileMatchRequest'
+      responses:
+        '200':
+          description: The file is linked to the chosen title.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaFileMatch'
+        '400':
+          description: |
+            The choice is invalid (`match.invalid`). `errors` is keyed by field (`titleRef`, `season`, `episodes`):
+            an unknown title, a season or episodes for a movie, or a show with no episode mapping.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The file doesn't exist (`media_file.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: |
+            The file is missing, ignored or unreadable (`match.file_unavailable`), or its library is being scanned
+            (`library.scan_running`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: The provider doesn't list the chosen season or episode for this show (`match.episode_not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '503':
+          description: The metadata provider didn't answer (`metadata.unavailable`); nothing changed, try again in a moment.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /titles:
     get:
       operationId: listTitles
@@ -787,6 +905,13 @@ components:
         default: 50
     LibraryId:
       name: libraryId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    MediaFileId:
+      name: mediaFileId
       in: path
       required: true
       schema:
@@ -1361,6 +1486,70 @@ components:
           type: integer
         posterUrl:
           type: string
+
+    CatalogSearchResult:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCandidate'
+
+    CatalogCandidate:
+      type: object
+      description: A title in the metadata provider's catalog.
+      required: [titleRef, kind, name]
+      additionalProperties: false
+      properties:
+        titleRef:
+          type: string
+          description: The title's provider id as `provider:value`, e.g. `tmdb:movie/603` (ADR 0006).
+        kind:
+          $ref: '#/components/schemas/TitleKind'
+        name:
+          type: string
+        year:
+          type: integer
+        overview:
+          type: string
+        posterUrl:
+          type: string
+
+    MediaFileMatchRequest:
+      type: object
+      required: [titleRef]
+      additionalProperties: false
+      properties:
+        titleRef:
+          type: string
+          description: The chosen title's provider id, from a MatchReview candidate or a catalog search.
+        season:
+          type: integer
+          minimum: 0
+          description: For a show, the season holding `episodes` (0 for specials). Required with `episodes`.
+        episodes:
+          type: array
+          description: For a show, the episodes the file holds, in order (several for a multi-episode file).
+          items:
+            type: integer
+            minimum: 1
+
+    MediaFileMatch:
+      type: object
+      required: [mediaFileId, titleId, status]
+      additionalProperties: false
+      properties:
+        mediaFileId:
+          type: string
+          format: uuid
+        titleId:
+          type: string
+          format: uuid
+          description: The title the file now belongs to, for opening its detail page.
+        status:
+          $ref: '#/components/schemas/MediaFileStatus'
 
     TitleKind:
       type: string

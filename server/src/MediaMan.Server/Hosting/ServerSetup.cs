@@ -167,6 +167,7 @@ public static class ServerSetup
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryScanner>(sp));
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryMatcher>(sp));
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<MetadataImporter>(sp));
+        services.AddScoped(sp => ActivatorUtilities.CreateInstance<MatchFixer>(sp));
         services.AddSingleton<ScanCoordinator>();
         services.AddSingleton<IFileWatcher, FileSystemFileWatcher>();
     }
@@ -215,6 +216,7 @@ public static class ServerSetup
         app.MapProfileEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
+        app.MapMatchEndpoints();
         app.MapArtworkEndpoints();
 #if MEDIAMAN_DEV
         // Dev-only (SPEC §13): the player is registered only by the dev configuration, so elsewhere this route is a 404.

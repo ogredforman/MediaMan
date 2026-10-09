@@ -197,18 +197,7 @@ public sealed class MetadataImporter(MediaManDbContext db, IMetadataProvider pro
         return null;
     }
 
-    private Task<Title?> FindTitleAsync(ExternalId id, CancellationToken ct)
-    {
-        var titles = id.Provider switch
-        {
-            ExternalProviders.Tmdb => db.Titles.Where(t => t.ExternalIds.Tmdb == id.Value),
-            ExternalProviders.AniList => db.Titles.Where(t => t.ExternalIds.AniList == id.Value),
-            ExternalProviders.Tvdb => db.Titles.Where(t => t.ExternalIds.Tvdb == id.Value),
-            ExternalProviders.Imdb => db.Titles.Where(t => t.ExternalIds.Imdb == id.Value),
-            _ => throw new NotSupportedException($"Titles can't be keyed by provider '{id.Provider}'."),
-        };
-        return titles.FirstOrDefaultAsync(ct);
-    }
+    private Task<Title?> FindTitleAsync(ExternalId id, CancellationToken ct) => db.Titles.WithExternalId(id).FirstOrDefaultAsync(ct);
 
     /// <summary>Returns the stored title, or adds a new one with its artwork from <paramref name="details"/>.</summary>
     private Title StageTitle(Title? stored, TitleDetails? details)

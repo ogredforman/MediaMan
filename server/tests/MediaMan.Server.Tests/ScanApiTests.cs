@@ -224,7 +224,7 @@ public sealed class ScanApiTests : IAsyncLifetime
     }
 
     /// <summary>Every file and folder under <paramref name="root"/> with its size, write time and attributes.</summary>
-    private static List<string> Snapshot(string root) =>
+    internal static List<string> Snapshot(string root) =>
     [
         .. new DirectoryInfo(root).EnumerateFileSystemInfos("*", SearchOption.AllDirectories)
             .Select(e => $"{Path.GetRelativePath(root, e.FullName)}|{(e as FileInfo)?.Length}|{e.LastWriteTimeUtc.Ticks}|{e.Attributes}")
@@ -232,7 +232,7 @@ public sealed class ScanApiTests : IAsyncLifetime
     ];
 
     /// <summary>Read-only files everywhere; on Unix the folders too, so any attempt to write fails rather than slipping by.</summary>
-    private static void SetReadOnly(string root, bool readOnly)
+    internal static void SetReadOnly(string root, bool readOnly)
     {
         const UnixFileMode readable = UnixFileMode.UserRead | UnixFileMode.GroupRead | UnixFileMode.OtherRead;
         const UnixFileMode traversable = readable | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;

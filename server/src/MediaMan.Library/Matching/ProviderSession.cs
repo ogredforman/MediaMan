@@ -69,7 +69,7 @@ internal sealed class ProviderSession(IMetadataProvider provider, MatcherOptions
     }
 
     // HttpClient reports its own timeout as a cancellation the caller didn't ask for.
-    private static bool IsProviderError(Exception e, CancellationToken ct) =>
+    internal static bool IsProviderError(Exception e, CancellationToken ct) =>
         e is TimeoutException or HttpRequestException || (e is OperationCanceledException && !ct.IsCancellationRequested);
 }
 

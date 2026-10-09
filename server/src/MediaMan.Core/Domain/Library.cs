@@ -84,3 +84,27 @@ public sealed record MatchCandidate(
     string? Name = null,
     int? Year = null,
     string? PosterUrl = null);
+
+/// <summary>
+/// A user's "Fix match" choice for a path (SPEC §7.3). When the file at <see cref="Path"/> is matched again (changed,
+/// restored or found anew) the matcher links it as recorded here instead of searching, so rescans keep the choice.
+/// </summary>
+public class MatchOverride
+{
+    public Guid Id { get; set; }
+    public Guid LibraryId { get; set; }
+    public required string Path { get; set; }
+    public ExternalId TitleRef { get; set; }
+    public TitleKind Kind { get; set; }
+
+    /// <summary>The show's season for <see cref="Episodes"/>; null for movies and absolute-numbered episodes.</summary>
+    public int? Season { get; set; }
+
+    /// <summary>The episodes the file holds, in order; empty for movies and absolute-numbered episodes.</summary>
+    public List<int> Episodes { get; set; } = [];
+
+    /// <summary>The absolute episode number when the file is numbered that way (anime) and no season mapping was given.</summary>
+    public int? AbsoluteEpisode { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+}
