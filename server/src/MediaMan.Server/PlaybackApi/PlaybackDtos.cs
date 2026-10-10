@@ -23,3 +23,9 @@ public sealed record PlaybackSessionDto(
     IReadOnlyList<SubtitleTrackDto> Subtitles);
 
 public sealed record SubtitleTrackDto(string Url, string Format, string FileName, string? Language, bool Forced);
+
+public sealed record WatchProgressReport(double? PositionSeconds, double? DurationSeconds);
+
+public sealed record WatchProgressDto(Guid PlayableId, double PositionSeconds, double DurationSeconds, bool Watched, NextEpisodeDto? NextEpisode);
+
+public sealed record NextEpisodeDto(Guid PlayableId, int SeasonNumber, int EpisodeNumber, string Title);

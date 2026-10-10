@@ -808,6 +808,49 @@ export interface PlaybackSession {
 }
 
 /**
+ * Where the player is in a Playable.
+ */
+export interface WatchProgressReport {
+  /**
+     * The playback position. A position past the end counts as the end.
+     * @minimum 0
+     */
+  positionSeconds: number;
+  /**
+     * The runtime the player sees; `0` when it doesn't know it, which keeps the one reported earlier.
+     * @minimum 0
+     */
+  durationSeconds: number;
+}
+
+/**
+ * The episode after this one that has a file to play. Absent for a movie or the last episode.
+ */
+export interface NextEpisode {
+  playableId: string;
+  /** @minimum 0 */
+  seasonNumber: number;
+  /** @minimum 0 */
+  episodeNumber: number;
+  /** A display title, like `PlaybackSession.title`, e.g. `The Office S01E03 · Health Care`. */
+  title: string;
+}
+
+/**
+ * A profile's progress on a Playable, as recorded.
+ */
+export interface WatchProgress {
+  playableId: string;
+  /** @minimum 0 */
+  positionSeconds: number;
+  /** @minimum 0 */
+  durationSeconds: number;
+  /** Reached 90% at some point. It stays set when later reports go back. */
+  watched: boolean;
+  nextEpisode?: NextEpisode;
+}
+
+/**
  * The file MPV was launched with (dev-only, see `devPlay`).
  */
 export interface DevPlayStarted {

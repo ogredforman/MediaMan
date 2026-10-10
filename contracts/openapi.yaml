@@ -1041,6 +1041,55 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /playables/{playableId}/progress:
+    put:
+      operationId: reportWatchProgress
+      summary: Records how far the session's profile got in a Playable (SPEC §7.4 steps 4–5).
+      description: |
+        Players report every 10 seconds and on pause, seek and quit. Progress is kept per profile and Playable, so it
+        needs no playback session and survives server restarts; the next `POST /playback/sessions` resumes from it.
+        At 90% or more the Playable is marked watched, and it stays watched when later reports go back.
+
+        For an episode the response names the next episode with a file to play: the next one in its season, else the
+        first one of the next season that isn't specials. Clients use it for "Up next" once `watched` is set.
+      tags: [playback]
+      x-permission: library.view
+      parameters:
+        - $ref: '#/components/parameters/PlayableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchProgressReport'
+      responses:
+        '200':
+          description: The progress as recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WatchProgress'
+        '400':
+          description: The position or duration is negative or missing (`progress.invalid`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The Playable doesn't exist (`playable.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The session hasn't picked a profile yet (`profile.required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /dev/playables/{playableId}/play:
     post:
       operationId: devPlay
@@ -1160,6 +1209,13 @@ components:
         format: uuid
     MediaFileId:
       name: mediaFileId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    PlayableId:
+      name: playableId
       in: path
       required: true
       schema:
@@ -2136,6 +2192,61 @@ components:
         forced:
           type: boolean
           description: The name marks it as forced (only foreign-language parts are subtitled).
+
+    WatchProgressReport:
+      type: object
+      description: Where the player is in a Playable.
+      required: [positionSeconds, durationSeconds]
+      additionalProperties: false
+      properties:
+        positionSeconds:
+          type: number
+          minimum: 0
+          description: The playback position. A position past the end counts as the end.
+        durationSeconds:
+          type: number
+          minimum: 0
+          description: The runtime the player sees; `0` when it doesn't know it, which keeps the one reported earlier.
+
+    WatchProgress:
+      type: object
+      description: A profile's progress on a Playable, as recorded.
+      required: [playableId, positionSeconds, durationSeconds, watched]
+      additionalProperties: false
+      properties:
+        playableId:
+          type: string
+          format: uuid
+        positionSeconds:
+          type: number
+          minimum: 0
+        durationSeconds:
+          type: number
+          minimum: 0
+        watched:
+          type: boolean
+          description: Reached 90% at some point. It stays set when later reports go back.
+        nextEpisode:
+          $ref: '#/components/schemas/NextEpisode'
+
+    NextEpisode:
+      type: object
+      description: The episode after this one that has a file to play. Absent for a movie or the last episode.
+      required: [playableId, seasonNumber, episodeNumber, title]
+      additionalProperties: false
+      properties:
+        playableId:
+          type: string
+          format: uuid
+        seasonNumber:
+          type: integer
+          minimum: 0
+        episodeNumber:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          description: A display title, like `PlaybackSession.title`, e.g. `The Office S01E03 · Health Care`.
 
     DevPlayStarted:
       type: object

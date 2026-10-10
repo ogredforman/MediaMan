@@ -54,6 +54,7 @@ public static class ServerSetup
         services.AddScoped<LibraryService>();
         services.AddScoped<VersionPreferenceService>();
         services.AddScoped<PlaybackService>();
+        services.AddScoped<ProgressService>();
         AddMetadata(services);
         AddScanning(services);
 

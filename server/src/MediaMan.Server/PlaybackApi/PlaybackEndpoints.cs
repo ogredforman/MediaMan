@@ -14,6 +14,7 @@ public static class PlaybackEndpoints
     public static IEndpointRouteBuilder MapPlaybackEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/playback/sessions", CreateSessionAsync).RequiresPermission(Permissions.LibraryView);
+        app.MapPut("/playables/{playableId}/progress", ReportProgressAsync).RequiresPermission(Permissions.LibraryView);
         // Players load these without a token, so the session's signed URL stands in for it.
         app.MapGet("/media-files/{mediaFileId}/stream", StreamAsync).RequiresPermission(Permissions.LibraryView).AllowsSessionSignedUrl();
         app.MapGet("/media-files/{mediaFileId}/subtitles/{subtitleId}", SubtitleAsync)
@@ -52,6 +53,28 @@ public static class PlaybackEndpoints
             _ => Problems.Result(StatusCodes.Status409Conflict, "playback.no_file", "No file to play.",
                 "None of this title's files can be found on disk.", "Reconnect the drive that holds it, then scan the library again."),
         };
+    }
+
+    private static async Task<Results<Ok<WatchProgressDto>, ProblemHttpResult>> ReportProgressAsync(
+        Guid playableId, WatchProgressReport? report, HttpContext http, ProgressService progress, CancellationToken ct)
+    {
+        if (report?.PositionSeconds is not (>= 0 and var position) || report?.DurationSeconds is not (>= 0 and var duration)
+            || !double.IsFinite(position) || !double.IsFinite(duration))
+        {
+            return Problems.Result(StatusCodes.Status400BadRequest, "progress.invalid", "Progress not understood.",
+                "The report needs a position and a duration of zero or more seconds.", "Update the app, then play again.");
+        }
+
+        if (http.Features.Get<CurrentUser>() is not { ProfileId: { } profileId })
+        {
+            return Problems.Result(StatusCodes.Status409Conflict, "profile.required", "Pick a profile first.",
+                "Watch progress is kept per profile, and this session hasn't picked one.", "Choose who's watching, then press Play again.");
+        }
+
+        return await progress.ReportAsync(playableId, profileId, position, duration, ct) is { } recorded
+            ? TypedResults.Ok(recorded)
+            : Problems.Result(StatusCodes.Status404NotFound, "playable.not_found", "Nothing to play here.",
+                "This movie or episode doesn't exist any more. A rescan may have removed it.", "Go back to the title and try again.");
     }
 
     private static async Task<Results<PhysicalFileHttpResult, ProblemHttpResult>> StreamAsync(
