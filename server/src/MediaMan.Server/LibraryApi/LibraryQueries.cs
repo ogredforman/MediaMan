@@ -1,6 +1,7 @@
 using MediaMan.Auth;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
+using MediaMan.Playback.Versions;
 using MediaMan.Server.Scanning;
 using Microsoft.EntityFrameworkCore;
 
@@ -143,13 +144,17 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
     }
 
     /// <summary>The title's detail, or null when it doesn't exist.</summary>
-    public async Task<TitleDetail?> GetTitleAsync(Guid titleId, CancellationToken ct)
+    public async Task<TitleDetail?> GetTitleAsync(Guid titleId, Guid? profileId, CancellationToken ct)
     {
         var title = await db.Titles.AsNoTracking().FirstOrDefaultAsync(t => t.Id == titleId, ct);
         if (title is null)
         {
             return null;
         }
+
+        var preference = profileId is { } profile
+            ? await db.VersionPreferences.AsNoTracking().FirstOrDefaultAsync(v => v.ProfileId == profile && v.TitleId == titleId, ct)
+            : null;
 
         var artwork = await db.Artwork.AsNoTracking().Where(a => a.TitleId == titleId).OrderBy(a => a.Id).ToListAsync(ct);
         ArtworkRef? Art(ArtworkType type) => Ref(artwork.FirstOrDefault(a => a.Type == type));
@@ -158,21 +163,22 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
         IReadOnlyList<SeasonDto>? seasons = null;
         if (title.Kind == TitleKind.Movie)
         {
-            movie = await MoviePlayableAsync(titleId, ct);
+            movie = await MoviePlayableAsync(titleId, preference, ct);
         }
         else
         {
-            seasons = await SeasonsAsync(titleId, ct);
+            seasons = await SeasonsAsync(titleId, preference, ct);
         }
 
         var ext = title.ExternalIds;
         return new TitleDetail(
             title.Id, Wire.Name(title.Kind), title.Name, title.Year, title.Rating, title.Genres, Art(ArtworkType.Poster),
             title.Overview, title.RuntimeMinutes, new ExternalIdsDto(ext.Tmdb, ext.Imdb, ext.Tvdb, ext.AniList),
-            Art(ArtworkType.Backdrop), Art(ArtworkType.Logo), movie, seasons);
+            Art(ArtworkType.Backdrop), Art(ArtworkType.Logo), movie, seasons,
+            preference is null ? null : new VersionPreferenceDto(preference.MediaFileId, preference.Resolution, preference.HdrFormat));
     }
 
-    private async Task<MoviePlayable?> MoviePlayableAsync(Guid titleId, CancellationToken ct)
+    private async Task<MoviePlayable?> MoviePlayableAsync(Guid titleId, VersionPreference? preference, CancellationToken ct)
     {
         var playable = await db.Playables.AsNoTracking().FirstOrDefaultAsync(p => p.TitleId == titleId, ct);
         if (playable is null)
@@ -180,11 +186,12 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             return null;
         }
 
-        var versions = await VersionsAsync([playable.Id], ct);
-        return new MoviePlayable(playable.Id, versions.GetValueOrDefault(playable.Id) ?? []);
+        var versions = await VersionsAsync([playable.Id], preference, ct);
+        var found = versions.GetValueOrDefault(playable.Id);
+        return new MoviePlayable(playable.Id, found?.Versions ?? [], found?.Selected);
     }
 
-    private async Task<IReadOnlyList<SeasonDto>> SeasonsAsync(Guid titleId, CancellationToken ct)
+    private async Task<IReadOnlyList<SeasonDto>> SeasonsAsync(Guid titleId, VersionPreference? preference, CancellationToken ct)
     {
         var seasons = await db.Seasons.AsNoTracking().Where(s => s.TitleId == titleId).OrderBy(s => s.Number).ToListAsync(ct);
         var seasonIds = seasons.Select(s => s.Id).ToList();
@@ -201,7 +208,7 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
                 || (a.EpisodeId != null && episodeIds.Contains(a.EpisodeId.Value)))
             .OrderBy(a => a.Id)
             .ToListAsync(ct);
-        var versions = await VersionsAsync([.. playables.Select(p => p.Id)], ct);
+        var versions = await VersionsAsync([.. playables.Select(p => p.Id)], preference, ct);
 
         var playableByEpisode = playables.ToDictionary(p => p.EpisodeId!.Value, p => p.Id);
         var posterBySeason = artwork.Where(a => a.SeasonId != null && a.Type == ArtworkType.Poster)
@@ -215,17 +222,20 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             [.. episodesBySeason[s.Id].Select(e =>
             {
                 Guid? playableId = playableByEpisode.TryGetValue(e.Id, out var id) ? id : null;
+                var found = playableId is { } p ? versions.GetValueOrDefault(p) : null;
                 return new EpisodeDto(
                     e.Id, e.Number, e.AbsoluteNumber, e.Name, e.Overview, e.AirDate, Ref(stillByEpisode.GetValueOrDefault(e.Id)),
-                    playableId, playableId is { } p ? versions.GetValueOrDefault(p) ?? [] : []);
+                    playableId, found?.Versions ?? [], found?.Selected);
             })]))];
     }
 
     /// <summary>
     /// Versions per Playable: linked files that are Matched or Missing. The scanner purges Missing files after
-    /// their retention (SPEC §7.2 step 6), so a remounted drive brings its versions back. Best picture first.
+    /// their retention (SPEC §7.2 step 6), so a remounted drive brings its versions back. Best picture first, with the
+    /// one Play uses for the profile's <paramref name="preference"/> (<see cref="VersionPicker"/>).
     /// </summary>
-    private async Task<Dictionary<Guid, IReadOnlyList<MediaVersion>>> VersionsAsync(List<Guid> playableIds, CancellationToken ct)
+    private async Task<Dictionary<Guid, PlayableVersions>> VersionsAsync(
+        List<Guid> playableIds, VersionPreference? preference, CancellationToken ct)
     {
         var rows = await (
                 from link in db.FileLinks
@@ -240,12 +250,16 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .GroupBy(r => r.PlayableId)
             .ToDictionary(
                 g => g.Key,
-                g => (IReadOnlyList<MediaVersion>)[.. g
-                    .Select(r => ToVersion(r.File, r.Part))
-                    .OrderBy(v => v.Status == Wire.Name(MediaFileStatus.Missing))
-                    .ThenByDescending(v => v.Height ?? 0)
-                    .ThenBy(v => v.FileName, StringComparer.OrdinalIgnoreCase)]);
+                g => new PlayableVersions(
+                    [.. g
+                        .Select(r => ToVersion(r.File, r.Part))
+                        .OrderBy(v => v.Status == Wire.Name(MediaFileStatus.Missing))
+                        .ThenByDescending(v => v.Height ?? 0)
+                        .ThenBy(v => v.FileName, StringComparer.OrdinalIgnoreCase)],
+                    VersionPicker.Pick(g.Select(r => r.File), preference)?.Id));
     }
+
+    private sealed record PlayableVersions(IReadOnlyList<MediaVersion> Versions, Guid? Selected);
 
     private static MediaVersion ToVersion(MediaFile file, int part)
     {

@@ -31,6 +31,7 @@ public class MediaManDbContext(DbContextOptions<MediaManDbContext> options, ISec
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Invite> Invites => Set<Invite>();
     public DbSet<WatchState> WatchStates => Set<WatchState>();
+    public DbSet<VersionPreference> VersionPreferences => Set<VersionPreference>();
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     public DbSet<Indexer> Indexers => Set<Indexer>();

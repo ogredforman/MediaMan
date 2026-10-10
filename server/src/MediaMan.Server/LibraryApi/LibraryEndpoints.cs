@@ -146,9 +146,9 @@ public static class LibraryEndpoints
     }
 
     private static async Task<Results<Ok<TitleDetail>, ProblemHttpResult>> GetTitleAsync(
-        Guid titleId, LibraryQueries queries, CancellationToken ct)
+        Guid titleId, HttpContext http, LibraryQueries queries, CancellationToken ct)
     {
-        var title = await queries.GetTitleAsync(titleId, ct);
+        var title = await queries.GetTitleAsync(titleId, http.Features.Get<CurrentUser>()?.ProfileId, ct);
         if (title is null)
         {
             return Problems.Result(StatusCodes.Status404NotFound, "title.not_found", "Title not found.",

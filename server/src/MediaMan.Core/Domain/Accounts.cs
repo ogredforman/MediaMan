@@ -72,6 +72,21 @@ public class WatchState
     public DateTimeOffset LastWatchedAt { get; set; }
 }
 
+/// <summary>
+/// A profile's preferred version of a Title (SPEC §7.4 step 2). <see cref="MediaFileId"/> is the file picked; its
+/// <see cref="Resolution"/> and <see cref="HdrFormat"/> pick the matching version of every other episode, and still
+/// apply once the file itself is gone.
+/// </summary>
+public class VersionPreference
+{
+    public Guid ProfileId { get; set; }
+    public Guid TitleId { get; set; }
+    public Guid? MediaFileId { get; set; }
+    public string? Resolution { get; set; }
+    public string? HdrFormat { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 /// <summary>A security-relevant action. <see cref="UserId"/> is null for anonymous actions such as a failed login.</summary>
 public class AuditEvent
 {

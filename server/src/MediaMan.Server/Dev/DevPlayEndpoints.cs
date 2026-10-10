@@ -1,8 +1,10 @@
 using MediaMan.Core;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
+using MediaMan.Playback.Versions;
 using MediaMan.Server.Endpoints;
 using MediaMan.Server.Hosting;
+using MediaMan.Server.LibraryApi;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,17 +25,13 @@ public static class DevPlayEndpoints
         return app;
     }
 
-    /// <summary>The best version to play: present on disk and not Missing, then the highest resolution, then the largest.</summary>
-    public static MediaFile? PickVersion(IEnumerable<MediaFile> files) =>
-        files
-            .Where(f => f.Status != MediaFileStatus.Missing && File.Exists(f.Path))
-            .OrderByDescending(f => f.Probe?.Streams.Where(s => s.Type == MediaStreamType.Video).Max(s => s.Height) ?? 0)
-            .ThenByDescending(f => f.SizeBytes)
-            .ThenBy(f => f.Path, StringComparer.Ordinal)
-            .FirstOrDefault();
+    /// <summary>The version to play among the files present on disk: the profile's preference, else the highest quality.</summary>
+    public static MediaFile? PickVersion(IEnumerable<MediaFile> files, VersionPreference? preference) =>
+        VersionPicker.Pick(files.Where(f => File.Exists(f.Path)), preference);
 
     private static async Task<Results<Accepted<DevPlayStarted>, ProblemHttpResult>> PlayAsync(
-        Guid playableId, MediaManDbContext db, IDevPlayer player, CancellationToken ct)
+        Guid playableId, HttpContext http, MediaManDbContext db, VersionPreferenceService preferences, IDevPlayer player,
+        CancellationToken ct)
     {
         var playable = await db.Playables.AsNoTracking().SingleOrDefaultAsync(p => p.Id == playableId, ct);
         if (playable is null)
@@ -46,7 +44,8 @@ public static class DevPlayEndpoints
             .Where(l => l.PlayableId == playableId)
             .Join(db.MediaFiles.AsNoTracking(), l => l.MediaFileId, f => f.Id, (_, f) => f)
             .ToListAsync(ct);
-        if (PickVersion(files) is not { } file)
+        var preference = await preferences.ForPlayableAsync(http.Features.Get<CurrentUser>()?.ProfileId, playableId, ct);
+        if (PickVersion(files, preference) is not { } file)
         {
             return Problems.Result(StatusCodes.Status409Conflict, "playback.no_file", "No file to play.",
                 "None of this title's files can be found on disk.", "Reconnect the drive that holds it, then scan the library again.");

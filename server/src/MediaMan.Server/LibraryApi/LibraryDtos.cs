@@ -93,9 +93,14 @@ public sealed record TitleDetail(
     ArtworkRef? Backdrop,
     ArtworkRef? Logo,
     MoviePlayable? Playable,
-    IReadOnlyList<SeasonDto>? Seasons);
+    IReadOnlyList<SeasonDto>? Seasons,
+    VersionPreferenceDto? VersionPreference);
 
-public sealed record MoviePlayable(Guid Id, IReadOnlyList<MediaVersion> Versions);
+public sealed record VersionPreferenceDto(Guid? MediaFileId, string? Resolution, string? HdrFormat);
+
+public sealed record PreferredVersionRequest(Guid MediaFileId);
+
+public sealed record MoviePlayable(Guid Id, IReadOnlyList<MediaVersion> Versions, Guid? SelectedMediaFileId);
 
 public sealed record SeasonDto(
     Guid Id,
@@ -114,7 +119,8 @@ public sealed record EpisodeDto(
     DateOnly? AirDate,
     ArtworkRef? Still,
     Guid? PlayableId,
-    IReadOnlyList<MediaVersion> Versions);
+    IReadOnlyList<MediaVersion> Versions,
+    Guid? SelectedMediaFileId);
 
 public sealed record MediaVersion(
     Guid MediaFileId,

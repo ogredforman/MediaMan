@@ -773,6 +773,35 @@ namespace MediaMan.Data.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("MediaMan.Core.Domain.VersionPreference", b =>
+                {
+                    b.Property<Guid>("ProfileId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TitleId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HdrFormat")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("MediaFileId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Resolution")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ProfileId", "TitleId");
+
+                    b.HasIndex("MediaFileId");
+
+                    b.HasIndex("TitleId");
+
+                    b.ToTable("VersionPreferences");
+                });
+
             modelBuilder.Entity("MediaMan.Core.Domain.VpnConfig", b =>
                 {
                     b.Property<string>("Id")
@@ -1074,6 +1103,26 @@ namespace MediaMan.Data.Migrations
                         .WithMany()
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MediaMan.Core.Domain.VersionPreference", b =>
+                {
+                    b.HasOne("MediaMan.Core.Domain.MediaFile", null)
+                        .WithMany()
+                        .HasForeignKey("MediaFileId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("MediaMan.Core.Domain.Profile", null)
+                        .WithMany()
+                        .HasForeignKey("ProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MediaMan.Core.Domain.Title", null)
+                        .WithMany()
+                        .HasForeignKey("TitleId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
