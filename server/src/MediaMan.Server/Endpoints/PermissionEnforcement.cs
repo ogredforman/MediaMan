@@ -48,7 +48,8 @@ public sealed class PermissionEnforcement(RequestDelegate next)
         }
 
         // A signed URL stands in for a token (e.g. artwork in <img>). One that doesn't verify falls through to the token check.
-        if (endpoint.Metadata.GetMetadata<SignedUrlMetadata>() is not null
+        var signedUrl = endpoint.Metadata.GetMetadata<SignedUrlMetadata>();
+        if (signedUrl is { BoundToSession: false }
             && http.Request.Query.ContainsKey(UrlSigner.SignatureParameter)
             && http.RequestServices.GetRequiredService<UrlSigner>().IsValid(http.Request.Path.Value ?? "",
                 http.Request.Query[UrlSigner.ExpiresParameter].ToString(), http.Request.Query[UrlSigner.SignatureParameter].ToString()))
@@ -57,7 +58,10 @@ public sealed class PermissionEnforcement(RequestDelegate next)
             return;
         }
 
-        var (user, failure) = await ResolveAsync(http);
+        // A session-bound signed URL (e.g. a stream MPV loads) counts as its session's token, permissions and all.
+        var (user, failure) = signedUrl is { BoundToSession: true } && SignedSessionOf(http) is { } signedSessionId
+            ? await ResolveSessionAsync(http, signedSessionId)
+            : await ResolveAsync(http);
         if (user is null)
         {
             http.Response.Headers[HeaderNames.WWWAuthenticate] = "Bearer";
@@ -104,6 +108,23 @@ public sealed class PermissionEnforcement(RequestDelegate next)
         return (null, Problems.Result(StatusCodes.Status401Unauthorized, "auth.required", "Sign in to continue.",
             "This needs a signed-in user, and the request has no valid access token. It may have expired.",
             "Refresh the session, or sign in again."));
+    }
+
+    /// <summary>The session a valid session-bound signature on the request was made for; null without one.</summary>
+    private static Guid? SignedSessionOf(HttpContext http) =>
+        http.Request.Query.ContainsKey(UrlSigner.SignatureParameter)
+            ? http.RequestServices.GetRequiredService<UrlSigner>().SessionOf(http.Request.Path.Value ?? "",
+                http.Request.Query[UrlSigner.SessionParameter].ToString(), http.Request.Query[UrlSigner.ExpiresParameter].ToString(),
+                http.Request.Query[UrlSigner.SignatureParameter].ToString())
+            : null;
+
+    private static async Task<(CurrentUser? User, IResult? Failure)> ResolveSessionAsync(HttpContext http, Guid sessionId)
+    {
+        var db = http.RequestServices.GetRequiredService<MediaManDbContext>();
+        var userId = await db.Sessions.AsNoTracking().Where(s => s.Id == sessionId).Select(s => (Guid?)s.UserId)
+            .SingleOrDefaultAsync(http.RequestAborted);
+        var user = userId is { } id ? await LoadAsync(db, id, sessionId, http.RequestAborted) : null;
+        return user is null ? (null, SessionExpired) : (user, null);
     }
 
     /// <summary>The user if they exist and aren't disabled, and (with a session) the session is theirs and live.</summary>

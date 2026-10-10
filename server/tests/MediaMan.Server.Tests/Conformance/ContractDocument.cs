@@ -199,6 +199,10 @@ public sealed record ContractOperation(string Path, string Method, JsonObject No
     public bool AcceptsSignedUrl => Node["security"] is JsonArray security
         && security.Any(s => s is JsonObject requirement && requirement.ContainsKey("signedUrl"));
 
+    /// <summary>Lists the <c>sessionUrl</c> security scheme, so a URL signed for a session stands in for its token.</summary>
+    public bool AcceptsSessionUrl => Node["security"] is JsonArray security
+        && security.Any(s => s is JsonObject requirement && requirement.ContainsKey("sessionUrl"));
+
     /// <summary>Mapped only in the dev configuration (SPEC §13), so it's absent from every other server.</summary>
     public bool DevOnly => Node["x-dev-only"]?.GetValue<bool>() ?? false;
 

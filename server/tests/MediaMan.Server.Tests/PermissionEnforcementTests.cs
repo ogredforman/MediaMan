@@ -73,13 +73,13 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         var forged = ForgedToken(outsider);
         var holders = new Dictionary<string, TestUser>();
 
-        routes.Should().Contain(r => r.SignedUrl);
+        routes.Should().Contain(r => r.SignedUrl).And.Contain(r => r.SessionUrl);
         var signer = factory.Services.GetRequiredService<UrlSigner>();
         var installKey = factory.Services.GetRequiredService<InstallKey>().Derive(InstallKey.ArtworkUrls);
         var expiredSigner = new UrlSigner(installKey, new FakeClock(DateTimeOffset.UtcNow - TimeSpan.FromDays(3)));
         var foreignSigner = new UrlSigner(new byte[InstallKey.SizeBytes], new FakeClock(DateTimeOffset.UtcNow));
 
-        foreach (var (method, template, permission, signedUrl) in routes)
+        foreach (var (method, template, permission, signedUrl, sessionUrl) in routes)
         {
             var path = RouteParameter().Replace(template, _ => Guid.NewGuid().ToString());
             var route = $"{method} {template}";
@@ -99,6 +99,28 @@ public sealed partial class PermissionEnforcementTests : IDisposable
                 await AssertProblemAsync(factory, method, signed[..^1] + (signed[^1] == 'A' ? 'B' : 'A'), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with a tampered signature");
                 await AssertProblemAsync(factory, method, expiredSigner.Sign(path), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with an expired signature");
                 await AssertProblemAsync(factory, method, foreignSigner.Sign(path), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} signed with another key");
+            }
+
+            if (sessionUrl)
+            {
+                // A session-signed URL counts as that session's token: live session, enabled user, and the permission.
+                if (!holders.TryGetValue(permission!, out var sessionHolder))
+                {
+                    sessionHolder = holders[permission!] = await factory.CreateUserAsync(Ct, permission!);
+                }
+
+                var signed = signer.SignForSession(path, sessionHolder.SessionId);
+                var otherPath = RouteParameter().Replace(template, _ => Guid.NewGuid().ToString());
+                await AssertAllowedAsync(factory, method, signed, token: null, $"{route} with a session-signed URL");
+                await AssertProblemAsync(factory, method, signer.Sign(path), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with an unbound signature");
+                await AssertProblemAsync(factory, method, otherPath + signed[path.Length..], null, HttpStatusCode.Unauthorized, "auth.required", $"{route} session-signed for another path");
+                await AssertProblemAsync(factory, method, signed[..^1] + (signed[^1] == 'A' ? 'B' : 'A'), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with a tampered session signature");
+                await AssertProblemAsync(factory, method, expiredSigner.SignForSession(path, sessionHolder.SessionId), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} with an expired session signature");
+                await AssertProblemAsync(factory, method, foreignSigner.SignForSession(path, sessionHolder.SessionId), null, HttpStatusCode.Unauthorized, "auth.required", $"{route} session-signed with another key");
+                await AssertProblemAsync(factory, method, signer.SignForSession(path, revoked.SessionId), null, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} session-signed for a revoked session");
+                await AssertProblemAsync(factory, method, signer.SignForSession(path, disabled.SessionId), null, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} session-signed for a disabled user");
+                await AssertProblemAsync(factory, method, signer.SignForSession(path, Guid.CreateVersion7()), null, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} session-signed for an unknown session");
+                await AssertProblemAsync(factory, method, signer.SignForSession(path, outsider.SessionId), null, HttpStatusCode.Forbidden, "auth.forbidden", $"{route} session-signed for a user without '{permission}'");
             }
 
             if (permission == PermissionMetadata.None)
@@ -150,7 +172,7 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         }
     }
 
-    private static async Task AssertAllowedAsync(MediaManFactory factory, string method, string path, string token, string because)
+    private static async Task AssertAllowedAsync(MediaManFactory factory, string method, string path, string? token, string because)
     {
         using var response = await SendAsync(factory, method, path, token);
 

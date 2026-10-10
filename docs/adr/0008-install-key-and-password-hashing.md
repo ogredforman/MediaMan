@@ -79,6 +79,20 @@ demote, disable or change the role of the stored Superadmin row (SPEC §5, §7.1
 - **Enforcement:** routes opt in with `AllowsSignedUrl()`; `PermissionEnforcement` lets a request through on a valid
   signature for its own path, and anything else falls through to the bearer check (`401 auth.required`).
 
+## Session-signed stream URLs (PLAN 2.12)
+
+- **Why:** MPV loads the stream and subtitles over HTTP and re-requests on every seek, but it can't refresh a
+  15-minute access token, and a browser `<video>` can't send one at all. An unbound signed URL would keep working
+  for a revoked session or a disabled user, which is acceptable for artwork but not for media.
+- **Signature:** `UrlSigner.SignForSession(path, sessionId)` appends `?sid=…&exp=…&sig=…`: HMAC-SHA256 of
+  `<path>\n<exp>\n<sid>` on the same `artwork-urls` subkey. The extra line keeps bound and unbound signatures from
+  passing for each other. It expires 12 hours after issue (not day-rounded: these URLs aren't cached).
+- **Enforcement:** routes opt in with `AllowsSessionSignedUrl()` (the contract's `sessionUrl` scheme).
+  `PermissionEnforcement` treats a valid signature as that session's token: the session must exist and not be
+  revoked, the user must not be disabled (`401 auth.session_expired` otherwise), and the user still needs the route's
+  permission (`403`). An invalid signature falls through to the bearer check.
+- **Clients:** a client whose stream load fails asks `POST /playback/sessions` again for fresh URLs (SPEC §7.4 step 6).
+
 ## First-run setup (PLAN 2.4b)
 
 - **The gate:** `SetupGate` runs after the local-network guard and before authentication. Until a Superadmin exists,

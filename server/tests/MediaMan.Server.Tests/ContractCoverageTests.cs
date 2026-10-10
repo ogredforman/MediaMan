@@ -27,6 +27,7 @@ public sealed class ContractCoverageTests
             route.Permission.Should().NotBeNull($"{route.Method} {route.Path} must declare its permission");
             route.Permission.Should().Be(operation!.Permission, $"{route.Method} {route.Path} must match the contract's x-permission");
             route.SignedUrl.Should().Be(operation.AcceptsSignedUrl, $"{route.Method} {route.Path} must accept signed URLs exactly when the contract lists signedUrl");
+            route.SessionUrl.Should().Be(operation.AcceptsSessionUrl, $"{route.Method} {route.Path} must accept session-signed URLs exactly when the contract lists sessionUrl");
         }
     }
 
@@ -78,7 +79,7 @@ public sealed class ContractCoverageTests
         }
     }
 
-    internal static async Task<List<(string Method, string Path, string? Permission, bool SignedUrl)>> MappedRoutesAsync(MediaManFactory? factory = null)
+    internal static async Task<List<(string Method, string Path, string? Permission, bool SignedUrl, bool SessionUrl)>> MappedRoutesAsync(MediaManFactory? factory = null)
     {
         await using var owned = factory is null ? new MediaManFactory() : null;
         factory ??= owned!;
@@ -91,6 +92,7 @@ public sealed class ContractCoverageTests
                 Method: method,
                 Path: "/" + e.RoutePattern.RawText!.TrimStart('/'),
                 e.Metadata.GetMetadata<PermissionMetadata>()?.Permission,
-                SignedUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is not null)))];
+                SignedUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is { BoundToSession: false },
+                SessionUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is { BoundToSession: true })))];
     }
 }
