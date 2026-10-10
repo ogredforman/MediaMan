@@ -6,6 +6,7 @@ using MediaMan.Core.Domain;
 using MediaMan.Data;
 using MediaMan.Fakes;
 using MediaMan.Server.Endpoints;
+using MediaMan.Server.LibraryApi;
 using MediaMan.Server.PlaybackApi;
 using MediaMan.Server.Tests.Conformance;
 using Microsoft.EntityFrameworkCore;
@@ -13,7 +14,10 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace MediaMan.Server.Tests;
 
-/// <summary><c>PUT /playables/{playableId}/progress</c>: watch state, the 90% watched mark and the next episode (SPEC §7.4 steps 4–5).</summary>
+/// <summary>
+/// <c>PUT /playables/{playableId}/progress</c>: watch state, the 90% watched mark and the next episode (SPEC §7.4 steps 4–5),
+/// and the watch state <c>GET /titles/{titleId}</c> carries for Resume and Start over.
+/// </summary>
 public sealed class ProgressApiTests : IAsyncLifetime
 {
     private readonly FakeClock _clock = new();
@@ -23,6 +27,8 @@ public sealed class ProgressApiTests : IAsyncLifetime
     private HttpClient _client = null!;
     private Guid _profileId;
     private Guid _movie;
+    private Guid _movieTitle;
+    private Guid _showTitle;
     private readonly Dictionary<string, Guid> _episodes = [];
 
     public ProgressApiTests() =>
@@ -99,6 +105,64 @@ public sealed class ProgressApiTests : IAsyncLifetime
         (await ReportAsync(_episodes["1x1"], 10, 1300)).NextEpisode!.PlayableId.Should().Be(_episodes["2x1"]);
     }
 
+    [Fact]
+    public async Task The_title_detail_offers_resume_where_the_profile_stopped()
+    {
+        await ReportAsync(_movie, 1500, 6000);
+        await ReportAsync(_episodes["1x1"], 600, 1300);
+        await ReportAsync(_episodes["1x2"], 90, 1300);
+        await ReportAsync(_episodes["2x1"], 1200, 1300);
+
+        var movie = (await TitleAsync(_client, _movieTitle)).Playable!;
+        (movie.ResumeSeconds, movie.Watched).Should().Be((1500, false));
+
+        var episodes = (await TitleAsync(_client, _showTitle)).Seasons!.SelectMany(s => s.Episodes)
+            .ToDictionary(e => e.PlayableId!.Value, e => (e.ResumeSeconds, e.Watched));
+        episodes[_episodes["1x1"]].Should().Be(((double?)600, false));
+        episodes[_episodes["1x2"]].Should().Be(((double?)null, false), "under 2 minutes starts from the beginning");
+        episodes[_episodes["2x1"]].Should().Be(((double?)null, true), "at 90% it's watched and starts over");
+        episodes[_episodes["0x1"]].Should().Be(((double?)null, false), "never played");
+    }
+
+    [Fact]
+    public async Task A_watched_title_played_again_offers_resume_and_stays_watched()
+    {
+        await ReportAsync(_movie, 5400, 6000);
+        await ReportAsync(_movie, 3000, 6000);
+
+        var movie = (await TitleAsync(_client, _movieTitle)).Playable!;
+        (movie.ResumeSeconds, movie.Watched).Should().Be((3000, true));
+    }
+
+    [Fact]
+    public async Task An_unknown_duration_still_offers_resume()
+    {
+        await ReportAsync(_movie, 1500, 0);
+
+        (await TitleAsync(_client, _movieTitle)).Playable!.ResumeSeconds.Should().Be(1500);
+    }
+
+    [Fact]
+    public async Task Another_profile_and_a_session_without_one_see_no_watch_state()
+    {
+        await ReportAsync(_movie, 5400, 6000);
+        await ReportAsync(_movie, 1500, 6000);
+
+        using var noProfile = await _factory.CreateSignedInClientAsync(Ct);
+        var unpicked = (await TitleAsync(noProfile, _movieTitle)).Playable!;
+        (unpicked.ResumeSeconds, unpicked.Watched).Should().Be(((double?)null, false));
+
+        using (var created = await _client.PostAsJsonAsync("/profiles", new CreateProfileRequest("Kid", null), Ct))
+        {
+            var other = (await created.Content.ReadFromJsonAsync<ProfileDto>(JsonSerializerOptions.Web, Ct))!.Id;
+            using var picked = await _client.PutAsJsonAsync("/auth/session/profile", new SelectProfileRequest(other), Ct);
+            picked.IsSuccessStatusCode.Should().BeTrue(await picked.Content.ReadAsStringAsync(Ct));
+        }
+
+        var movie = (await TitleAsync(_client, _movieTitle)).Playable!;
+        (movie.ResumeSeconds, movie.Watched).Should().Be(((double?)null, false));
+    }
+
     [Theory]
     [InlineData(-1, 6000)]
     [InlineData(10, -1)]
@@ -150,6 +214,14 @@ public sealed class ProgressApiTests : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<WatchProgressDto>(JsonSerializerOptions.Web, Ct))!;
     }
 
+    private static async Task<TitleDetail> TitleAsync(HttpClient client, Guid titleId)
+    {
+        using var response = await client.GetAsync($"/titles/{titleId}", Ct);
+        response.StatusCode.Should().Be(HttpStatusCode.OK, await response.Content.ReadAsStringAsync(Ct));
+        await ContractDocument.Instance.AssertConformsAsync(response, Ct);
+        return (await response.Content.ReadFromJsonAsync<TitleDetail>(JsonSerializerOptions.Web, Ct))!;
+    }
+
     private async Task<WatchState> WatchStateAsync(Guid playableId)
     {
         await using var scope = _factory.Services.CreateAsyncScope();
@@ -184,9 +256,11 @@ public sealed class ProgressApiTests : IAsyncLifetime
         db.Playables.Add(moviePlayable);
         AddFile(db, moviePlayable.Id, "Alien.mkv", MediaFileStatus.Matched);
         _movie = moviePlayable.Id;
+        _movieTitle = movie.Id;
 
         var show = new Title { Id = Guid.CreateVersion7(), Kind = TitleKind.Show, Name = "The Office", Year = 2005 };
         db.Titles.Add(show);
+        _showTitle = show.Id;
         var seasons = new Dictionary<int, Season>();
         foreach (var (season, number, name, status) in new (int, int, string?, MediaFileStatus)[]
         {

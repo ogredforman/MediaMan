@@ -630,6 +630,14 @@ export interface MoviePlayable {
      * highest quality (SPEC §7.4 step 2). Absent when no version can play.
      */
   selectedMediaFileId?: string;
+  /**
+     * Where the session's profile stopped, when resume is offered (after 2 minutes and before 90%), as in
+     * `PlaybackSession.resumeSeconds`. Absent otherwise, and without a picked profile.
+     * @minimum 0
+     */
+  resumeSeconds?: number;
+  /** The session's profile reached 90% at some point (`WatchProgress.watched`). False without a picked profile. */
+  watched: boolean;
 }
 
 /**
@@ -647,6 +655,13 @@ export interface Episode {
   versions: MediaVersion[];
   /** The version Play uses for the session's profile, as on `MoviePlayable`. Absent when no version can play. */
   selectedMediaFileId?: string;
+  /**
+     * As on `MoviePlayable`.
+     * @minimum 0
+     */
+  resumeSeconds?: number;
+  /** As on `MoviePlayable`; false when no file holds the episode. */
+  watched: boolean;
 }
 
 export interface Season {

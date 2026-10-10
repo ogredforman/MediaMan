@@ -7,6 +7,15 @@ export function formatDuration(minutes: number): string {
   return h > 0 ? `${String(h)}h ${String(m)}m` : `${String(m)}m`;
 }
 
+/** A playback position: `23:15`, or `1:02:05` from an hour on. */
+export function formatPosition(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = String(total % 60).padStart(2, '0');
+  return h > 0 ? `${String(h)}:${String(m).padStart(2, '0')}:${s}` : `${String(m)}:${s}`;
+}
+
 /** File size in decimal units, e.g. `4.2 GB`. */
 export function formatSize(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];

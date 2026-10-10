@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { formatSize, resolutionLabel, versionTags } from './mediaFormat';
+import { formatPosition, formatSize, resolutionLabel, versionTags } from './mediaFormat';
+
+describe('formatPosition', () => {
+  it('gives minutes and seconds, with hours from an hour on', () => {
+    expect(formatPosition(1395)).toBe('23:15');
+    expect(formatPosition(65.9)).toBe('1:05');
+    expect(formatPosition(0)).toBe('0:00');
+    expect(formatPosition(3725)).toBe('1:02:05');
+  });
+});
 
 describe('version formatting', () => {
   it('names resolutions by width so scope films keep their class', () => {

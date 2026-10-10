@@ -105,13 +105,14 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
           audioChannels: 6,
         },
       ],
+      watched: false,
     },
   },
   [dune.id]: {
     ...dune,
     runtimeMinutes: 155,
     externalIds: { tmdb: 'movie/438631' },
-    playable: { id: '01920000-0000-7000-8000-000000000502', versions: [] },
+    playable: { id: '01920000-0000-7000-8000-000000000502', versions: [], watched: false },
   },
   [office.id]: {
     ...office,
@@ -130,6 +131,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             versions: [
               { mediaFileId: fileId(10), fileName: 'The Office S00E01.mkv', sizeBytes: 90_000_000, status: 'matched', part: 1 },
             ],
+            watched: false,
           },
         ],
       },
@@ -147,6 +149,8 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             versions: [
               { mediaFileId: fileId(11), fileName: 'The.Office.S01E01-E02.720p.WEB-DL.mkv', sizeBytes: 900_000_000, status: 'matched', part: 1, width: 1280, height: 720, source: 'WEB-DL' },
             ],
+            resumeSeconds: 615,
+            watched: false,
           },
           {
             id: episodeId(2),
@@ -157,8 +161,9 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             versions: [
               { mediaFileId: fileId(11), fileName: 'The.Office.S01E01-E02.720p.WEB-DL.mkv', sizeBytes: 900_000_000, status: 'matched', part: 2, width: 1280, height: 720, source: 'WEB-DL' },
             ],
+            watched: true,
           },
-          { id: episodeId(3), number: 3, name: 'Health Care', airDate: '2005-04-05', versions: [] },
+          { id: episodeId(3), number: 3, name: 'Health Care', airDate: '2005-04-05', versions: [], watched: false },
         ],
       },
       {
@@ -174,6 +179,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
               { mediaFileId: fileId(12), fileName: 'The.Office.S02E01.720p.mkv', sizeBytes: 400_000_000, status: 'matched', part: 1, width: 1280, height: 720 },
               { mediaFileId: fileId(13), fileName: 'The.Office.S02E01.1080p.mkv', sizeBytes: 1_200_000_000, status: 'matched', part: 1, width: 1920, height: 1080 },
             ],
+            watched: false,
           },
         ],
       },
@@ -226,6 +232,17 @@ export function createEventStream() {
 }
 
 export const mockEvents = createEventStream();
+
+/** The resume position the mock watch state gives a session, as the server does. */
+function resumeOf(playableId: string): Pick<PlaybackSession, 'resumeSeconds'> {
+  for (const detail of Object.values(mockTitleDetails)) {
+    const movie = detail.playable?.id === playableId ? detail.playable : undefined;
+    const episode = (detail.seasons ?? []).flatMap((s) => s.episodes).find((e) => e.playableId === playableId);
+    const resumeSeconds = (movie ?? episode)?.resumeSeconds;
+    if (resumeSeconds !== undefined) return { resumeSeconds };
+  }
+  return {};
+}
 
 const playableNotFound = {
   title: 'Nothing to play here.',
@@ -285,6 +302,7 @@ export const handlers = [
       method: 'directStream',
       url: `/media-files/${version.mediaFileId}/stream?sid=mock&exp=0&sig=mock`,
       title: version.fileName,
+      ...resumeOf(playableId),
       subtitles: [],
     };
     return HttpResponse.json(session);

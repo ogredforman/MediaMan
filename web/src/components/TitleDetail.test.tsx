@@ -163,6 +163,7 @@ describe('TitleDetail', () => {
         id: 'p',
         versions: [uhd, { ...uhd, part: 2 }, web, { ...web, part: 2 }],
         selectedMediaFileId: uhd.mediaFileId,
+        watched: false,
       },
     };
     server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
@@ -176,7 +177,7 @@ describe('TitleDetail', () => {
   it('offers no choice for a movie with a single version', async () => {
     const detail: TitleDetail = {
       ...must(mockTitleDetails[arrival]),
-      playable: { id: 'p', versions: [must(mockTitleDetails[arrival]?.playable?.versions[0])], selectedMediaFileId: undefined },
+      playable: { id: 'p', versions: [must(mockTitleDetails[arrival]?.playable?.versions[0])], selectedMediaFileId: undefined, watched: false },
     };
     server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
     renderApp(`/titles/${arrival}`);
@@ -184,6 +185,16 @@ describe('TitleDetail', () => {
     const versions = await screen.findByRole('list', { name: 'Versions' });
     expect(versions).not.toHaveTextContent('Plays');
     expect(within(versions).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('offers Resume in a browser too, and says it works in the desktop app', async () => {
+    const user = userEvent.setup();
+    renderApp(`/titles/${office}`);
+    const panel = await screen.findByRole('tabpanel', { name: 'Season 1' });
+
+    await user.click(within(panel).getByRole('button', { name: 'Start Pilot over' }));
+
+    expect(await within(panel).findByRole('alert')).toHaveTextContent('Play works in the MediaMan desktop app.');
   });
 
   it('says that Play works in the desktop app when the UI runs in a browser', async () => {
@@ -252,6 +263,56 @@ describe('TitleDetail', () => {
       expect(await within(panel).findByRole('status')).toHaveTextContent(
         'Playing The.Office.S01E01-E02.720p.WEB-DL.mkv in MPV.',
       );
+    });
+
+    it('offers Resume and Start over where the profile stopped, and marks watched episodes', async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      renderApp(`/titles/${office}`);
+      const panel = await screen.findByRole('tabpanel', { name: 'Season 1' });
+
+      expect(within(panel).queryByRole('button', { name: 'Play Pilot' })).not.toBeInTheDocument();
+      expect(within(panel).queryByRole('button', { name: 'Start Diversity Day over' })).not.toBeInTheDocument();
+      const watched = must(within(panel).getByRole('button', { name: 'Play Diversity Day' }).closest('li'));
+      expect(watched).toHaveTextContent('Watched');
+
+      await user.click(within(panel).getByRole('button', { name: 'Resume Pilot from 10:15' }));
+      await within(panel).findByText(/in MPV.$/);
+      expect(must(player.plays[0]).options.startSeconds).toBe(615);
+
+      await user.click(within(panel).getByRole('button', { name: 'Start Pilot over' }));
+      await waitFor(() => {
+        expect(player.plays).toHaveLength(2);
+      });
+      expect(must(player.plays[1]).options.startSeconds).toBe(0);
+    });
+
+    it('refetches the title when MPV closes, so Resume shows the new position', async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      const detail = must(mockTitleDetails[arrival]);
+      let stopped = false;
+      server.use(
+        http.get('*/titles/:titleId', () =>
+          HttpResponse.json(
+            mockVersions.apply(stopped ? { ...detail, playable: { ...must(detail.playable), resumeSeconds: 1395 } } : detail),
+          ),
+        ),
+        http.put('*/playables/:playableId/progress', async ({ params, request }) => {
+          stopped = true;
+          const report = (await request.json()) as { positionSeconds: number; durationSeconds: number };
+          return HttpResponse.json({ playableId: String(params.playableId), ...report, watched: false });
+        }),
+      );
+      renderApp(`/titles/${arrival}`);
+
+      await user.click(await screen.findByRole('button', { name: 'Play' }));
+      await screen.findByText(/in MPV.$/);
+      player.emit({ launchId: player.lastLaunchId(), type: 'progress', positionSeconds: 1395, durationSeconds: 6960, paused: true });
+      player.emit({ launchId: player.lastLaunchId(), type: 'ended', reason: 'quit' });
+
+      expect(await screen.findByRole('button', { name: 'Resume from 23:15' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Start over' })).toBeInTheDocument();
     });
 
     it("offers MPV settings when MPV can't start, and says which MPV was picked", async () => {

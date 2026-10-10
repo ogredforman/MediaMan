@@ -1,6 +1,7 @@
 using MediaMan.Auth;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
+using MediaMan.Playback.Progress;
 using MediaMan.Playback.Versions;
 using MediaMan.Server.Scanning;
 using Microsoft.EntityFrameworkCore;
@@ -163,11 +164,11 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
         IReadOnlyList<SeasonDto>? seasons = null;
         if (title.Kind == TitleKind.Movie)
         {
-            movie = await MoviePlayableAsync(titleId, preference, ct);
+            movie = await MoviePlayableAsync(titleId, profileId, preference, ct);
         }
         else
         {
-            seasons = await SeasonsAsync(titleId, preference, ct);
+            seasons = await SeasonsAsync(titleId, profileId, preference, ct);
         }
 
         var ext = title.ExternalIds;
@@ -178,7 +179,8 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             preference is null ? null : new VersionPreferenceDto(preference.MediaFileId, preference.Resolution, preference.HdrFormat));
     }
 
-    private async Task<MoviePlayable?> MoviePlayableAsync(Guid titleId, VersionPreference? preference, CancellationToken ct)
+    private async Task<MoviePlayable?> MoviePlayableAsync(
+        Guid titleId, Guid? profileId, VersionPreference? preference, CancellationToken ct)
     {
         var playable = await db.Playables.AsNoTracking().FirstOrDefaultAsync(p => p.TitleId == titleId, ct);
         if (playable is null)
@@ -188,10 +190,12 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
 
         var versions = await VersionsAsync([playable.Id], preference, ct);
         var found = versions.GetValueOrDefault(playable.Id);
-        return new MoviePlayable(playable.Id, found?.Versions ?? [], found?.Selected);
+        var watch = WatchOf(await WatchStatesAsync(profileId, [playable.Id], ct), playable.Id, found);
+        return new MoviePlayable(playable.Id, found?.Versions ?? [], found?.Selected, watch.ResumeSeconds, watch.Watched);
     }
 
-    private async Task<IReadOnlyList<SeasonDto>> SeasonsAsync(Guid titleId, VersionPreference? preference, CancellationToken ct)
+    private async Task<IReadOnlyList<SeasonDto>> SeasonsAsync(
+        Guid titleId, Guid? profileId, VersionPreference? preference, CancellationToken ct)
     {
         var seasons = await db.Seasons.AsNoTracking().Where(s => s.TitleId == titleId).OrderBy(s => s.Number).ToListAsync(ct);
         var seasonIds = seasons.Select(s => s.Id).ToList();
@@ -209,6 +213,7 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .OrderBy(a => a.Id)
             .ToListAsync(ct);
         var versions = await VersionsAsync([.. playables.Select(p => p.Id)], preference, ct);
+        var watches = await WatchStatesAsync(profileId, [.. playables.Select(p => p.Id)], ct);
 
         var playableByEpisode = playables.ToDictionary(p => p.EpisodeId!.Value, p => p.Id);
         var posterBySeason = artwork.Where(a => a.SeasonId != null && a.Type == ArtworkType.Poster)
@@ -223,9 +228,10 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             {
                 Guid? playableId = playableByEpisode.TryGetValue(e.Id, out var id) ? id : null;
                 var found = playableId is { } p ? versions.GetValueOrDefault(p) : null;
+                var watch = playableId is { } w ? WatchOf(watches, w, found) : default;
                 return new EpisodeDto(
                     e.Id, e.Number, e.AbsoluteNumber, e.Name, e.Overview, e.AirDate, Ref(stillByEpisode.GetValueOrDefault(e.Id)),
-                    playableId, found?.Versions ?? [], found?.Selected);
+                    playableId, found?.Versions ?? [], found?.Selected, watch.ResumeSeconds, watch.Watched);
             })]))];
     }
 
@@ -250,16 +256,39 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .GroupBy(r => r.PlayableId)
             .ToDictionary(
                 g => g.Key,
-                g => new PlayableVersions(
-                    [.. g
-                        .Select(r => ToVersion(r.File, r.Part))
-                        .OrderBy(v => v.Status == Wire.Name(MediaFileStatus.Missing))
-                        .ThenByDescending(v => v.Height ?? 0)
-                        .ThenBy(v => v.FileName, StringComparer.OrdinalIgnoreCase)],
-                    VersionPicker.Pick(g.Select(r => r.File), preference)?.Id));
+                g =>
+                {
+                    var picked = VersionPicker.Pick(g.Select(r => r.File), preference);
+                    return new PlayableVersions(
+                        [.. g
+                            .Select(r => ToVersion(r.File, r.Part))
+                            .OrderBy(v => v.Status == Wire.Name(MediaFileStatus.Missing))
+                            .ThenByDescending(v => v.Height ?? 0)
+                            .ThenBy(v => v.FileName, StringComparer.OrdinalIgnoreCase)],
+                        picked?.Id,
+                        picked?.Probe?.Duration?.TotalSeconds);
+                });
     }
 
-    private sealed record PlayableVersions(IReadOnlyList<MediaVersion> Versions, Guid? Selected);
+    private sealed record PlayableVersions(IReadOnlyList<MediaVersion> Versions, Guid? Selected, double? SelectedDurationSeconds);
+
+    /// <summary>The profile's watch state per Playable; empty without a picked profile.</summary>
+    private async Task<Dictionary<Guid, WatchState>> WatchStatesAsync(Guid? profileId, List<Guid> playableIds, CancellationToken ct) =>
+        profileId is { } profile
+            ? await db.WatchStates.AsNoTracking()
+                .Where(w => w.ProfileId == profile && playableIds.Contains(w.PlayableId))
+                .ToDictionaryAsync(w => w.PlayableId, ct)
+            : [];
+
+    /// <summary>
+    /// Resume and watched as a playback session gives them (SPEC §7.4 step 2): the recorded duration, or the version
+    /// Play uses when the player didn't know it.
+    /// </summary>
+    private static (double? ResumeSeconds, bool Watched) WatchOf(
+        Dictionary<Guid, WatchState> watches, Guid playableId, PlayableVersions? versions) =>
+        watches.TryGetValue(playableId, out var w)
+            ? (WatchRules.ResumeAt(w.PositionSeconds, w.DurationSeconds > 0 ? w.DurationSeconds : versions?.SelectedDurationSeconds ?? 0), w.Watched)
+            : (null, false);
 
     private static MediaVersion ToVersion(MediaFile file, int part)
     {
