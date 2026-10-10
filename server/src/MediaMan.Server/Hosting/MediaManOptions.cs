@@ -26,6 +26,12 @@ public sealed class MediaManOptions
     public ToolsOptions Tools { get; set; } = new();
 
     public MetadataOptions Metadata { get; set; } = new();
+
+    /// <summary>
+    /// Web UI origins on another origin than the server (the desktop app's UI, the Vite dev server) that may call the
+    /// API from a browser (CORS). Empty allows none; bearer tokens, not cookies, so credentials are never allowed.
+    /// </summary>
+    public string[] AllowedOrigins { get; set; } = [];
 }
 
 /// <summary>How the server listens (SPEC §7.1 step 3); <see cref="ServerBinding"/> applies it.</summary>

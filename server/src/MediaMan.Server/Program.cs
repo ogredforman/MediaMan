@@ -6,6 +6,7 @@ builder.Services.AddMediaManServer(builder.Configuration, builder.Environment);
 var app = builder.Build();
 app.UseMediaManErrors();
 app.UseLocalNetworkGuard();
+app.UseMediaManCors();
 app.UseSetupGate();
 app.UseMediaManAuth();
 app.MapMediaManEndpoints();

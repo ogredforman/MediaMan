@@ -49,7 +49,9 @@ class FakeHealth {
   }) as typeof fetch;
 }
 
-function setUp(options: { healthy?: boolean; healthyAfterSpawn?: boolean; ignoreTerm?: boolean } = {}) {
+function setUp(
+  options: { healthy?: boolean; healthyAfterSpawn?: boolean; ignoreTerm?: boolean; allowedOrigin?: string } = {},
+) {
   const health = new FakeHealth();
   health.healthy = options.healthy ?? false;
   const child = new FakeChild();
@@ -59,6 +61,7 @@ function setUp(options: { healthy?: boolean; healthyAfterSpawn?: boolean; ignore
     command: { command: 'dotnet', args: ['MediaMan.Server.dll'] },
     port: 9123,
     env: { PATH: '/bin' },
+    ...(options.allowedOrigin === undefined ? {} : { allowedOrigin: options.allowedOrigin }),
     healthTimeoutMs: 200,
     pollIntervalMs: 5,
     stopGraceMs: 20,
@@ -83,6 +86,18 @@ describe('ServerProcess', () => {
     expect(spawned[0]?.command).toEqual({ command: 'dotnet', args: ['MediaMan.Server.dll'] });
     expect(spawned[0]?.env).toEqual({ PATH: '/bin', MediaMan__Server__Port: '9123' });
     expect(health.urls.at(-1)).toBe('http://127.0.0.1:9123/health');
+  });
+
+  it('lets the UI origin call the spawned server', async () => {
+    const { server, spawned } = setUp({ healthyAfterSpawn: true, allowedOrigin: 'http://localhost:5173' });
+
+    await server.start();
+
+    expect(spawned[0]?.env).toEqual({
+      PATH: '/bin',
+      MediaMan__Server__Port: '9123',
+      MediaMan__AllowedOrigins__0: 'http://localhost:5173',
+    });
   });
 
   it('starts once however often start is called', async () => {
