@@ -1,6 +1,8 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractPlay, describePlayerContract, settle } from '../fakes/playerContract.js';
-import { ipcPathFor, mpvArgs, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
+import { ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
 import type { PlayerEndReason, PlayerProgress } from './player.js';
 
 /** A stand-in MPV process: answers IPC the way MPV does, and tests decide what it sends and when it exits. */
@@ -372,5 +374,18 @@ describe('mpvArgs', () => {
       '--',
       '-weird',
     ]);
+  });
+
+  it('loads the MediaMan config and OSC after the launch options, with the built-in OSC off', () => {
+    const args = mpvArgs(contractPlay, 'p', { config: 'conf', script: 'osc' });
+    expect(args.slice(args.indexOf('--osc=no'), args.indexOf('--'))).toEqual(['--osc=no', '--include=conf', '--script=osc']);
+  });
+});
+
+describe('mpvAssetsIn', () => {
+  it('points at the config and OSC shipped in desktop/mpv', () => {
+    const assets = mpvAssetsIn(fileURLToPath(new URL('../../', import.meta.url)));
+    expect(existsSync(assets.config)).toBe(true);
+    expect(existsSync(assets.script)).toBe(true);
   });
 });
