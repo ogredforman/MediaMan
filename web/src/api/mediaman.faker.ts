@@ -63,7 +63,8 @@ import type {
   ProfileList,
   ServerModeState,
   TitleDetail,
-  TitlePage
+  TitlePage,
+  WatchProgress
 } from './mediaman.schemas';
 
 
@@ -114,6 +115,8 @@ export const getCreatePlaybackSessionResponseMock = (overrideResponse: Partial<E
 export const getStreamMediaFileResponseMock = (): Blob => (faker.helpers.arrayElement([new Blob([new Uint8Array(faker.number.int({ min: 1, max: 64 }))]), new Blob([new Uint8Array(faker.number.int({ min: 1, max: 64 }))])]))
 
 export const getGetSubtitleResponseMock = (): string => (faker.helpers.arrayElement([faker.word.sample(), faker.word.sample()]))
+
+export const getReportWatchProgressResponseMock = (overrideResponse: Partial<Extract<WatchProgress, object>> = {}): WatchProgress => ({playableId: faker.string.uuid(), positionSeconds: faker.number.float({min: 0, fractionDigits: 2}), durationSeconds: faker.number.float({min: 0, fractionDigits: 2}), watched: faker.datatype.boolean(), nextEpisode: faker.helpers.arrayElement([{playableId: faker.string.uuid(), seasonNumber: faker.number.int({min: 0}), episodeNumber: faker.number.int({min: 0}), title: faker.string.alpha({length: {min: 10, max: 20}})}, undefined]), ...overrideResponse})
 
 export const getDevPlayResponseMock = (overrideResponse: Partial<Extract<DevPlayStarted, object>> = {}): DevPlayStarted => ({mediaFileId: faker.string.uuid(), fileName: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
 

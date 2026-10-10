@@ -63,6 +63,7 @@ import {
   getLoginResponseMock,
   getRefreshTokensResponseMock,
   getRelinkMediaFileResponseMock,
+  getReportWatchProgressResponseMock,
   getSearchCatalogResponseMock,
   getSelectSessionProfileResponseMock,
   getSetServerModeResponseMock,
@@ -87,10 +88,11 @@ import type {
   ProfileList,
   ServerModeState,
   TitleDetail,
-  TitlePage
+  TitlePage,
+  WatchProgress
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -434,6 +436,18 @@ export const getGetSubtitleMockHandler = (overrideResponse?: string | ((info: Pa
   }, options)
 }
 
+export const getReportWatchProgressMockHandler = (overrideResponse?: WatchProgress | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<WatchProgress> | WatchProgress), options?: RequestHandlerOptions) => {
+  return http.put('*/playables/:playableId/progress', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getReportWatchProgressResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getDevPlayMockHandler = (overrideResponse?: DevPlayStarted | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DevPlayStarted> | DevPlayStarted), options?: RequestHandlerOptions) => {
   return http.post('*/dev/playables/:playableId/play', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -475,5 +489,6 @@ export const getMediaManAPIMock = () => [
   getCreatePlaybackSessionMockHandler(),
   getStreamMediaFileMockHandler(),
   getGetSubtitleMockHandler(),
+  getReportWatchProgressMockHandler(),
   getDevPlayMockHandler()
 ]

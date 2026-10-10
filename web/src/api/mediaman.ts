@@ -91,7 +91,9 @@ import type {
   StreamMediaFileParams,
   TitleDetail,
   TitlePage,
-  UpdateProfileRequest
+  UpdateProfileRequest,
+  WatchProgress,
+  WatchProgressReport
 } from './mediaman.schemas';
 
 import { apiFetch } from '../lib/http';
@@ -2905,6 +2907,101 @@ export function useGetSubtitle<TData = Awaited<ReturnType<typeof getSubtitle>>, 
 
 
 
+
+export const getReportWatchProgressUrl = (playableId: string,) => {
+
+
+
+
+  return `/playables/${playableId}/progress`
+}
+
+/**
+ * Players report every 10 seconds and on pause, seek and quit. Progress is kept per profile and Playable, so it
+ * needs no playback session and survives server restarts; the next `POST /playback/sessions` resumes from it.
+ * At 90% or more the Playable is marked watched, and it stays watched when later reports go back.
+ *
+ * For an episode the response names the next episode with a file to play: the next one in its season, else the
+ * first one of the next season that isn't specials. Clients use it for "Up next" once `watched` is set.
+ * @summary Records how far the session's profile got in a Playable (SPEC §7.4 steps 4–5).
+ */
+export const reportWatchProgress = async (playableId: string,
+    watchProgressReport: WatchProgressReport, options?: Parameters<typeof apiFetch>[1]): Promise<WatchProgress> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<WatchProgress>(getReportWatchProgressUrl(playableId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(watchProgressReport)
+  }
+);}
+
+
+
+
+
+export const getReportWatchProgressMutationKey = () => ['reportWatchProgress'] as const;
+
+export const getReportWatchProgressMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportWatchProgress>>, TError,ReportWatchProgressMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reportWatchProgress>>, TError,ReportWatchProgressMutationVariables, TContext> => {
+
+const mutationKey = getReportWatchProgressMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reportWatchProgress>>, ReportWatchProgressMutationVariables> = (props) => {
+          const {playableId,data} = props ?? {};
+
+          return  reportWatchProgress(playableId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReportWatchProgressMutationResult = NonNullable<Awaited<ReturnType<typeof reportWatchProgress>>>
+    export type ReportWatchProgressMutationBody = WatchProgressReport
+    export type ReportWatchProgressMutationError = ErrorType<Problem | ProblemResponse>
+    export type ReportWatchProgressMutationVariables = {playableId: string;data: WatchProgressReport}
+
+    /**
+ * @summary Records how far the session's profile got in a Playable (SPEC §7.4 steps 4–5).
+ */
+export const useReportWatchProgress = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reportWatchProgress>>, TError,ReportWatchProgressMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reportWatchProgress>>,
+        TError,
+        ReportWatchProgressMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReportWatchProgressMutationOptions(options), queryClient);
+    }
 
 export const getDevPlayUrl = (playableId: string,) => {
 
