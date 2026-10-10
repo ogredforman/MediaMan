@@ -851,15 +851,6 @@ export interface WatchProgress {
 }
 
 /**
- * The file MPV was launched with (dev-only, see `devPlay`).
- */
-export interface DevPlayStarted {
-  mediaFileId: string;
-  /** The file's name, without its folder. */
-  fileName: string;
-}
-
-/**
  * The request failed. The body says what happened and what to do next.
  */
 export type ProblemResponse = Problem;

@@ -47,7 +47,7 @@ These are created in Stage 0 task 0.1 (web and desktop join them in 0.5 and 0.6)
 - No telemetry. Outbound calls go only to the configured metadata providers, indexers, the leak-check service and the BitTorrent network (SPEC §9).
 - Never execute, open or auto-run a downloaded file; files with the dangerous extensions in SPEC §5 are flagged and skipped (SPEC §5).
 - No torrent traffic leaves except through the configured VPN interface or SOCKS5 proxy; the engine doesn't start without a VPN path or a Superadmin-recorded opt-out, and torrents pause when the path fails (SPEC §5, §7.8).
-- The dev-only play endpoint is registered only in the dev configuration and never ships (SPEC §13).
+- Dev-only code (`MediaMan.Server/Dev`, the dev configuration) compiles only into Debug builds and never ships (SPEC §8 setup [P]).
 - ffmpeg, ffprobe and MPV run as separate processes; never link them natively (SPEC §10.1).
 - Server and desktop code stays cross-platform (Windows, Linux, macOS): no OS-specific APIs without a fallback, paths built with `Path.Combine`/`path.join`, no hard-coded separators or drive letters (SPEC §9).
 - Product principles in SPEC §5 are requirements, not style.

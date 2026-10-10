@@ -36,7 +36,7 @@ public sealed class ContractCoverageTests
     {
         var routes = await MappedRoutesAsync();
 
-        foreach (var operation in ContractDocument.Instance.Operations.Where(o => !o.DevOnly))
+        foreach (var operation in ContractDocument.Instance.Operations)
         {
             routes.Should().Contain(r => r.Method == operation.Method && r.Path == operation.Path, $"{operation} is in the contract");
         }
@@ -65,17 +65,6 @@ public sealed class ContractCoverageTests
         {
             operation.Node["responses"]?["default"]?["$ref"]?.GetValue<string>()
                 .Should().Be("#/components/responses/Problem", $"{operation} must use the shared error model");
-        }
-    }
-
-    [Fact]
-    public async Task Dev_only_operations_are_not_mapped_outside_the_dev_configuration()
-    {
-        var routes = await MappedRoutesAsync();
-
-        foreach (var operation in ContractDocument.Instance.Operations.Where(o => o.DevOnly))
-        {
-            routes.Should().NotContain(r => r.Method == operation.Method && r.Path == operation.Path, $"{operation} is dev-only (SPEC §13)");
         }
     }
 

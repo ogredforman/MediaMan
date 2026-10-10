@@ -4,7 +4,6 @@ import { useId, useRef, useState, type CSSProperties, type KeyboardEvent, type R
 import {
   getGetTitleQueryKey,
   useClearPreferredVersion,
-  useDevPlay,
   useGetTitle,
   useSetPreferredVersion,
 } from '../api/mediaman';
@@ -290,25 +289,13 @@ function isPlayable(versions: MediaVersion[]): boolean {
   return versions.some((v) => v.status !== 'missing');
 }
 
-/** A 404 without a specific code means the server has no dev play endpoint, not that the title is gone. */
-function playProblem(error: ApiError) {
-  if (error.status === 404 && error.problem.code === 'not_found') {
-    return {
-      title: "Play isn't available on this server.",
-      detail: "In the prototype, Play launches MPV through the server's dev configuration, which isn't running.",
-      action: 'Start the server with the dev configuration (MediaMan:Dev:MediaPath), then try again.',
-    };
-  }
-  return error.problem;
-}
-
-/** Play: MPV through the desktop app when it's there, else the prototype's dev-only endpoint (SPEC §7.4, §13). */
+/** Play: MPV through the desktop app; a browser can't play until browser playback lands (SPEC §7.4). */
 function PlayButton({ playableId, label }: { playableId: string; label: string }) {
   const playback = desktopPlayback();
   return playback ? (
     <DesktopPlayButton playback={playback} playableId={playableId} label={label} />
   ) : (
-    <DevPlayButton playableId={playableId} label={label} />
+    <BrowserPlayButton label={label} />
   );
 }
 
@@ -435,31 +422,22 @@ function PlaybackFailureAlert({ failure, onOpenMpvSettings }: { failure: Playbac
   );
 }
 
-/**
- * Prototype Play (SPEC §8 playback [P]): the dev-only endpoint launches MPV on the server's host.
- * Removed with the endpoint in PLAN 2.14c.
- */
-function DevPlayButton({ playableId, label }: { playableId: string; label: string }) {
-  const play = useDevPlay();
-  const problem = play.error instanceof ApiError ? playProblem(play.error) : undefined;
+/** In a plain browser, Play says where it works instead of doing nothing. */
+function BrowserPlayButton({ label }: { label: string }) {
+  const [pressed, setPressed] = useState(false);
   return (
     <PlayControl
       label={label}
-      disabled={play.isPending}
+      disabled={false}
       onPlay={() => {
-        play.mutate({ playableId });
+        setPressed(true);
       }}
     >
-      {play.isSuccess && (
-        <p role="status" className="text-sm text-fg-muted">
-          Playing {play.data.fileName} in MPV.
-        </p>
-      )}
-      {play.isError && (
+      {pressed && (
         <PlayError
-          title={problem?.title ?? "Couldn't start playback."}
-          detail={problem?.detail}
-          action={problem?.action ?? 'Check that the server is running, then try again.'}
+          title="Play works in the MediaMan desktop app."
+          detail="This browser can't play titles yet."
+          action="Open this title in the desktop app and press Play there."
         />
       )}
     </PlayControl>
