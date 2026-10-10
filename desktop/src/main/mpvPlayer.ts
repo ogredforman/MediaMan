@@ -3,7 +3,8 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions } from './player.js';
+import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
+import { upNextAt, type Chapter } from './upNext.js';
 
 /** A spawned MPV, narrowed so tests can stand in for a real child process. */
 export interface MpvChild {
@@ -70,7 +71,7 @@ export function ipcPathFor(platform: NodeJS.Platform, tempDir: string, id: strin
 
 /** MPV's command line for one launch. The URL comes after `--`, so it is never read as an option. */
 export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets): string[] {
-  const args = [`--input-ipc-server=${ipcPath}`, '--force-window=yes', '--idle=no', '--keep-open=no', `--force-media-title=${opts.title}`];
+  const args = [`--input-ipc-server=${ipcPath}`, '--force-window=yes', '--idle=no', '--keep-open=yes', `--force-media-title=${opts.title}`];
   // The user's own mpv.conf and scripts still load; ours comes after, so it wins where both set an option.
   if (assets) args.push('--osc=no', `--include=${assets.config}`, `--script=${assets.script}`);
   if (opts.startSeconds > 0) args.push(`--start=${String(opts.startSeconds)}`);
@@ -78,7 +79,10 @@ export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets):
   return args;
 }
 
-const observed = { 1: 'time-pos', 2: 'duration', 3: 'pause' } as const;
+const observed = { 1: 'time-pos', 2: 'duration', 3: 'pause', 4: 'eof-reached', 5: 'chapter-list' } as const;
+
+/** The script messages between the OSC (mpv/osc.lua) and the main process for "Up next". */
+export const upNextMessages = { show: 'mediaman-up-next', choice: 'mediaman-up-next-choice' } as const;
 
 /** One MPV launch, from spawn to exit. */
 interface Session {
@@ -92,6 +96,9 @@ interface Session {
   position?: number;
   duration?: number;
   paused: boolean;
+  chapters: Chapter[];
+  creditsReached: boolean;
+  eofReached: boolean;
   seeking: boolean;
   stopping: boolean;
   ended: boolean;
@@ -108,12 +115,14 @@ interface MpvMessage {
   file_error?: string;
   request_id?: number;
   error?: string;
+  args?: unknown[];
 }
 
 /**
  * Plays one stream at a time. `play()` resolves once MPV's IPC answers, and rejects with `PlayerStartError` if MPV
  * can't be started. Progress is reported every 10 s and on pause, seek and quit (SPEC §7.4 step 4); `onEnded` fires
- * once per launch, with MPV's file error when the stream couldn't be loaded.
+ * once per launch, with MPV's file error when the stream couldn't be loaded. MPV keeps the last frame at the end of the
+ * file, so "Up next" can show there; `onCredits` fires where `upNextAt` puts the final credits.
  */
 export class MpvPlayer implements IPlayer {
   private readonly progressIntervalMs: number;
@@ -126,6 +135,9 @@ export class MpvPlayer implements IPlayer {
   private readonly log: (line: string) => void;
   private readonly progressListeners: ((p: PlayerProgress) => void)[] = [];
   private readonly endedListeners: ((reason: PlayerEndReason, detail?: string) => void)[] = [];
+  private readonly creditsListeners: (() => void)[] = [];
+  private readonly endReachedListeners: (() => void)[] = [];
+  private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
   private session: Session | undefined;
   private launches = 0;
 
@@ -152,6 +164,24 @@ export class MpvPlayer implements IPlayer {
     this.endedListeners.push(cb);
   }
 
+  onCredits(cb: () => void): void {
+    this.creditsListeners.push(cb);
+  }
+
+  onEndReached(cb: () => void): void {
+    this.endReachedListeners.push(cb);
+  }
+
+  onUpNextChoice(cb: (choice: UpNextChoice) => void): void {
+    this.upNextListeners.push(cb);
+  }
+
+  showUpNext(offer: UpNextOffer): void {
+    const session = this.session;
+    if (!session || session.ended) return;
+    send(session.connection, ['script-message', upNextMessages.show, String(offer.seconds), offer.title]);
+  }
+
   async play(opts: PlayOptions): Promise<void> {
     await this.stop();
 
@@ -165,6 +195,9 @@ export class MpvPlayer implements IPlayer {
       exitCode: null,
       exitError: undefined,
       paused: false,
+      chapters: [],
+      creditsReached: false,
+      eofReached: false,
       seeking: false,
       stopping: false,
       ended: false,
@@ -263,13 +296,34 @@ export class MpvPlayer implements IPlayer {
 
     switch (message.event) {
       case 'property-change':
-        if (message.name === 'time-pos') session.position = typeof message.data === 'number' ? message.data : session.position;
-        else if (message.name === 'duration') session.duration = typeof message.data === 'number' ? message.data : session.duration;
-        else if (message.name === 'pause' && typeof message.data === 'boolean' && message.data !== session.paused) {
+        if (message.name === 'time-pos') {
+          session.position = typeof message.data === 'number' ? message.data : session.position;
+          this.checkCredits(session);
+        } else if (message.name === 'duration') {
+          session.duration = typeof message.data === 'number' ? message.data : session.duration;
+          this.checkCredits(session);
+        } else if (message.name === 'chapter-list') {
+          session.chapters = chaptersOf(message.data);
+          this.checkCredits(session);
+        } else if (message.name === 'eof-reached') {
+          const reached = message.data === true;
+          if (reached && !session.eofReached) {
+            this.report(session);
+            for (const listener of this.endReachedListeners) listener();
+          }
+          session.eofReached = reached;
+        } else if (message.name === 'pause' && typeof message.data === 'boolean' && message.data !== session.paused) {
           session.paused = message.data;
           this.report(session);
         }
         break;
+      case 'client-message': {
+        const [name, choice] = message.args ?? [];
+        if (name === upNextMessages.choice && (choice === 'play' || choice === 'cancel')) {
+          for (const listener of this.upNextListeners) listener(choice);
+        }
+        break;
+      }
       case 'file-loaded':
         for (const sub of opts.subtitles) {
           send(session.connection, ['sub-add', sub.url, sub.isDefault ? 'select' : 'auto', sub.title ?? sub.language ?? 'External', sub.language ?? '']);
@@ -317,6 +371,16 @@ export class MpvPlayer implements IPlayer {
     }
   }
 
+  /** Fires `onCredits` once, when the position first reaches the final credits. */
+  private checkCredits(session: Session): void {
+    if (session.creditsReached || session.position === undefined) return;
+    const at = upNextAt(session.chapters, session.duration);
+    if (at === undefined || session.position < at) return;
+    session.creditsReached = true;
+    this.report(session);
+    for (const listener of this.creditsListeners) listener();
+  }
+
   private report(session: Session): void {
     if (session.position === undefined) return;
     const progress: PlayerProgress = {
@@ -326,6 +390,18 @@ export class MpvPlayer implements IPlayer {
     };
     for (const listener of this.progressListeners) listener(progress);
   }
+}
+
+function chaptersOf(data: unknown): Chapter[] {
+  if (!Array.isArray(data)) return [];
+  const chapters: Chapter[] = [];
+  for (const raw of data as unknown[]) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const { title, time } = raw as Record<string, unknown>;
+    if (typeof time !== 'number') continue;
+    chapters.push(typeof title === 'string' ? { title, time } : { time });
+  }
+  return chapters;
 }
 
 // A function, so the connect loop sees the flag the exit listener sets across awaits.

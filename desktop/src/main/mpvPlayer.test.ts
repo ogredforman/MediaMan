@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractPlay, describePlayerContract, settle } from '../fakes/playerContract.js';
-import { ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
+import { ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, upNextMessages, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
 import type { PlayerEndReason, PlayerProgress } from './player.js';
 
 /** A stand-in MPV process: answers IPC the way MPV does, and tests decide what it sends and when it exits. */
@@ -135,6 +135,24 @@ describePlayerContract('MpvPlayer', () => {
       mpv.exit(reason === 'eof' ? 0 : 2);
       await settle();
     },
+    reachCredits: async () => {
+      mpv.send({ event: 'property-change', id: 2, name: 'duration', data: 1380 });
+      mpv.send({ event: 'property-change', id: 5, name: 'chapter-list', data: [{ title: 'Episode', time: 0 }, { title: 'Credits', time: 1290 }] });
+      mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1291 });
+      await settle();
+    },
+    reachEnd: async () => {
+      mpv.send({ event: 'property-change', id: 4, name: 'eof-reached', data: true });
+      await settle();
+    },
+    upNexts: () =>
+      mpv.commands
+        .filter(([name, message]) => name === 'script-message' && message === upNextMessages.show)
+        .map(([, , seconds, title]) => ({ title: String(title), seconds: Number(seconds) })),
+    chooseUpNext: async (choice) => {
+      mpv.send({ event: 'client-message', args: [upNextMessages.choice, choice] });
+      await settle();
+    },
     failNextStart: () => {
       mpv.failSpawn = new Error('spawn mpv ENOENT');
     },
@@ -159,7 +177,7 @@ describe('MpvPlayer', () => {
           `--input-ipc-server=ipc-${String(process.pid)}-1`,
           '--force-window=yes',
           '--idle=no',
-          '--keep-open=no',
+          '--keep-open=yes',
           '--force-media-title=Alien (1979)',
           '--start=95.5',
           '--',
@@ -171,6 +189,8 @@ describe('MpvPlayer', () => {
       ['observe_property', 1, 'time-pos'],
       ['observe_property', 2, 'duration'],
       ['observe_property', 3, 'pause'],
+      ['observe_property', 4, 'eof-reached'],
+      ['observe_property', 5, 'chapter-list'],
     ]);
   });
 
@@ -275,6 +295,50 @@ describe('MpvPlayer', () => {
     expect(ended).toEqual([['error', 'MPV exited with code 3.']]);
   });
 
+  it('reports the credits once, where the chapters put them, and only after the position gets there', async () => {
+    const { mpv, player, progress } = setUp();
+    const credits: number[] = [];
+    player.onCredits(() => credits.push(progress.at(-1)?.positionSeconds ?? -1));
+    await player.play(contractPlay);
+
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1300 });
+    mpv.send({ event: 'property-change', id: 5, name: 'chapter-list', data: [{ title: 'Credits', time: 1290 }, { title: 'Stinger', time: 1340 }] });
+    expect(credits).toEqual([]);
+
+    mpv.send({ event: 'property-change', id: 5, name: 'chapter-list', data: [{ title: 'Episode', time: 0 }, { title: 'ED', time: 1290 }, { time: 'x' }, 'junk'] });
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1310 });
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1320 });
+
+    expect(credits).toEqual([1300]);
+  });
+
+  it('reports the end of the file each time playback gets back there, without ending', async () => {
+    const { mpv, player, ended } = setUp();
+    let reached = 0;
+    player.onEndReached(() => reached++);
+    await player.play(contractPlay);
+
+    for (const data of [true, true, false, true]) mpv.send({ event: 'property-change', id: 4, name: 'eof-reached', data });
+
+    expect(reached).toBe(2);
+    expect(ended).toEqual([]);
+  });
+
+  it('sends Up next to the OSC as a script message and ignores other client messages', async () => {
+    const { mpv, player } = setUp();
+    const choices: string[] = [];
+    player.onUpNextChoice((choice) => choices.push(choice));
+    await player.play(contractPlay);
+
+    player.showUpNext({ title: 'Show S01E02 · Two', seconds: 10 });
+    mpv.send({ event: 'client-message', args: [upNextMessages.choice, 'later'] });
+    mpv.send({ event: 'client-message', args: ['other-script', 'play'] });
+    mpv.send({ event: 'client-message' });
+
+    expect(mpv.commands.at(-1)).toEqual(['script-message', 'mediaman-up-next', '10', 'Show S01E02 · Two']);
+    expect(choices).toEqual([]);
+  });
+
   it('retries the IPC connection until MPV has opened it', async () => {
     const { mpv, player } = setUp();
     mpv.refuseConnects = 3;
@@ -369,7 +433,7 @@ describe('mpvArgs', () => {
       '--input-ipc-server=p',
       '--force-window=yes',
       '--idle=no',
-      '--keep-open=no',
+      '--keep-open=yes',
       '--force-media-title=Alien (1979)',
       '--',
       '-weird',

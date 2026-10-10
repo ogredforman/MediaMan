@@ -1,9 +1,11 @@
 // A stand-in for the desktop bridge's `player` (desktop/src/preload/index.cts): records launches and lets tests
 // send MPV's events. Never starts MPV.
-import type { DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult } from '../lib/desktop';
+import type { DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
 
 export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   readonly plays: { launchId: string; options: DesktopPlayOptions }[];
+  /** Every "Up next" countdown asked for. */
+  readonly upNexts: { launchId: string; offer: DesktopUpNextOffer }[];
   /** The launch id of the latest play. */
   lastLaunchId(): string;
   /** Makes the next `play` answer that MPV couldn't start. */
@@ -20,6 +22,7 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
   let picked: string | null = null;
   const fake: FakeDesktopPlayer = {
     plays: [],
+    upNexts: [],
     stopCalls: 0,
     play(launchId, options): Promise<DesktopPlayResult> {
       if (failure !== undefined) {
@@ -32,6 +35,10 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     },
     stop() {
       fake.stopCalls++;
+      return Promise.resolve();
+    },
+    upNext(launchId, offer) {
+      fake.upNexts.push({ launchId, offer });
       return Promise.resolve();
     },
     chooseMpv: () => Promise.resolve(picked),
