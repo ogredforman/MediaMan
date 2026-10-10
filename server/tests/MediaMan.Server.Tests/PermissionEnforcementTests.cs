@@ -14,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace MediaMan.Server.Tests;
 
 /// <summary>
-/// The table-driven permission test (SPEC §5, §9, §12): every mapped route, including the dev-only ones, enforces the
+/// The table-driven permission test (SPEC §5, §9, §12): every mapped route, in the default and the dev configuration, enforces the
 /// permission it declares. Unauthenticated routes stay open; every other route refuses a missing, forged or expired
 /// token, a revoked session and a disabled user with 401, a user without the permission with 403, and lets a user
 /// holding exactly that permission through.
@@ -44,7 +44,6 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         await using var factory = new MediaManFactory("Development", new Dictionary<string, string>
         {
             ["MediaMan:Dev:MediaPath"] = Path.Combine(_root, "Media"),
-            ["MediaMan:Dev:Providers:Player"] = "Fake",
         });
 
         await AssertEveryRouteAsync(factory);

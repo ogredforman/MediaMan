@@ -30,10 +30,6 @@ public static class DevConfiguration
             }));
         AddProvider<IFileWatcher>(services, providers.FileWatcher, "FileWatcher", "PLAN 2.8", () => new FakeFileWatcher(),
             _ => new FileSystemFileWatcher());
-        AddProvider<IDevPlayer>(services, providers.Player, "Player", "PLAN 1.12", () => new FakeDevPlayer(),
-            sp => new MpvDevPlayer(
-                sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.MpvPath,
-                sp.GetRequiredService<ILogger<MpvDevPlayer>>()));
 
         services.AddSingleton(new DevAccount(dev.AutoSignIn));
         if (dev.Seed)

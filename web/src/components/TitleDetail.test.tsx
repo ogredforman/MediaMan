@@ -186,75 +186,15 @@ describe('TitleDetail', () => {
     expect(within(versions).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('plays a movie through the dev play endpoint', async () => {
+  it('says that Play works in the desktop app when the UI runs in a browser', async () => {
     const user = userEvent.setup();
-    const played: string[] = [];
-    server.use(
-      http.post('*/dev/playables/:playableId/play', ({ params }) => {
-        played.push(String(params.playableId));
-        return HttpResponse.json({ mediaFileId: 'f', fileName: 'Arrival.mkv' }, { status: 202 });
-      }),
-    );
-    renderApp(`/titles/${arrival}`);
-
-    await user.click(await screen.findByRole('button', { name: 'Play' }));
-
-    expect(await screen.findByText('Playing Arrival.mkv in MPV.')).toHaveAttribute('role', 'status');
-    expect(played).toEqual([must(mockTitleDetails[arrival]?.playable).id]);
-  });
-
-  it('plays an episode, and offers Play only for episodes with a file', async () => {
-    const user = userEvent.setup();
-    renderApp(`/titles/${office}`);
-    const panel = await screen.findByRole('tabpanel', { name: 'Season 1' });
-
-    expect(within(panel).queryByRole('button', { name: 'Play Health Care' })).not.toBeInTheDocument();
-    await user.click(within(panel).getByRole('button', { name: 'Play Diversity Day' }));
-
-    expect(await within(panel).findByRole('status')).toHaveTextContent(
-      'Playing The.Office.S01E01-E02.720p.WEB-DL.mkv in MPV.',
-    );
-  });
-
-  it('explains that Play needs the dev configuration when the server has no play endpoint', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.post('*/dev/playables/:playableId/play', () =>
-        HttpResponse.json({ title: 'Not Found', status: 404, code: 'not_found' }, { status: 404 }),
-      ),
-    );
     renderApp(`/titles/${arrival}`);
 
     await user.click(await screen.findByRole('button', { name: 'Play' }));
 
     const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent("Play isn't available on this server.");
-    expect(alert).toHaveTextContent('MediaMan:Dev:MediaPath');
-  });
-
-  it('shows what to do when MPV cannot start', async () => {
-    const user = userEvent.setup();
-    server.use(
-      http.post('*/dev/playables/:playableId/play', () =>
-        HttpResponse.json(
-          {
-            title: "MPV couldn't start.",
-            status: 503,
-            code: 'playback.player_unavailable',
-            detail: "MPV ('mpv') couldn't be started.",
-            action: 'Install MPV, or set MediaMan:Tools:MpvPath to the MPV executable, then try again.',
-          },
-          { status: 503 },
-        ),
-      ),
-    );
-    renderApp(`/titles/${arrival}`);
-
-    await user.click(await screen.findByRole('button', { name: 'Play' }));
-
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent("MPV couldn't start.");
-    expect(alert).toHaveTextContent('MediaMan:Tools:MpvPath');
+    expect(alert).toHaveTextContent('Play works in the MediaMan desktop app.');
+    expect(alert).toHaveTextContent('Open this title in the desktop app');
   });
 
   describe('in the desktop app', () => {
@@ -298,6 +238,20 @@ describe('TitleDetail', () => {
       await waitFor(() => {
         expect(reports).toEqual([[playable.id, { positionSeconds: 60, durationSeconds: 6960 }]]);
       });
+    });
+
+    it('plays an episode, and offers Play only for episodes with a file', async () => {
+      const user = userEvent.setup();
+      installDesktop();
+      renderApp(`/titles/${office}`);
+      const panel = await screen.findByRole('tabpanel', { name: 'Season 1' });
+
+      expect(within(panel).queryByRole('button', { name: 'Play Health Care' })).not.toBeInTheDocument();
+      await user.click(within(panel).getByRole('button', { name: 'Play Diversity Day' }));
+
+      expect(await within(panel).findByRole('status')).toHaveTextContent(
+        'Playing The.Office.S01E01-E02.720p.WEB-DL.mkv in MPV.',
+      );
     });
 
     it("offers MPV settings when MPV can't start, and says which MPV was picked", async () => {

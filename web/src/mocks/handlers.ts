@@ -274,12 +274,6 @@ export const handlers = [
           { status: 404 },
         );
   }),
-  http.post('*/dev/playables/:playableId/play', ({ params }) => {
-    const version = mockVersions.selectedFor(String(params.playableId));
-    return version
-      ? HttpResponse.json({ mediaFileId: version.mediaFileId, fileName: version.fileName }, { status: 202 })
-      : HttpResponse.json(playableNotFound, { status: 404 });
-  }),
   // Playback sessions for the desktop Play button: the version the server would pick, with no resume or subtitles.
   http.post('*/playback/sessions', async ({ request }) => {
     const { playableId } = (await request.json()) as CreatePlaybackSessionRequest;

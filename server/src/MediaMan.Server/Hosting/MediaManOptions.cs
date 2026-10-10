@@ -64,9 +64,6 @@ public sealed class TmdbSettings
 public sealed class ToolsOptions
 {
     public string FfprobePath { get; set; } = "ffprobe";
-
-    /// <summary>MPV, used only by the dev-only play endpoint (SPEC §13); the desktop app launches its own MPV.</summary>
-    public string MpvPath { get; set; } = "mpv";
 }
 
 /// <summary>Where an external dependency comes from in the dev configuration.</summary>
@@ -113,7 +110,4 @@ public sealed class DevProviders
 
     public ProviderSource MediaProbe { get; set; } = ProviderSource.Fake;
     public ProviderSource FileWatcher { get; set; } = ProviderSource.Fake;
-
-    /// <summary>The player behind the dev-only play endpoint; Real launches MPV on this host, Fake only records.</summary>
-    public ProviderSource Player { get; set; } = ProviderSource.Real;
 }

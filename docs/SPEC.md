@@ -321,7 +321,7 @@ User 1─* SavedQualityProfile
 - [M] Catalog search of TMDB for titles not in the library.
 
 **Playback**
-- [P] Pressing Play launches MPV on the local file. Prototype only: the server launches MPV on its own host through a dev-only endpoint.
+- [P] Pressing Play launches MPV on the local file. Prototype only: the server launched MPV on its own host through a dev-only endpoint, removed once the desktop app played (PLAN 2.14c); in a plain browser Play now says to use the desktop app until browser playback (Stage 5).
 - [M] The Electron desktop app launches MPV via `IPlayer` with the stream URL, resume position and subtitles (7.4).
 - [M] Custom purple Lua OSC for MPV.
 - [M] Resume after 2 minutes; watched at 90%; "Up next" with a 10 s countdown.
@@ -647,9 +647,6 @@ UX rules:
 - **Assumed: match confidence threshold of 0.85.** Blocks matcher tuning. To be tuned against the corpus.
 - **Assumed: seeding defaults of ratio 2.0 or 7 days, whichever comes first.** Blocks managed-import timing.
 - **Assumed: transcode cache in a temp folder capped at 10 GB, oldest evicted first.** Blocks the browser playback design (PLAN Stage 5).
-- **Assumed: the prototype launches MPV from the server host via a dev-only endpoint.** It's removed when the Electron app lands in the MVP.
-  Blocks nothing, but must not ship. It is `POST /dev/playables/{id}/play` (`x-dev-only` in the contract), mapped only in the dev configuration of a Debug build,
-  and reaches MPV through the dev-only `IDevPlayer` seam in `MediaMan.Server/Dev`, which is not a §10.3 interface.
 - **Assumed: the leak check uses a public "what is my IP" endpoint, configurable in settings.** Which service to use by default is undecided. Blocks VPN gate implementation.
 - **Assumed: IP ban thresholds** (a ban after 3 lockouts or 50 failed requests from one address within an hour; 1 h, 24 h, 7 days; strikes expire after 30 days). Blocks nothing; tuned with real use.
 - **Exact community definitions URL to offer at first setup.** Blocks the indexer import UX.
