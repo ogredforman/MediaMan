@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockTokens } from '../mocks/handlers';
+import { createFakeDesktopPlayer } from '../test/fakeDesktopPlayer';
 import type { MediamanDesktop } from './desktop';
 
 // Expiries come from the clock, so each test compares against one copy.
@@ -9,7 +10,7 @@ const savedTokens = mockTokens('saved');
 /** A stand-in for the desktop app's preload bridge, recording every token write in order. */
 function installBridge(options: { tokens?: unknown; baseUrl?: string | null } = {}) {
   const writes: string[] = [];
-  let saved = options.tokens ?? null;
+  let saved: unknown = options.tokens ?? null;
   const bridge: MediamanDesktop = {
     isDesktop: true,
     platform: 'linux',
@@ -28,6 +29,7 @@ function installBridge(options: { tokens?: unknown; baseUrl?: string | null } = 
         return Promise.resolve();
       },
     },
+    player: createFakeDesktopPlayer(),
   };
   window.mediamanDesktop = bridge;
   return { bridge, writes, saved: () => saved };

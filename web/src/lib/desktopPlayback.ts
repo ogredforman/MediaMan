@@ -1,0 +1,180 @@
+// Play on desktop (SPEC §7.4 steps 1–4 and 6): a playback session from the server, MPV through the desktop bridge,
+// and every progress event reported back. It lives outside React so leaving the page doesn't stop the reports.
+import { useSyncExternalStore } from 'react';
+import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
+import type { PlaybackSession, WatchProgressReport } from '../api/mediaman.schemas';
+import { desktopBridge, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
+import { apiUrl } from './http';
+
+export type PlaybackFailure =
+  /** MPV couldn't be started; the UI offers "Open MPV settings". */
+  | { kind: 'mpv'; message: string }
+  /** The stream failed twice, the second time on a fresh session. */
+  | { kind: 'stream'; detail?: string }
+  /** The server didn't give a playback session; `error` is usually an `ApiError`. */
+  | { kind: 'session'; error: unknown };
+
+export type DesktopPlaybackState =
+  | { status: 'idle' }
+  | { status: 'starting'; playableId: string }
+  | { status: 'playing'; playableId: string; title: string }
+  | { status: 'failed'; playableId: string; failure: PlaybackFailure };
+
+export interface PlaybackApi {
+  createSession(playableId: string): Promise<PlaybackSession>;
+  reportProgress(playableId: string, report: WatchProgressReport): Promise<unknown>;
+}
+
+const serverApi: PlaybackApi = {
+  createSession: (playableId) => createPlaybackSession({ playableId, capabilities: { player: 'mpv' } }),
+  reportProgress: (playableId, report) => reportWatchProgress(playableId, report),
+};
+
+interface Launch {
+  launchId: string;
+  playableId: string;
+  /** The stream already failed once and this launch is the re-query (SPEC §7.4 step 6). */
+  retry: boolean;
+  /** The last position MPV reported, where a re-query resumes. */
+  positionSeconds?: number;
+}
+
+export interface DesktopPlayback {
+  getState: () => DesktopPlaybackState;
+  subscribe: (listener: () => void) => () => void;
+  play: (playableId: string) => Promise<void>;
+  chooseMpv: () => Promise<string | null>;
+}
+
+export function createDesktopPlayback(player: DesktopPlayerBridge, api: PlaybackApi = serverApi): DesktopPlayback {
+  let state: DesktopPlaybackState = { status: 'idle' };
+  const listeners = new Set<() => void>();
+  let current: Launch | undefined;
+  // Every launch MPV may still report on, so a replaced launch's last position (sent on quit) isn't lost.
+  const launches = new Map<string, Launch>();
+  // Reports go one at a time, so the server sees them in MPV's order.
+  let reports: Promise<unknown> = Promise.resolve();
+
+  const set = (next: DesktopPlaybackState) => {
+    state = next;
+    for (const listener of listeners) listener();
+  };
+
+  const report = (playableId: string, progress: WatchProgressReport) => {
+    // A failed report is dropped; the next one (10 s later at most) carries the newer position anyway.
+    reports = reports.then(() => api.reportProgress(playableId, progress)).catch(() => undefined);
+  };
+
+  const launch = async (playableId: string, retry: boolean, positionSeconds?: number): Promise<void> => {
+    const self: Launch = { launchId: crypto.randomUUID(), playableId, retry };
+    if (positionSeconds !== undefined) self.positionSeconds = positionSeconds;
+    current = self;
+    launches.set(self.launchId, self);
+    set({ status: 'starting', playableId });
+
+    let session: PlaybackSession;
+    try {
+      session = await api.createSession(playableId);
+    } catch (error) {
+      launches.delete(self.launchId);
+      if (current !== self) return;
+      current = undefined;
+      set({ status: 'failed', playableId, failure: { kind: 'session', error } });
+      return;
+    }
+    if (current !== self) return;
+
+    const result = await player.play(self.launchId, playOptions(session, positionSeconds));
+    if (!result.ok) launches.delete(self.launchId);
+    if (current !== self) return;
+    if (result.ok) {
+      set({ status: 'playing', playableId, title: session.title });
+    } else {
+      current = undefined;
+      set({ status: 'failed', playableId, failure: { kind: 'mpv', message: result.message } });
+    }
+  };
+
+  const onEvent = (event: DesktopPlayerEvent) => {
+    const self = launches.get(event.launchId);
+    if (!self) return;
+    if (event.type === 'progress') {
+      self.positionSeconds = event.positionSeconds;
+      report(self.playableId, {
+        positionSeconds: Math.max(0, event.positionSeconds),
+        durationSeconds: Math.max(0, event.durationSeconds),
+      });
+      return;
+    }
+    launches.delete(self.launchId);
+    if (current !== self) return;
+    if (event.reason === 'error' && !self.retry) {
+      // The stream URL may have expired or the server restarted: ask for a new session once.
+      void launch(self.playableId, true, self.positionSeconds);
+      return;
+    }
+    current = undefined;
+    set(
+      event.reason === 'error'
+        ? {
+            status: 'failed',
+            playableId: self.playableId,
+            failure: event.detail === undefined ? { kind: 'stream' } : { kind: 'stream', detail: event.detail },
+          }
+        : { status: 'idle' },
+    );
+  };
+  player.onEvent(onEvent);
+
+  return {
+    getState: () => state,
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    play: (playableId) => launch(playableId, false),
+    chooseMpv: () => player.chooseMpv(),
+  };
+}
+
+/** The session as MPV's launch: absolute URLs on the current server, resuming at `positionSeconds` on a re-query. */
+export function playOptions(session: PlaybackSession, positionSeconds?: number): DesktopPlayOptions {
+  return {
+    url: absolute(session.url),
+    startSeconds: positionSeconds ?? session.resumeSeconds ?? 0,
+    title: session.title,
+    subtitles: session.subtitles.map((s) => ({
+      url: absolute(s.url),
+      title: s.fileName,
+      ...(s.language === undefined ? {} : { language: s.language }),
+    })),
+  };
+}
+
+/** `apiUrl` can be relative to the page (e.g. `/api` behind the Vite proxy); MPV needs a full URL. */
+function absolute(path: string): string {
+  return new URL(apiUrl(path), window.location.href).toString();
+}
+
+const shared = new WeakMap<DesktopPlayerBridge, DesktopPlayback>();
+
+/** The app's desktop playback, or null outside the desktop app (no MPV to play with). */
+export function desktopPlayback(): DesktopPlayback | null {
+  const player = desktopBridge()?.player;
+  if (!player) return null;
+  let playback = shared.get(player);
+  if (!playback) {
+    playback = createDesktopPlayback(player);
+    shared.set(player, playback);
+  }
+  return playback;
+}
+
+const idle: DesktopPlaybackState = { status: 'idle' };
+const noop = () => () => undefined;
+
+export function useDesktopPlayback(playback: DesktopPlayback | null): DesktopPlaybackState {
+  return useSyncExternalStore(playback?.subscribe ?? noop, playback?.getState ?? (() => idle));
+}

@@ -1,11 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { MediaVersion, TitleDetail } from '../api/mediaman.schemas';
-import { mockTitleDetails, mockTitles } from '../mocks/handlers';
+import { mockTitleDetails, mockTitles, mockVersions } from '../mocks/handlers';
+import type { MediamanDesktop } from '../lib/desktop';
 import { apiUrl } from '../lib/http';
 import { server } from '../mocks/node';
+import { createFakeDesktopPlayer } from '../test/fakeDesktopPlayer';
 import { renderApp } from '../test/renderApp';
 
 const [arrival, dune, office] = mockTitles.map((t) => t.id) as [string, string, string];
@@ -253,6 +255,88 @@ describe('TitleDetail', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent("MPV couldn't start.");
     expect(alert).toHaveTextContent('MediaMan:Tools:MpvPath');
+  });
+
+  describe('in the desktop app', () => {
+    function installDesktop() {
+      const player = createFakeDesktopPlayer();
+      const bridge: MediamanDesktop = {
+        isDesktop: true,
+        platform: 'linux',
+        server: { baseUrl: () => Promise.resolve(null) },
+        tokens: { get: () => Promise.resolve(null), set: () => Promise.resolve(), clear: () => Promise.resolve() },
+        player,
+      };
+      window.mediamanDesktop = bridge;
+      return player;
+    }
+    afterEach(() => {
+      delete window.mediamanDesktop;
+    });
+
+    it('plays the version the server picks in MPV and reports its progress', async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      const reports: unknown[] = [];
+      server.use(
+        http.put('*/playables/:playableId/progress', async ({ params, request }) => {
+          reports.push([params.playableId, await request.json()]);
+          return HttpResponse.json({ playableId: String(params.playableId), positionSeconds: 0, durationSeconds: 0, watched: false });
+        }),
+      );
+      const playable = must(mockTitleDetails[arrival]?.playable);
+      renderApp(`/titles/${arrival}`);
+
+      await user.click(await screen.findByRole('button', { name: 'Play' }));
+
+      expect(await screen.findByText(/^Playing Arrival.2016.2160p.*.mkv in MPV.$/)).toHaveAttribute('role', 'status');
+      const options = must(player.plays[0]).options;
+      expect(options.url).toBe(apiUrl(`/media-files/${must(mockVersions.selectedFor(playable.id)).mediaFileId}/stream?sid=mock&exp=0&sig=mock`));
+      expect(options.startSeconds).toBe(0);
+
+      player.emit({ launchId: player.lastLaunchId(), type: 'progress', positionSeconds: 60, durationSeconds: 6960, paused: true });
+      await waitFor(() => {
+        expect(reports).toEqual([[playable.id, { positionSeconds: 60, durationSeconds: 6960 }]]);
+      });
+    });
+
+    it("offers MPV settings when MPV can't start, and says which MPV was picked", async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      player.failNextPlay("MPV couldn't be started: 'mpv' was not found.");
+      player.pickMpv('/opt/mpv/mpv');
+      renderApp(`/titles/${arrival}`);
+
+      await user.click(await screen.findByRole('button', { name: 'Play' }));
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent("MPV couldn't start.");
+      expect(alert).toHaveTextContent("'mpv' was not found.");
+      await user.click(screen.getByRole('button', { name: 'Open MPV settings' }));
+      expect(await screen.findByText('MPV is set to /opt/mpv/mpv. Press Play to try again.')).toHaveAttribute('role', 'status');
+
+      await user.click(screen.getByRole('button', { name: 'Play' }));
+      expect(await screen.findByText(/in MPV.$/)).toHaveAttribute('role', 'status');
+      expect(player.plays).toHaveLength(1);
+    });
+
+    it('shows an error after the stream fails on a fresh session too', async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      renderApp(`/titles/${arrival}`);
+
+      await user.click(await screen.findByRole('button', { name: 'Play' }));
+      await screen.findByText(/in MPV.$/);
+      player.emit({ launchId: player.lastLaunchId(), type: 'ended', reason: 'error', detail: 'loading failed' });
+      await waitFor(() => {
+        expect(player.plays).toHaveLength(2);
+      });
+      player.emit({ launchId: player.lastLaunchId(), type: 'ended', reason: 'error', detail: 'loading failed' });
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent("MPV couldn't play this file.");
+      expect(alert).toHaveTextContent('Check that the server is running');
+    });
   });
 
   it('shows season tabs with the first regular season selected and specials last', async () => {

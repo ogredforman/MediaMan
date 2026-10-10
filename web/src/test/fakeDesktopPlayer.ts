@@ -1,0 +1,60 @@
+// A stand-in for the desktop bridge's `player` (desktop/src/preload/index.cts): records launches and lets tests
+// send MPV's events. Never starts MPV.
+import type { DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult } from '../lib/desktop';
+
+export interface FakeDesktopPlayer extends DesktopPlayerBridge {
+  readonly plays: { launchId: string; options: DesktopPlayOptions }[];
+  /** The launch id of the latest play. */
+  lastLaunchId(): string;
+  /** Makes the next `play` answer that MPV couldn't start. */
+  failNextPlay(message: string): void;
+  /** What the MPV picker answers; null is a cancel. */
+  pickMpv(path: string | null): void;
+  emit(event: DesktopPlayerEvent): void;
+  stopCalls: number;
+}
+
+export function createFakeDesktopPlayer(): FakeDesktopPlayer {
+  const listeners = new Set<(event: DesktopPlayerEvent) => void>();
+  let failure: string | undefined;
+  let picked: string | null = null;
+  const fake: FakeDesktopPlayer = {
+    plays: [],
+    stopCalls: 0,
+    play(launchId, options): Promise<DesktopPlayResult> {
+      if (failure !== undefined) {
+        const message = failure;
+        failure = undefined;
+        return Promise.resolve({ ok: false, error: 'mpvStart', message });
+      }
+      fake.plays.push({ launchId, options });
+      return Promise.resolve({ ok: true });
+    },
+    stop() {
+      fake.stopCalls++;
+      return Promise.resolve();
+    },
+    chooseMpv: () => Promise.resolve(picked),
+    onEvent(callback) {
+      listeners.add(callback);
+      return () => {
+        listeners.delete(callback);
+      };
+    },
+    lastLaunchId() {
+      const last = fake.plays.at(-1);
+      if (!last) throw new Error('Nothing was played.');
+      return last.launchId;
+    },
+    failNextPlay(message) {
+      failure = message;
+    },
+    pickMpv(path) {
+      picked = path;
+    },
+    emit(event) {
+      for (const listener of listeners) listener(event);
+    },
+  };
+  return fake;
+}

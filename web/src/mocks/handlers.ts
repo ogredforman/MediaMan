@@ -11,7 +11,15 @@ import { mockAttention } from './attention';
 import { mockLibraries } from './libraries';
 import { mockProfiles } from './profiles';
 import { createMockVersions } from './versions';
-import type { AuthTokens, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
+import type {
+  AuthTokens,
+  CreatePlaybackSessionRequest,
+  PlaybackSession,
+  TitleDetail,
+  TitleSummary,
+  WatchProgress,
+  WatchProgressReport,
+} from '../api/mediaman.schemas';
 
 export const mockHealth = { status: 'healthy', version: '0.0.0-mock' } as const;
 
@@ -219,6 +227,14 @@ export function createEventStream() {
 
 export const mockEvents = createEventStream();
 
+const playableNotFound = {
+  title: 'Nothing to play here.',
+  status: 404,
+  code: 'playable.not_found',
+  detail: "This movie or episode doesn't exist any more. A rescan may have removed it.",
+  action: 'Go back to the title and try again.',
+};
+
 /** The session profile's preferred versions over `mockTitleDetails`; `reset` after each test. */
 export const mockVersions = createMockVersions(mockTitleDetails);
 
@@ -262,16 +278,31 @@ export const handlers = [
     const version = mockVersions.selectedFor(String(params.playableId));
     return version
       ? HttpResponse.json({ mediaFileId: version.mediaFileId, fileName: version.fileName }, { status: 202 })
-      : HttpResponse.json(
-          {
-            title: 'Nothing to play here.',
-            status: 404,
-            code: 'playable.not_found',
-            detail: "This movie or episode doesn't exist any more. A rescan may have removed it.",
-            action: 'Go back to the title and try again.',
-          },
-          { status: 404 },
-        );
+      : HttpResponse.json(playableNotFound, { status: 404 });
+  }),
+  // Playback sessions for the desktop Play button: the version the server would pick, with no resume or subtitles.
+  http.post('*/playback/sessions', async ({ request }) => {
+    const { playableId } = (await request.json()) as CreatePlaybackSessionRequest;
+    const version = mockVersions.selectedFor(playableId);
+    if (!version) return HttpResponse.json(playableNotFound, { status: 404 });
+    const session: PlaybackSession = {
+      playableId,
+      mediaFileId: version.mediaFileId,
+      method: 'directStream',
+      url: `/media-files/${version.mediaFileId}/stream?sid=mock&exp=0&sig=mock`,
+      title: version.fileName,
+      subtitles: [],
+    };
+    return HttpResponse.json(session);
+  }),
+  http.put('*/playables/:playableId/progress', async ({ params, request }) => {
+    const report = (await request.json()) as WatchProgressReport;
+    const progress: WatchProgress = {
+      playableId: String(params.playableId),
+      ...report,
+      watched: report.durationSeconds > 0 && report.positionSeconds >= report.durationSeconds * 0.9,
+    };
+    return HttpResponse.json(progress);
   }),
   ...getMediaManAPIMock(),
 ];
