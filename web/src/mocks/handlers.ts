@@ -10,7 +10,8 @@ import {
 import { mockAttention } from './attention';
 import { mockLibraries } from './libraries';
 import { mockProfiles } from './profiles';
-import type { AuthTokens, MediaVersion, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
+import { createMockVersions } from './versions';
+import type { AuthTokens, TitleDetail, TitleSummary } from '../api/mediaman.schemas';
 
 export const mockHealth = { status: 'healthy', version: '0.0.0-mock' } as const;
 
@@ -39,7 +40,10 @@ const episodeId = (n: number) => `01920000-0000-7000-8000-${String(300 + n).padS
 const episodePlayableId = (n: number) => `01920000-0000-7000-8000-${String(700 + n).padStart(12, '0')}`;
 const fileId = (n: number) => `01920000-0000-7000-8000-${String(400 + n).padStart(12, '0')}`;
 
-/** Detail for each of `mockTitles`: a movie with two versions (one missing), and a show with specials, a multi-episode file and an episode no file holds. */
+/**
+ * Detail for each of `mockTitles`: a movie with three versions (one missing), and a show with specials, a multi-episode
+ * file, an episode with two versions and an episode no file holds. `mockVersions.apply` adds the version Play uses.
+ */
 export const mockTitleDetails: Record<string, TitleDetail> = {
   [arrival.id]: {
     ...arrival,
@@ -66,6 +70,19 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
           audioChannels: 8,
           source: 'BluRay',
           releaseGroup: 'GROUP',
+        },
+        {
+          mediaFileId: fileId(3),
+          fileName: 'Arrival.2016.1080p.WEB-DL.mkv',
+          sizeBytes: 4_100_000_000,
+          status: 'matched',
+          part: 1,
+          width: 1920,
+          height: 800,
+          videoCodec: 'h264',
+          audioCodec: 'eac3',
+          audioChannels: 6,
+          source: 'WEB-DL',
         },
         {
           mediaFileId: fileId(2),
@@ -146,7 +163,8 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
             name: 'The Dundies',
             playableId: episodePlayableId(4),
             versions: [
-              { mediaFileId: fileId(12), fileName: 'The.Office.S02E01.mkv', sizeBytes: 400_000_000, status: 'matched', part: 1 },
+              { mediaFileId: fileId(12), fileName: 'The.Office.S02E01.720p.mkv', sizeBytes: 400_000_000, status: 'matched', part: 1, width: 1280, height: 720 },
+              { mediaFileId: fileId(13), fileName: 'The.Office.S02E01.1080p.mkv', sizeBytes: 1_200_000_000, status: 'matched', part: 1, width: 1920, height: 1080 },
             ],
           },
         ],
@@ -201,16 +219,8 @@ export function createEventStream() {
 
 export const mockEvents = createEventStream();
 
-/** The versions of a Playable across the mock titles, or undefined for an unknown Playable. */
-function mockVersionsOf(playableId: string): MediaVersion[] | undefined {
-  for (const detail of Object.values(mockTitleDetails)) {
-    if (detail.playable?.id === playableId) return detail.playable.versions;
-    for (const episode of (detail.seasons ?? []).flatMap((s) => s.episodes)) {
-      if (episode.playableId === playableId) return episode.versions;
-    }
-  }
-  return undefined;
-}
+/** The session profile's preferred versions over `mockTitleDetails`; `reset` after each test. */
+export const mockVersions = createMockVersions(mockTitleDetails);
 
 // Deterministic overrides first (MSW uses the first matching handler), then the generated defaults.
 export const handlers = [
@@ -228,6 +238,7 @@ export const handlers = [
   ...mockProfiles.handlers,
   ...mockLibraries.handlers,
   ...mockAttention.handlers,
+  ...mockVersions.handlers,
   getListTitlesMockHandler(({ request }) => {
     const kind = new URL(request.url).searchParams.get('kind');
     return { items: mockTitles.filter((t) => kind === null || t.kind === kind), pageInfo: {} };
@@ -235,7 +246,7 @@ export const handlers = [
   http.get('*/titles/:titleId', ({ params }) => {
     const detail = mockTitleDetails[String(params.titleId)];
     return detail
-      ? HttpResponse.json(detail)
+      ? HttpResponse.json(mockVersions.apply(detail))
       : HttpResponse.json(
           {
             title: 'Title not found.',
@@ -248,7 +259,7 @@ export const handlers = [
         );
   }),
   http.post('*/dev/playables/:playableId/play', ({ params }) => {
-    const version = mockVersionsOf(String(params.playableId))?.find((v) => v.status !== 'missing');
+    const version = mockVersions.selectedFor(String(params.playableId));
     return version
       ? HttpResponse.json({ mediaFileId: version.mediaFileId, fileName: version.fileName }, { status: 202 })
       : HttpResponse.json(

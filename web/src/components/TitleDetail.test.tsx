@@ -1,8 +1,8 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import type { TitleDetail } from '../api/mediaman.schemas';
+import type { MediaVersion, TitleDetail } from '../api/mediaman.schemas';
 import { mockTitleDetails, mockTitles } from '../mocks/handlers';
 import { apiUrl } from '../lib/http';
 import { server } from '../mocks/node';
@@ -22,14 +22,15 @@ describe('TitleDetail', () => {
     expect(screen.getByText(/A linguist works with the military/)).toBeInTheDocument();
 
     const versions = [...screen.getByRole('list', { name: 'Versions' }).children] as HTMLElement[];
-    expect(versions).toHaveLength(2);
+    expect(versions).toHaveLength(3);
     expect(versions[0]).toHaveTextContent('Arrival.2016.2160p.UHD.BluRay.x265.HDR10-GROUP.mkv');
     expect(within(must(versions[0])).getByRole('list', { name: 'Quality' })).toHaveTextContent(
       /2160p.*HDR10.*BluRay.*HEVC.*TRUEHD.*7\.1.*GROUP/,
     );
     expect(versions[0]).toHaveTextContent('21.4 GB');
     expect(versions[0]).not.toHaveTextContent('Missing');
-    expect(versions[1]).toHaveTextContent('Missing');
+    expect(versions[1]).toHaveTextContent('Arrival.2016.1080p.WEB-DL.mkv');
+    expect(versions[2]).toHaveTextContent('Missing');
   });
 
   it('tints the hero from the backdrop and shows the artwork', async () => {
@@ -67,6 +68,120 @@ describe('TitleDetail', () => {
     renderApp(`/titles/${dune}`);
     expect(await screen.findByText(/No file in the library holds this movie/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+  });
+
+  it('marks the version Play uses, picks another and resets to the best quality', async () => {
+    const user = userEvent.setup();
+    renderApp(`/titles/${arrival}`);
+    await screen.findByRole('heading', { level: 1, name: 'Arrival' });
+    const versions = () => [...screen.getByRole('list', { name: 'Versions' }).children] as HTMLElement[];
+    const [uhd, web, missing] = versions() as [HTMLElement, HTMLElement, HTMLElement];
+
+    expect(uhd).toHaveTextContent('Plays');
+    expect(within(uhd).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(missing).queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reset to best quality' })).not.toBeInTheDocument();
+
+    await user.click(within(web).getByRole('button', { name: 'Use this version: Arrival.2016.1080p.WEB-DL.mkv' }));
+
+    await waitFor(() => {
+      expect(versions()[1]).toHaveTextContent('Plays');
+    });
+    expect(versions()[0]).not.toHaveTextContent('Plays');
+    expect(within(must(versions()[0])).getByRole('button', { name: /^Use this version/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Reset to best quality' }));
+
+    await waitFor(() => {
+      expect(versions()[0]).toHaveTextContent('Plays');
+    });
+    expect(screen.queryByRole('button', { name: 'Reset to best quality' })).not.toBeInTheDocument();
+  });
+
+  it("carries an episode's pick across the show at the same quality", async () => {
+    const user = userEvent.setup();
+    const sent: unknown[] = [];
+    server.events.on('request:start', ({ request }) => {
+      if (request.method === 'PUT' && request.url.endsWith(`/titles/${office}/preferred-version`)) {
+        void request.clone().json().then((body) => sent.push(body));
+      }
+    });
+    renderApp(`/titles/${office}`);
+    await user.click(await screen.findByRole('tab', { name: 'Season 2' }));
+    const dundies = screen.getByRole('list', { name: 'Versions of The Dundies' });
+    expect(within(dundies).getByText('The.Office.S02E01.1080p.mkv').closest('li')).toHaveTextContent('Plays');
+    // The Pilot's only file is a single version, so it offers no choice.
+    await user.click(screen.getByRole('tab', { name: 'Season 1' }));
+    expect(within(screen.getByRole('list', { name: 'Versions of Pilot' })).queryByRole('button')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Season 2' }));
+
+    await user.click(screen.getByRole('button', { name: 'Use this version: The.Office.S02E01.720p.mkv' }));
+
+    expect(await screen.findByText(/Episodes play in 720p when there is a version in it/)).toBeInTheDocument();
+    const picked = screen.getByRole('list', { name: 'Versions of The Dundies' });
+    expect(within(picked).getByText('The.Office.S02E01.720p.mkv').closest('li')).toHaveTextContent('Plays');
+    expect(sent).toEqual([{ mediaFileId: must(mockTitleDetails[office]?.seasons?.[2]?.episodes[0]?.versions[0]).mediaFileId }]);
+    server.events.removeAllListeners();
+
+    await user.click(screen.getByRole('button', { name: 'Reset to best quality' }));
+    await waitFor(() => {
+      expect(screen.queryByText(/Episodes play in/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('says what to do when the choice cannot be saved', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.put('*/titles/:titleId/preferred-version', () =>
+        HttpResponse.json(
+          {
+            title: 'Pick a profile first.',
+            status: 409,
+            code: 'profile.required',
+            action: 'Choose who is watching, then pick the version again.',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderApp(`/titles/${arrival}`);
+
+    await user.click(await screen.findByRole('button', { name: 'Use this version: Arrival.2016.1080p.WEB-DL.mkv' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Pick a profile first.');
+    expect(alert).toHaveTextContent('Choose who is watching, then pick the version again.');
+  });
+
+  it('marks and picks a file in several parts once', async () => {
+    const [uhd, web] = must(mockTitleDetails[arrival]?.playable?.versions) as [MediaVersion, MediaVersion];
+    const detail: TitleDetail = {
+      ...must(mockTitleDetails[arrival]),
+      playable: {
+        id: 'p',
+        versions: [uhd, { ...uhd, part: 2 }, web, { ...web, part: 2 }],
+        selectedMediaFileId: uhd.mediaFileId,
+      },
+    };
+    server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
+    renderApp(`/titles/${arrival}`);
+
+    const versions = await screen.findByRole('list', { name: 'Versions' });
+    expect(within(versions).getAllByText('Plays')).toHaveLength(1);
+    expect(within(versions).getAllByRole('button', { name: /^Use this version/ })).toHaveLength(1);
+  });
+
+  it('offers no choice for a movie with a single version', async () => {
+    const detail: TitleDetail = {
+      ...must(mockTitleDetails[arrival]),
+      playable: { id: 'p', versions: [must(mockTitleDetails[arrival]?.playable?.versions[0])], selectedMediaFileId: undefined },
+    };
+    server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
+    renderApp(`/titles/${arrival}`);
+
+    const versions = await screen.findByRole('list', { name: 'Versions' });
+    expect(versions).not.toHaveTextContent('Plays');
+    expect(within(versions).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('plays a movie through the dev play endpoint', async () => {

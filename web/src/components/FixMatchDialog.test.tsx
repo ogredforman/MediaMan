@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import type { MediaFileMatchRequest } from '../api/mediaman.schemas';
 import { formatEpisodes, parseEpisodes } from '../lib/fixMatch';
-import { mockTitles } from '../mocks/handlers';
+import { mockTitleDetails, mockTitles } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp } from '../test/renderApp';
 
@@ -19,6 +19,14 @@ async function openFixMatch(titleId: string) {
   await user.click(await screen.findByRole('button', { name: 'Fix match' }));
   const dialog = await screen.findByRole('dialog', { name: 'Fix match' });
   return { user, dialog, ...rendered };
+}
+
+/** Serves Arrival with only its 2160p file and the missing one, so a single file can be relinked. */
+function arrivalWithOneFile() {
+  const detail = mockTitleDetails[arrival];
+  if (detail?.playable === undefined) throw new Error('Expected Arrival to have a playable.');
+  const versions = detail.playable.versions.filter((v) => !v.fileName.includes('WEB-DL'));
+  server.use(http.get(`*/titles/${arrival}`, () => HttpResponse.json({ ...detail, playable: { ...detail.playable, versions } })));
 }
 
 /** Answers every relink with `titleId`, recording what was sent. */
@@ -50,6 +58,7 @@ describe('parseEpisodes', () => {
 describe('FixMatchDialog on a title', () => {
   it('relinks a movie to a searched title and opens it', async () => {
     const sent = relinkTo(dune);
+    arrivalWithOneFile();
     const { user, dialog } = await openFixMatch(arrival);
 
     // Only the file that isn't missing can be relinked, so there's no file step.
@@ -75,7 +84,8 @@ describe('FixMatchDialog on a title', () => {
     const files = within(dialog).getByRole('list', { name: 'Files' });
     expect(within(files).getAllByRole('button').map((b) => b.textContent)).toEqual([
       'The.Office.S01E01-E02.720p.WEB-DL.mkvS01E01–E02',
-      'The.Office.S02E01.mkvS02E01',
+      'The.Office.S02E01.720p.mkvS02E01',
+      'The.Office.S02E01.1080p.mkvS02E01',
       'The Office S00E01.mkvS00E01',
     ]);
     await user.click(within(files).getByRole('button', { name: /The.Office.S01E01-E02/ }));
@@ -133,6 +143,7 @@ describe('FixMatchDialog on a title', () => {
         }),
       ),
     );
+    arrivalWithOneFile();
     const { dialog } = await openFixMatch(arrival);
 
     const alert = await within(dialog).findByRole('alert');

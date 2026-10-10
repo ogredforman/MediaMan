@@ -16,6 +16,9 @@ const mediaDir = path.join(workDir, 'Media');
 
 const placeholders = [
   ['Movies', 'The.Matrix.1999.1080p.mkv'],
+  // A second version of The Matrix for the version picker. The fake probe makes both 1080p, so the server's
+  // tie-break on the path keeps the 1080p file as the best quality.
+  ['Movies', 'The.Matrix.1999.720p.mkv'],
   ['Movies', 'Inception.2010.2160p.mkv'],
   ['Shows', 'Breaking Bad', 'Season 1', 'Breaking.Bad.S01E01-E03.720p.mkv'],
   ['Shows', 'Breaking Bad', 'Season 1', 'Breaking.Bad.S01E04.1080p.mkv'],

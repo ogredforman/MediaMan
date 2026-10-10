@@ -1,7 +1,14 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { useDevPlay, useGetTitle } from '../api/mediaman';
-import type { Episode, MediaVersion, Season, TitleDetail as Title } from '../api/mediaman.schemas';
+import {
+  getGetTitleQueryKey,
+  useClearPreferredVersion,
+  useDevPlay,
+  useGetTitle,
+  useSetPreferredVersion,
+} from '../api/mediaman';
+import type { Episode, MediaVersion, Season, TitleDetail as Title, VersionPreference } from '../api/mediaman.schemas';
 import { ApiError, artworkSrc } from '../lib/http';
 import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
 import type { FixMatchFile } from '../lib/fixMatch';
@@ -30,17 +37,85 @@ function Chip({ children }: { children: string }) {
   return <li className="rounded-card bg-bg px-2 py-0.5 text-xs text-highlight">{children}</li>;
 }
 
-function VersionList({ versions, label, sharedWith }: { versions: MediaVersion[]; label: string; sharedWith?: Map<string, number[]> }) {
+/** Picking the version Play uses, shared by every version list on the page (SPEC §7.4 step 2). */
+interface VersionChoice {
+  pick: (mediaFileId: string) => void;
+  reset: () => void;
+  pending: boolean;
+  error: ApiError | undefined;
+}
+
+function useVersionChoice(titleId: string): VersionChoice {
+  const queryClient = useQueryClient();
+  // Returning the refetch keeps the mutation pending until the page shows the new choice.
+  const onSuccess = () => queryClient.invalidateQueries({ queryKey: getGetTitleQueryKey(titleId) });
+  const set = useSetPreferredVersion({ mutation: { onSuccess } });
+  const clear = useClearPreferredVersion({ mutation: { onSuccess } });
+  const error = set.error ?? clear.error;
+  return {
+    pick: (mediaFileId) => {
+      clear.reset();
+      set.mutate({ titleId, data: { mediaFileId } });
+    },
+    reset: () => {
+      set.reset();
+      clear.mutate({ titleId });
+    },
+    pending: set.isPending || clear.isPending,
+    error: error instanceof ApiError ? error : undefined,
+  };
+}
+
+function VersionList({
+  versions,
+  label,
+  sharedWith,
+  selectedMediaFileId,
+  choice,
+}: {
+  versions: MediaVersion[];
+  label: string;
+  sharedWith?: Map<string, number[]>;
+  selectedMediaFileId?: string;
+  choice?: VersionChoice;
+}) {
+  // With a single file there is nothing to choose, so the list stays as it was. A file in several parts lists each part,
+  // but is marked and picked once, on its first part.
+  const picking = choice !== undefined && new Set(versions.map((v) => v.mediaFileId)).size > 1;
+  const firstParts = new Set(versions.filter((v, i) => versions.findIndex((o) => o.mediaFileId === v.mediaFileId) === i));
   return (
     <ul aria-label={label} className="flex flex-col gap-2">
       {versions.map((version) => {
         const status = statusLabels[version.status];
         const episodes = sharedWith?.get(version.mediaFileId);
+        const selected = version.mediaFileId === selectedMediaFileId;
+        const offerChoice = picking && firstParts.has(version);
         return (
-          <li key={`${version.mediaFileId}-${String(version.part)}`} className="rounded-card bg-surface px-4 py-3 shadow-soft">
-            <p className="truncate font-medium" title={version.fileName}>
-              {version.fileName}
-            </p>
+          <li
+            key={`${version.mediaFileId}-${String(version.part)}`}
+            className={`rounded-card bg-surface px-4 py-3 shadow-soft ${offerChoice && selected ? 'ring-2 ring-accent' : ''}`}
+          >
+            <div className="flex items-center gap-3">
+              <p className="min-w-0 flex-1 truncate font-medium" title={version.fileName}>
+                {version.fileName}
+              </p>
+              {offerChoice && selected && (
+                <span className="shrink-0 rounded-card bg-accent px-2 py-0.5 text-xs font-semibold text-fg">Plays</span>
+              )}
+              {offerChoice && !selected && version.status === 'matched' && (
+                <button
+                  type="button"
+                  aria-label={`Use this version: ${version.fileName}`}
+                  disabled={choice.pending}
+                  onClick={() => {
+                    choice.pick(version.mediaFileId);
+                  }}
+                  className={`${buttonClass} shrink-0 bg-bg px-3 py-1 text-sm text-highlight`}
+                >
+                  Use this version
+                </button>
+              )}
+            </div>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-fg-muted">
               <ul aria-label="Quality" className="flex flex-wrap gap-2">
                 {versionTags(version).map((tag) => (
@@ -89,7 +164,7 @@ function formatAirDate(date: string): string {
   return Number.isNaN(parsed.getTime()) ? date : parsed.toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' });
 }
 
-function EpisodeList({ season }: { season: Season }) {
+function EpisodeList({ season, choice }: { season: Season; choice: VersionChoice }) {
   const shared = episodesByFile(season.episodes);
   if (season.episodes.length === 0) {
     return <p className="text-fg-muted">No episodes are listed for this season yet.</p>;
@@ -122,7 +197,13 @@ function EpisodeList({ season }: { season: Season }) {
               {episode.versions.length === 0 ? (
                 <p className="text-sm text-fg-muted">Not in library</p>
               ) : (
-                <VersionList versions={episode.versions} label={`Versions of ${name}`} sharedWith={shared} />
+                <VersionList
+                  versions={episode.versions}
+                  label={`Versions of ${name}`}
+                  sharedWith={shared}
+                  selectedMediaFileId={episode.selectedMediaFileId}
+                  choice={choice}
+                />
               )}
               {episode.playableId !== undefined && isPlayable(episode.versions) && (
                 <PlayButton playableId={episode.playableId} label={`Play ${name}`} />
@@ -136,7 +217,7 @@ function EpisodeList({ season }: { season: Season }) {
 }
 
 /** Season tabs (WAI-ARIA tabs: arrow keys, Home and End move between seasons). */
-function SeasonTabs({ seasons }: { seasons: Season[] }) {
+function SeasonTabs({ seasons, choice }: { seasons: Season[]; choice: VersionChoice }) {
   const ordered = orderSeasons(seasons);
   const [selectedId, setSelectedId] = useState(ordered[0]?.id);
   const tabs = useRef(new Map<string, HTMLButtonElement>());
@@ -197,7 +278,7 @@ function SeasonTabs({ seasons }: { seasons: Season[] }) {
       </div>
       <div role="tabpanel" id={`${baseId}-panel`} aria-labelledby={`${baseId}-tab-${selected.id}`} tabIndex={0}>
         {selected.overview !== undefined && <p className="mb-6 max-w-3xl text-fg-muted">{selected.overview}</p>}
-        <EpisodeList season={selected} />
+        <EpisodeList season={selected} choice={choice} />
       </div>
     </div>
   );
@@ -366,6 +447,43 @@ function Hero({ title }: { title: Title }) {
   );
 }
 
+function qualityNote(preference: VersionPreference): string {
+  const quality = [preference.resolution, preference.hdrFormat].filter((part) => part !== undefined).join(' ');
+  return quality === ''
+    ? 'Episodes play at the quality you picked when there is a version in it, otherwise the best quality.'
+    : `Episodes play in ${quality} when there is a version in it, otherwise the best quality.`;
+}
+
+/** "Reset to best quality" once the profile has picked a version, and what went wrong saving a choice. */
+function VersionChoiceBar({ title, choice }: { title: Title; choice: VersionChoice }) {
+  const preference = title.versionPreference;
+  const problem = choice.error?.problem;
+  return (
+    <>
+      {preference !== undefined && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={choice.pending}
+            onClick={choice.reset}
+            className={`${buttonClass} bg-surface text-fg shadow-soft`}
+          >
+            Reset to best quality
+          </button>
+          {title.kind === 'show' && <p className="text-sm text-fg-muted">{qualityNote(preference)}</p>}
+        </div>
+      )}
+      {choice.error !== undefined && (
+        <div role="alert" className="flex flex-col gap-1 text-sm">
+          <p>{problem?.title ?? "Couldn't save which version plays."}</p>
+          {problem?.detail !== undefined && <p className="text-fg-muted">{problem.detail}</p>}
+          <p className="text-fg-muted">{problem?.action ?? 'Check that the server is running, then try again.'}</p>
+        </div>
+      )}
+    </>
+  );
+}
+
 function LoadError({ error, onRetry }: { error: ApiError; onRetry: () => void }) {
   const { problem } = error;
   return (
@@ -395,9 +513,13 @@ function LoadError({ error, onRetry }: { error: ApiError; onRetry: () => void })
   );
 }
 
-/** A title's detail page: hero, metadata, and the movie's versions or the show's seasons and episodes (SPEC §11). */
+/**
+ * A title's detail page: hero, metadata, and the movie's versions or the show's seasons and episodes, with the version
+ * Play uses marked and a picker for it (SPEC §11).
+ */
 export function TitleDetail({ titleId }: { titleId: string }) {
   const title = useGetTitle(titleId);
+  const choice = useVersionChoice(titleId);
 
   if (title.isPending) {
     return (
@@ -427,8 +549,14 @@ export function TitleDetail({ titleId }: { titleId: string }) {
             <h2 id="versions-heading" className="text-xl font-semibold">
               Versions
             </h2>
+            <VersionChoiceBar title={data} choice={choice} />
             {data.playable && data.playable.versions.length > 0 ? (
-              <VersionList versions={data.playable.versions} label="Versions" />
+              <VersionList
+                versions={data.playable.versions}
+                label="Versions"
+                selectedMediaFileId={data.playable.selectedMediaFileId}
+                choice={choice}
+              />
             ) : (
               <p className="text-fg-muted">No file in the library holds this movie. Scan the library to look for it.</p>
             )}
@@ -439,7 +567,8 @@ export function TitleDetail({ titleId }: { titleId: string }) {
             <h2 id="seasons-heading" className="text-xl font-semibold">
               Episodes
             </h2>
-            <SeasonTabs seasons={data.seasons ?? []} />
+            <VersionChoiceBar title={data} choice={choice} />
+            <SeasonTabs seasons={data.seasons ?? []} choice={choice} />
           </section>
         )}
       </div>
