@@ -88,6 +88,49 @@ public class UrlSignerTests
         act.Should().Throw<ArgumentException>();
     }
 
+    [Fact]
+    public void A_session_url_carries_its_session_and_is_valid_for_twelve_hours()
+    {
+        var clock = new FakeClock(new DateTimeOffset(2026, 10, 8, 13, 30, 0, TimeSpan.Zero));
+        var signer = new UrlSigner(_key, clock);
+        var session = Guid.CreateVersion7();
+
+        var query = Query(signer.SignForSession(Path, session));
+
+        query.Keys.Should().Equal("sid", "exp", "sig");
+        query["exp"].Should().Be(clock.UtcNow.AddHours(12).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture));
+        signer.SessionOf(Path, query["sid"], query["exp"], query["sig"]).Should().Be(session);
+
+        clock.Advance(TimeSpan.FromHours(12));
+        signer.SessionOf(Path, query["sid"], query["exp"], query["sig"]).Should().BeNull();
+    }
+
+    [Fact]
+    public void A_session_url_is_refused_for_another_session_or_path()
+    {
+        var signer = new UrlSigner(_key, new FakeClock());
+        var query = Query(signer.SignForSession(Path, Guid.CreateVersion7()));
+
+        signer.SessionOf(Path, Guid.CreateVersion7().ToString("N"), query["exp"], query["sig"]).Should().BeNull();
+        signer.SessionOf(Path + "0", query["sid"], query["exp"], query["sig"]).Should().BeNull();
+        signer.SessionOf(Path, "not-a-session", query["exp"], query["sig"]).Should().BeNull();
+        signer.SessionOf(Path, null, query["exp"], query["sig"]).Should().BeNull();
+    }
+
+    [Fact]
+    public void Session_bound_and_unbound_signatures_dont_pass_for_each_other()
+    {
+        var signer = new UrlSigner(_key, new FakeClock());
+        var bound = Query(signer.SignForSession(Path, Guid.CreateVersion7()));
+        var (exp, sig) = Split(signer.Sign(Path));
+
+        signer.IsValid(Path, bound["exp"], bound["sig"]).Should().BeFalse();
+        signer.SessionOf(Path, bound["sid"], exp, sig).Should().BeNull();
+    }
+
+    private static Dictionary<string, string> Query(string url) =>
+        url[(url.IndexOf('?') + 1)..].Split('&').Select(p => p.Split('=', 2)).ToDictionary(p => p[0], p => p[1]);
+
     private static (string Exp, string Sig) Split(string url)
     {
         url.Should().StartWith(Path + "?exp=");

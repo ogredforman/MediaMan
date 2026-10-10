@@ -7,7 +7,9 @@
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
  *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  *   An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
- *   `<img>` tags can load it; a signature that's invalid or expired counts as no token.
+ *   `<img>` tags can load it; a signature that's invalid or expired counts as no token. An operation that lists
+ *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
+ *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -699,6 +701,112 @@ export interface PreferredVersionRequest {
   mediaFileId: string;
 }
 
+export type ClientCapabilitiesPlayer = typeof ClientCapabilitiesPlayer[keyof typeof ClientCapabilitiesPlayer];
+
+
+export const ClientCapabilitiesPlayer = {
+  mpv: 'mpv',
+  browser: 'browser',
+} as const;
+
+/**
+ * What the client can play (SPEC §7.4, §7.5). MPV decodes everything, so it sends only `player`. A browser lists
+ * what it supports, and the server direct plays, remuxes or transcodes to fit.
+ */
+export interface ClientCapabilities {
+  player: ClientCapabilitiesPlayer;
+  /** e.g. `mp4`, `webm`, `matroska`. */
+  containers?: string[];
+  /** e.g. `h264`, `hevc`, `av1`. */
+  videoCodecs?: string[];
+  /** e.g. `aac`, `opus`, `eac3`. */
+  audioCodecs?: string[];
+  /** HDR formats the display can show, named as in `MediaVersion.hdrFormat`. Empty or absent means SDR only. */
+  hdrFormats?: string[];
+  /**
+     * The most the client can take, in bits per second. Absent means no limit.
+     * @minimum 1
+     */
+  maxBitrate?: number;
+  /** e.g. `srt`, `vtt`, `ass`, `pgs`. */
+  subtitleFormats?: string[];
+}
+
+export interface CreatePlaybackSessionRequest {
+  playableId: string;
+  capabilities: ClientCapabilities;
+}
+
+/**
+ * `directStream` is the file as-is with range support; `hls` is an HLS playlist (a browser remux or
+ * transcode, not produced yet).
+ */
+export type PlaybackSessionMethod = typeof PlaybackSessionMethod[keyof typeof PlaybackSessionMethod];
+
+
+export const PlaybackSessionMethod = {
+  directStream: 'directStream',
+  hls: 'hls',
+} as const;
+
+export type SubtitleTrackFormat = typeof SubtitleTrackFormat[keyof typeof SubtitleTrackFormat];
+
+
+export const SubtitleTrackFormat = {
+  srt: 'srt',
+  vtt: 'vtt',
+  ass: 'ass',
+  ssa: 'ssa',
+} as const;
+
+/**
+ * An external subtitle file.
+ */
+export interface SubtitleTrack {
+  /** Signed like `PlaybackSession.url`. */
+  url: string;
+  format: SubtitleTrackFormat;
+  /** The file's name, without its folder. */
+  fileName: string;
+  /** The language tag from the file name, e.g. `en` in `Alien.en.srt`. Absent when the name has none. */
+  language?: string;
+  /** The name marks it as forced (only foreign-language parts are subtitled). */
+  forced: boolean;
+}
+
+/**
+ * How the client plays a Playable.
+ */
+export interface PlaybackSession {
+  playableId: string;
+  /** The version that plays. */
+  mediaFileId: string;
+  /**
+     * `directStream` is the file as-is with range support; `hls` is an HLS playlist (a browser remux or
+     * transcode, not produced yet).
+     */
+  method: PlaybackSessionMethod;
+  /**
+     * What the player loads, relative to the server. Signed for the requesting session (`sessionUrl`), so it
+     * needs no token. It expires after 12 hours; a client whose load fails asks for a new session.
+     */
+  url: string;
+  /** A display title for the player, e.g. `Alien (1979)` or `The Office S01E02 · Diversity Day`. */
+  title: string;
+  /**
+     * Where the profile stopped, when resume is offered (after 2 minutes and before 90%). Absent otherwise.
+     * @minimum 0
+     */
+  resumeSeconds?: number;
+  /**
+     * The version's runtime, when known.
+     * @minimum 0
+     */
+  durationSeconds?: number;
+  /** External subtitle files next to the version. Subtitles inside the file aren't listed. */
+  subtitles: SubtitleTrack[];
+}
+
 /**
  * The file MPV was launched with (dev-only, see `devPlay`).
  */
@@ -712,6 +820,21 @@ export interface DevPlayStarted {
  * The request failed. The body says what happened and what to do next.
  */
 export type ProblemResponse = Problem;
+
+/**
+ * The session a `sessionUrl` is signed for. Part of a URL the server returned; clients never build it.
+ */
+export type SessionUrlSessionParameter = string;
+
+/**
+ * When a `sessionUrl` expires, in Unix seconds. Part of a URL the server returned; clients never build it.
+ */
+export type SessionUrlExpiresParameter = number;
+
+/**
+ * A `sessionUrl`'s signature. Part of a URL the server returned; clients never build it.
+ */
+export type SessionUrlSignatureParameter = string;
 
 /**
  * Maximum number of items to return.
@@ -798,5 +921,35 @@ exp?: number;
  * The URL's signature. Part of an `ArtworkRef.url`; clients never build it.
  */
 sig?: string;
+};
+
+export type StreamMediaFileParams = {
+/**
+ * The session a `sessionUrl` is signed for. Part of a URL the server returned; clients never build it.
+ */
+sid?: SessionUrlSessionParameter;
+/**
+ * When a `sessionUrl` expires, in Unix seconds. Part of a URL the server returned; clients never build it.
+ */
+exp?: SessionUrlExpiresParameter;
+/**
+ * A `sessionUrl`'s signature. Part of a URL the server returned; clients never build it.
+ */
+sig?: SessionUrlSignatureParameter;
+};
+
+export type GetSubtitleParams = {
+/**
+ * The session a `sessionUrl` is signed for. Part of a URL the server returned; clients never build it.
+ */
+sid?: SessionUrlSessionParameter;
+/**
+ * When a `sessionUrl` expires, in Unix seconds. Part of a URL the server returned; clients never build it.
+ */
+exp?: SessionUrlExpiresParameter;
+/**
+ * A `sessionUrl`'s signature. Part of a URL the server returned; clients never build it.
+ */
+sig?: SessionUrlSignatureParameter;
 };
 

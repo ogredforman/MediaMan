@@ -23,11 +23,20 @@ public static class PermissionMetadataExtensions
     public static TBuilder AllowsSignedUrl<TBuilder>(this TBuilder builder)
         where TBuilder : IEndpointConventionBuilder =>
         builder.WithMetadata(new SignedUrlMetadata());
+
+    /// <summary>
+    /// Accepts a valid, unexpired <c>?sid=…&amp;exp=…&amp;sig=…</c> from <c>UrlSigner.SignForSession</c> in place of that
+    /// session's bearer token: the session must still be live and its user must hold the route's permission.
+    /// </summary>
+    public static TBuilder AllowsSessionSignedUrl<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder =>
+        builder.WithMetadata(new SignedUrlMetadata(BoundToSession: true));
 }
 
 /// <summary>
 /// The endpoint also accepts a URL signed by <c>UrlSigner</c> in place of a bearer token; mirrors the contract's
 /// <c>signedUrl</c> security scheme. The signature isn't bound to a user, so it's issued only in responses to callers
-/// who already hold the route's permission.
+/// who already hold the route's permission. With <paramref name="BoundToSession"/> it mirrors <c>sessionUrl</c>
+/// instead: the URL is signed for one session and counts as that session's token.
 /// </summary>
-public sealed record SignedUrlMetadata;
+public sealed record SignedUrlMetadata(bool BoundToSession = false);

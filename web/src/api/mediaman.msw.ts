@@ -7,7 +7,9 @@
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
  *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  *   An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
- *   `<img>` tags can load it; a signature that's invalid or expired counts as no token.
+ *   `<img>` tags can load it; a signature that's invalid or expired counts as no token. An operation that lists
+ *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
+ *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -45,12 +47,14 @@ import type {
 import {
   getCompleteSetupResponseMock,
   getCreateLibraryResponseMock,
+  getCreatePlaybackSessionResponseMock,
   getCreateProfileResponseMock,
   getDevPlayResponseMock,
   getGetArtworkResponseMock,
   getGetEventsResponseMock,
   getGetHealthResponseMock,
   getGetLibraryResponseMock,
+  getGetSubtitleResponseMock,
   getGetTitleResponseMock,
   getListAttentionFilesResponseMock,
   getListLibrariesResponseMock,
@@ -63,6 +67,7 @@ import {
   getSelectSessionProfileResponseMock,
   getSetServerModeResponseMock,
   getStartLibraryScanResponseMock,
+  getStreamMediaFileResponseMock,
   getUpdateLibraryResponseMock,
   getUpdateProfileResponseMock
 } from './mediaman.faker';
@@ -77,6 +82,7 @@ import type {
   Library,
   LibraryPage,
   MediaFileMatch,
+  PlaybackSession,
   Profile,
   ProfileList,
   ServerModeState,
@@ -84,7 +90,7 @@ import type {
   TitlePage
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getDevPlayResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getDevPlayResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -390,6 +396,44 @@ export const getGetArtworkMockHandler = (overrideResponse?: Blob | ((info: Param
   }, options)
 }
 
+export const getCreatePlaybackSessionMockHandler = (overrideResponse?: PlaybackSession | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<PlaybackSession> | PlaybackSession), options?: RequestHandlerOptions) => {
+  return http.post('*/playback/sessions', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getCreatePlaybackSessionResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getStreamMediaFileMockHandler = (overrideResponse?: Blob | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Blob> | Blob), options?: RequestHandlerOptions) => {
+  return http.get('*/media-files/:mediaFileId/stream', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+  const binaryBody = overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getStreamMediaFileResponseMock();
+    return new HttpResponse(binaryBody,
+      { status: 200,
+        headers: { 'Content-Type': 'video/*' }
+      })
+  }, options)
+}
+
+export const getGetSubtitleMockHandler = (overrideResponse?: string | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<string> | string), options?: RequestHandlerOptions) => {
+  return http.get('*/media-files/:mediaFileId/subtitles/:subtitleId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+  const resolvedBody = overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetSubtitleResponseMock();
+    const textBody = typeof resolvedBody === 'string' ? resolvedBody : JSON.stringify(resolvedBody ?? null);
+    return HttpResponse.text(textBody,
+      { status: 200, headers: { 'Content-Type': 'text/*' }
+      })
+  }, options)
+}
+
 export const getDevPlayMockHandler = (overrideResponse?: DevPlayStarted | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<DevPlayStarted> | DevPlayStarted), options?: RequestHandlerOptions) => {
   return http.post('*/dev/playables/:playableId/play', async (info: Parameters<Parameters<typeof http.post>[1]>[0]) => {
 
@@ -428,5 +472,8 @@ export const getMediaManAPIMock = () => [
   getSetPreferredVersionMockHandler(),
   getClearPreferredVersionMockHandler(),
   getGetArtworkMockHandler(),
+  getCreatePlaybackSessionMockHandler(),
+  getStreamMediaFileMockHandler(),
+  getGetSubtitleMockHandler(),
   getDevPlayMockHandler()
 ]

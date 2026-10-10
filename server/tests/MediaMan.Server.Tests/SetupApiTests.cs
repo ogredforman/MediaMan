@@ -37,7 +37,7 @@ public sealed class SetupApiTests : IDisposable
         var routes = await ContractCoverageTests.MappedRoutesAsync(factory);
         using var client = factory.CreateClient();
 
-        foreach (var (method, template, _, _) in routes)
+        foreach (var (method, template, _, _, _) in routes)
         {
             var path = template.Replace("{", "", StringComparison.Ordinal).Replace("}", "", StringComparison.Ordinal);
             using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative));

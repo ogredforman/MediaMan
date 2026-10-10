@@ -17,6 +17,7 @@ using MediaMan.Server.Dev;
 using MediaMan.Server.Endpoints;
 using MediaMan.Server.Events;
 using MediaMan.Server.LibraryApi;
+using MediaMan.Server.PlaybackApi;
 using MediaMan.Server.Scanning;
 using MediaMan.Server.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -52,6 +53,7 @@ public static class ServerSetup
         services.AddScoped<LibraryQueries>();
         services.AddScoped<LibraryService>();
         services.AddScoped<VersionPreferenceService>();
+        services.AddScoped<PlaybackService>();
         AddMetadata(services);
         AddScanning(services);
 
@@ -220,6 +222,7 @@ public static class ServerSetup
         app.MapMatchEndpoints();
         app.MapVersionPreferenceEndpoints();
         app.MapArtworkEndpoints();
+        app.MapPlaybackEndpoints();
 #if MEDIAMAN_DEV
         // Dev-only (SPEC §13): the player is registered only by the dev configuration, so elsewhere this route is a 404.
         if (app.Services.GetService<IDevPlayer>() is not null)

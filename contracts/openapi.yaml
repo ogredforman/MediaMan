@@ -9,7 +9,9 @@ info:
     - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
       Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
       An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
-      `<img>` tags can load it; a signature that's invalid or expired counts as no token.
+      `<img>` tags can load it; a signature that's invalid or expired counts as no token. An operation that lists
+      `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
+      session's token.
     - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
       `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
       The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -891,6 +893,154 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
 
+  /playback/sessions:
+    post:
+      operationId: createPlaybackSession
+      summary: Starts playing a Playable on this client (SPEC §7.4, §7.5).
+      description: |
+        The client sends its capabilities and the server decides how it plays. `player: mpv` decodes everything, so
+        it gets a direct stream of the chosen version: the profile's preferred version if it applies, otherwise the
+        highest quality (SPEC §7.4 step 2). Browser playback (direct play, remux or transcode to HLS, SPEC §7.5) is
+        decided from the same request in a later release; until then a browser gets `501`.
+
+        The response carries the resume position when the profile stopped part-way (after 2 minutes and before 90%)
+        and the external subtitle files next to the chosen version. Its URLs are signed for the session that asked
+        (`sessionUrl`), so players load them without a token.
+      tags: [playback]
+      x-permission: library.view
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlaybackSessionRequest'
+      responses:
+        '200':
+          description: How to play it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaybackSession'
+        '400':
+          description: The request is malformed, e.g. an unknown `player` (`playback.invalid`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The Playable doesn't exist (`playable.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: |
+            The session hasn't picked a profile yet (`profile.required`), or none of the Playable's files is
+            available to play (`playback.no_file`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '501':
+          description: The server can't play to this kind of player yet (`playback.player_unsupported`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /media-files/{mediaFileId}/stream:
+    get:
+      operationId: streamMediaFile
+      summary: The file's bytes, as-is. Clients don't build this path; they load a `PlaybackSession.url`.
+      description: |
+        A direct stream with HTTP range support, so players can seek (`206 Partial Content`), served as `video/*` (or
+        `application/octet-stream` for an unknown extension). Only files that hold a Playable and are on disk are
+        served. The file is only read, never changed (SPEC §5).
+      tags: [playback]
+      x-permission: library.view
+      security:
+        - bearerAuth: []
+        - sessionUrl: []
+      parameters:
+        - $ref: '#/components/parameters/MediaFileId'
+        - $ref: '#/components/parameters/SessionUrlSession'
+        - $ref: '#/components/parameters/SessionUrlExpires'
+        - $ref: '#/components/parameters/SessionUrlSignature'
+        - name: Range
+          in: header
+          description: A byte range, e.g. `bytes=0-1023`.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The whole file.
+          content:
+            video/*:
+              schema:
+                type: string
+                format: binary
+        '206':
+          description: The requested byte range.
+          content:
+            video/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: The file doesn't exist, holds no Playable or isn't on disk (`media_file.unavailable`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '416':
+          description: The requested range is outside the file.
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /media-files/{mediaFileId}/subtitles/{subtitleId}:
+    get:
+      operationId: getSubtitle
+      summary: An external subtitle file next to a media file. Clients load a `SubtitleTrack.url` as-is.
+      description: |
+        Served only while it's still next to the media file. The file is only read, never changed (SPEC §5).
+        The response is `application/x-subrip`, `text/vtt` or `text/x-ssa`.
+      tags: [playback]
+      x-permission: library.view
+      security:
+        - bearerAuth: []
+        - sessionUrl: []
+      parameters:
+        - $ref: '#/components/parameters/MediaFileId'
+        - name: subtitleId
+          in: path
+          required: true
+          description: The subtitle's id, part of a `SubtitleTrack.url`.
+          schema:
+            type: string
+        - $ref: '#/components/parameters/SessionUrlSession'
+        - $ref: '#/components/parameters/SessionUrlExpires'
+        - $ref: '#/components/parameters/SessionUrlSignature'
+      responses:
+        '200':
+          description: The subtitle file.
+          content:
+            application/x-subrip:
+              schema:
+                type: string
+            text/*:
+              schema:
+                type: string
+        '404':
+          description: The media file or the subtitle isn't there any more (`subtitle.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /dev/playables/{playableId}/play:
     post:
       operationId: devPlay
@@ -954,8 +1104,36 @@ components:
       description: |
         A signature (with its `exp` parameter) in a URL the server returned, made with the per-install key and not
         bound to a user (SPEC §9, ADR 0008). Only operations that list it accept it.
+    sessionUrl:
+      type: apiKey
+      in: query
+      name: sig
+      description: |
+        A signature (with its `sid` and `exp` parameters) in a URL the server returned, bound to the session that
+        asked for it (SPEC §7.4, ADR 0008). It stands in for that session's token for 12 hours, so players such as
+        MPV load it without one. It stops working when the session is revoked or the user is disabled, and the user
+        still needs the operation's permission.
 
   parameters:
+    SessionUrlSession:
+      name: sid
+      in: query
+      description: The session a `sessionUrl` is signed for. Part of a URL the server returned; clients never build it.
+      schema:
+        type: string
+    SessionUrlExpires:
+      name: exp
+      in: query
+      description: When a `sessionUrl` expires, in Unix seconds. Part of a URL the server returned; clients never build it.
+      schema:
+        type: integer
+        format: int64
+    SessionUrlSignature:
+      name: sig
+      in: query
+      description: A `sessionUrl`'s signature. Part of a URL the server returned; clients never build it.
+      schema:
+        type: string
     ProfileId:
       name: profileId
       in: path
@@ -1842,6 +2020,122 @@ components:
           type: string
           format: uuid
           description: The version Play uses for the session's profile, as on `MoviePlayable`. Absent when no version can play.
+
+    CreatePlaybackSessionRequest:
+      type: object
+      required: [playableId, capabilities]
+      additionalProperties: false
+      properties:
+        playableId:
+          type: string
+          format: uuid
+        capabilities:
+          $ref: '#/components/schemas/ClientCapabilities'
+
+    ClientCapabilities:
+      type: object
+      description: |
+        What the client can play (SPEC §7.4, §7.5). MPV decodes everything, so it sends only `player`. A browser lists
+        what it supports, and the server direct plays, remuxes or transcodes to fit.
+      required: [player]
+      additionalProperties: false
+      properties:
+        player:
+          type: string
+          enum: [mpv, browser]
+        containers:
+          type: array
+          description: e.g. `mp4`, `webm`, `matroska`.
+          items:
+            type: string
+        videoCodecs:
+          type: array
+          description: e.g. `h264`, `hevc`, `av1`.
+          items:
+            type: string
+        audioCodecs:
+          type: array
+          description: e.g. `aac`, `opus`, `eac3`.
+          items:
+            type: string
+        hdrFormats:
+          type: array
+          description: HDR formats the display can show, named as in `MediaVersion.hdrFormat`. Empty or absent means SDR only.
+          items:
+            type: string
+        maxBitrate:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The most the client can take, in bits per second. Absent means no limit.
+        subtitleFormats:
+          type: array
+          description: e.g. `srt`, `vtt`, `ass`, `pgs`.
+          items:
+            type: string
+
+    PlaybackSession:
+      type: object
+      description: How the client plays a Playable.
+      required: [playableId, mediaFileId, method, url, title, subtitles]
+      additionalProperties: false
+      properties:
+        playableId:
+          type: string
+          format: uuid
+        mediaFileId:
+          type: string
+          format: uuid
+          description: The version that plays.
+        method:
+          type: string
+          enum: [directStream, hls]
+          description: |
+            `directStream` is the file as-is with range support; `hls` is an HLS playlist (a browser remux or
+            transcode, not produced yet).
+        url:
+          type: string
+          description: |
+            What the player loads, relative to the server. Signed for the requesting session (`sessionUrl`), so it
+            needs no token. It expires after 12 hours; a client whose load fails asks for a new session.
+        title:
+          type: string
+          description: A display title for the player, e.g. `Alien (1979)` or `The Office S01E02 · Diversity Day`.
+        resumeSeconds:
+          type: number
+          minimum: 0
+          description: Where the profile stopped, when resume is offered (after 2 minutes and before 90%). Absent otherwise.
+        durationSeconds:
+          type: number
+          minimum: 0
+          description: The version's runtime, when known.
+        subtitles:
+          type: array
+          description: External subtitle files next to the version. Subtitles inside the file aren't listed.
+          items:
+            $ref: '#/components/schemas/SubtitleTrack'
+
+    SubtitleTrack:
+      type: object
+      description: An external subtitle file.
+      required: [url, format, fileName, forced]
+      additionalProperties: false
+      properties:
+        url:
+          type: string
+          description: Signed like `PlaybackSession.url`.
+        format:
+          type: string
+          enum: [srt, vtt, ass, ssa]
+        fileName:
+          type: string
+          description: The file's name, without its folder.
+        language:
+          type: string
+          description: The language tag from the file name, e.g. `en` in `Alien.en.srt`. Absent when the name has none.
+        forced:
+          type: boolean
+          description: The name marks it as forced (only foreign-language parts are subtitled).
 
     DevPlayStarted:
       type: object

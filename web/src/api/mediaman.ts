@@ -7,7 +7,9 @@
  * - **Auth:** every operation needs a bearer access token unless it overrides `security` with `[]`.
  *   Only setup, login (including token refresh), invite redemption and health are unauthenticated (SPEC §9).
  *   An operation whose `security` also lists `signedUrl` accepts a URL the server signed in place of a token, so
- *   `<img>` tags can load it; a signature that's invalid or expired counts as no token.
+ *   `<img>` tags can load it; a signature that's invalid or expired counts as no token. An operation that lists
+ *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
+ *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
  *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
@@ -57,10 +59,12 @@ import type {
   AttentionFilePage,
   AuthTokens,
   CatalogSearchResult,
+  CreatePlaybackSessionRequest,
   CreateProfileRequest,
   DevPlayStarted,
   EventEnvelope,
   GetArtworkParams,
+  GetSubtitleParams,
   Health,
   Library,
   LibraryCreateRequest,
@@ -72,6 +76,7 @@ import type {
   LoginRequest,
   MediaFileMatch,
   MediaFileMatchRequest,
+  PlaybackSession,
   PreferredVersionRequest,
   Problem,
   ProblemResponse,
@@ -83,6 +88,7 @@ import type {
   ServerModeRequest,
   ServerModeState,
   SetupRequest,
+  StreamMediaFileParams,
   TitleDetail,
   TitlePage,
   UpdateProfileRequest
@@ -2547,6 +2553,347 @@ export function useGetArtwork<TData = Awaited<ReturnType<typeof getArtwork>>, TE
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetArtworkQueryOptions(artworkId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePlaybackSessionUrl = () => {
+
+
+
+
+  return `/playback/sessions`
+}
+
+/**
+ * The client sends its capabilities and the server decides how it plays. `player: mpv` decodes everything, so
+ * it gets a direct stream of the chosen version: the profile's preferred version if it applies, otherwise the
+ * highest quality (SPEC §7.4 step 2). Browser playback (direct play, remux or transcode to HLS, SPEC §7.5) is
+ * decided from the same request in a later release; until then a browser gets `501`.
+ *
+ * The response carries the resume position when the profile stopped part-way (after 2 minutes and before 90%)
+ * and the external subtitle files next to the chosen version. Its URLs are signed for the session that asked
+ * (`sessionUrl`), so players load them without a token.
+ * @summary Starts playing a Playable on this client (SPEC §7.4, §7.5).
+ */
+export const createPlaybackSession = async (createPlaybackSessionRequest: CreatePlaybackSessionRequest, options?: Parameters<typeof apiFetch>[1]): Promise<PlaybackSession> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<PlaybackSession>(getCreatePlaybackSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(createPlaybackSessionRequest)
+  }
+);}
+
+
+
+
+
+export const getCreatePlaybackSessionMutationKey = () => ['createPlaybackSession'] as const;
+
+export const getCreatePlaybackSessionMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlaybackSession>>, TError,CreatePlaybackSessionMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPlaybackSession>>, TError,CreatePlaybackSessionMutationVariables, TContext> => {
+
+const mutationKey = getCreatePlaybackSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPlaybackSession>>, CreatePlaybackSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPlaybackSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePlaybackSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createPlaybackSession>>>
+    export type CreatePlaybackSessionMutationBody = CreatePlaybackSessionRequest
+    export type CreatePlaybackSessionMutationError = ErrorType<Problem | ProblemResponse>
+    export type CreatePlaybackSessionMutationVariables = {data: CreatePlaybackSessionRequest}
+
+    /**
+ * @summary Starts playing a Playable on this client (SPEC §7.4, §7.5).
+ */
+export const useCreatePlaybackSession = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPlaybackSession>>, TError,CreatePlaybackSessionMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createPlaybackSession>>,
+        TError,
+        CreatePlaybackSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreatePlaybackSessionMutationOptions(options), queryClient);
+    }
+
+export const getStreamMediaFileUrl = (mediaFileId: string,
+    params?: StreamMediaFileParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/media-files/${mediaFileId}/stream?${stringifiedParams}` : `/media-files/${mediaFileId}/stream`
+}
+
+/**
+ * A direct stream with HTTP range support, so players can seek (`206 Partial Content`), served as `video/*` (or
+ * `application/octet-stream` for an unknown extension). Only files that hold a Playable and are on disk are
+ * served. The file is only read, never changed (SPEC §5).
+ * @summary The file's bytes, as-is. Clients don't build this path; they load a `PlaybackSession.url`.
+ */
+export const streamMediaFile = async (mediaFileId: string,
+    params?: StreamMediaFileParams, options?: Parameters<typeof apiFetch>[1]): Promise<Blob> => {
+
+  return apiFetch<Blob>(getStreamMediaFileUrl(mediaFileId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getStreamMediaFileQueryKey = (mediaFileId: string,
+    params?: StreamMediaFileParams,) => {
+    return [
+    `/media-files/${mediaFileId}/stream`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getStreamMediaFileQueryOptions = <TData = Awaited<ReturnType<typeof streamMediaFile>>, TError = ErrorType<Problem | void | ProblemResponse>>(mediaFileId: string,
+    params?: StreamMediaFileParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamMediaFile>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getStreamMediaFileQueryKey(mediaFileId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof streamMediaFile>>> = ({ signal }) => streamMediaFile(mediaFileId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: mediaFileId !== null && mediaFileId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof streamMediaFile>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type StreamMediaFileQueryResult = NonNullable<Awaited<ReturnType<typeof streamMediaFile>>>
+export type StreamMediaFileQueryError = ErrorType<Problem | void | ProblemResponse>
+
+
+export function useStreamMediaFile<TData = Awaited<ReturnType<typeof streamMediaFile>>, TError = ErrorType<Problem | void | ProblemResponse>>(
+ mediaFileId: string,
+    params: undefined |  StreamMediaFileParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamMediaFile>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof streamMediaFile>>,
+          TError,
+          Awaited<ReturnType<typeof streamMediaFile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useStreamMediaFile<TData = Awaited<ReturnType<typeof streamMediaFile>>, TError = ErrorType<Problem | void | ProblemResponse>>(
+ mediaFileId: string,
+    params?: StreamMediaFileParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamMediaFile>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof streamMediaFile>>,
+          TError,
+          Awaited<ReturnType<typeof streamMediaFile>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useStreamMediaFile<TData = Awaited<ReturnType<typeof streamMediaFile>>, TError = ErrorType<Problem | void | ProblemResponse>>(
+ mediaFileId: string,
+    params?: StreamMediaFileParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamMediaFile>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The file's bytes, as-is. Clients don't build this path; they load a `PlaybackSession.url`.
+ */
+
+export function useStreamMediaFile<TData = Awaited<ReturnType<typeof streamMediaFile>>, TError = ErrorType<Problem | void | ProblemResponse>>(
+ mediaFileId: string,
+    params?: StreamMediaFileParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof streamMediaFile>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getStreamMediaFileQueryOptions(mediaFileId,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSubtitleUrl = (mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/media-files/${mediaFileId}/subtitles/${subtitleId}?${stringifiedParams}` : `/media-files/${mediaFileId}/subtitles/${subtitleId}`
+}
+
+/**
+ * Served only while it's still next to the media file. The file is only read, never changed (SPEC §5).
+ * The response is `application/x-subrip`, `text/vtt` or `text/x-ssa`.
+ * @summary An external subtitle file next to a media file. Clients load a `SubtitleTrack.url` as-is.
+ */
+export const getSubtitle = async (mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams, options?: Parameters<typeof apiFetch>[1]): Promise<string> => {
+
+  return apiFetch<string>(getGetSubtitleUrl(mediaFileId,subtitleId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSubtitleQueryKey = (mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams,) => {
+    return [
+    `/media-files/${mediaFileId}/subtitles/${subtitleId}`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSubtitleQueryOptions = <TData = Awaited<ReturnType<typeof getSubtitle>>, TError = ErrorType<Problem | ProblemResponse>>(mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubtitle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSubtitleQueryKey(mediaFileId,subtitleId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSubtitle>>> = ({ signal }) => getSubtitle(mediaFileId,subtitleId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: mediaFileId !== null && mediaFileId !== undefined && subtitleId !== null && subtitleId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSubtitle>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetSubtitleQueryResult = NonNullable<Awaited<ReturnType<typeof getSubtitle>>>
+export type GetSubtitleQueryError = ErrorType<Problem | ProblemResponse>
+
+
+export function useGetSubtitle<TData = Awaited<ReturnType<typeof getSubtitle>>, TError = ErrorType<Problem | ProblemResponse>>(
+ mediaFileId: string,
+    subtitleId: string,
+    params: undefined |  GetSubtitleParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubtitle>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSubtitle>>,
+          TError,
+          Awaited<ReturnType<typeof getSubtitle>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSubtitle<TData = Awaited<ReturnType<typeof getSubtitle>>, TError = ErrorType<Problem | ProblemResponse>>(
+ mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubtitle>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSubtitle>>,
+          TError,
+          Awaited<ReturnType<typeof getSubtitle>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSubtitle<TData = Awaited<ReturnType<typeof getSubtitle>>, TError = ErrorType<Problem | ProblemResponse>>(
+ mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubtitle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary An external subtitle file next to a media file. Clients load a `SubtitleTrack.url` as-is.
+ */
+
+export function useGetSubtitle<TData = Awaited<ReturnType<typeof getSubtitle>>, TError = ErrorType<Problem | ProblemResponse>>(
+ mediaFileId: string,
+    subtitleId: string,
+    params?: GetSubtitleParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSubtitle>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetSubtitleQueryOptions(mediaFileId,subtitleId,params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
