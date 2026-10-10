@@ -49,8 +49,11 @@ export const upNextSeconds = 10;
 export interface DesktopPlayback {
   getState: () => DesktopPlaybackState;
   subscribe: (listener: () => void) => () => void;
-  play: (playableId: string) => Promise<void>;
+  /** Plays from `startSeconds`; without it, where the server's session resumes. Start over passes `0`. */
+  play: (playableId: string, startSeconds?: number) => Promise<void>;
   chooseMpv: () => Promise<string | null>;
+  /** Settles once every progress report sent so far has been answered, so a refetch sees the last position. */
+  reported: () => Promise<void>;
 }
 
 export function createDesktopPlayback(player: DesktopPlayerBridge, api: PlaybackApi = serverApi): DesktopPlayback {
@@ -171,12 +174,13 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
         listeners.delete(listener);
       };
     },
-    play: (playableId) => launch(playableId, false),
+    play: (playableId, startSeconds) => launch(playableId, false, startSeconds),
     chooseMpv: () => player.chooseMpv(),
+    reported: () => reports.then(() => undefined),
   };
 }
 
-/** The session as MPV's launch: absolute URLs on the current server, resuming at `positionSeconds` on a re-query. */
+/** The session as MPV's launch: absolute URLs on the current server, starting at `positionSeconds` (Start over, a re-query). */
 export function playOptions(session: PlaybackSession, positionSeconds?: number): DesktopPlayOptions {
   return {
     url: absolute(session.url),

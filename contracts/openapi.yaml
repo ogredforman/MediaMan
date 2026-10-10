@@ -1953,7 +1953,7 @@ components:
 
     MoviePlayable:
       type: object
-      required: [id, versions]
+      required: [id, versions, watched]
       additionalProperties: false
       properties:
         id:
@@ -1970,6 +1970,15 @@ components:
           description: |
             The version Play uses for the session's profile: its preferred version if it applies, otherwise the
             highest quality (SPEC §7.4 step 2). Absent when no version can play.
+        resumeSeconds:
+          type: number
+          minimum: 0
+          description: |
+            Where the session's profile stopped, when resume is offered (after 2 minutes and before 90%), as in
+            `PlaybackSession.resumeSeconds`. Absent otherwise, and without a picked profile.
+        watched:
+          type: boolean
+          description: The session's profile reached 90% at some point (`WatchProgress.watched`). False without a picked profile.
 
     Season:
       type: object
@@ -1997,7 +2006,7 @@ components:
     Episode:
       type: object
       description: One episode. `playableId` is absent and `versions` is empty when no file holds it.
-      required: [id, number, versions]
+      required: [id, number, versions, watched]
       additionalProperties: false
       properties:
         id:
@@ -2027,6 +2036,13 @@ components:
           type: string
           format: uuid
           description: The version Play uses for the session's profile, as on `MoviePlayable`. Absent when no version can play.
+        resumeSeconds:
+          type: number
+          minimum: 0
+          description: As on `MoviePlayable`.
+        watched:
+          type: boolean
+          description: As on `MoviePlayable`; false when no file holds the episode.
 
     CreatePlaybackSessionRequest:
       type: object

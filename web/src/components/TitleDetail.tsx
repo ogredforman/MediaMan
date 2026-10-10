@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import {
   getGetTitleQueryKey,
   useClearPreferredVersion,
@@ -10,7 +10,7 @@ import {
 import type { Episode, MediaVersion, Season, TitleDetail as Title, VersionPreference } from '../api/mediaman.schemas';
 import { desktopPlayback, useDesktopPlayback, type DesktopPlayback, type PlaybackFailure } from '../lib/desktopPlayback';
 import { ApiError, artworkSrc } from '../lib/http';
-import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
+import { formatDuration, formatPosition, formatSize, versionTags } from '../lib/mediaFormat';
 import type { FixMatchFile } from '../lib/fixMatch';
 import { FixMatchDialog } from './FixMatchDialog';
 import { buttonClass } from './formClasses';
@@ -206,7 +206,10 @@ function EpisodeList({ season, choice }: { season: Season; choice: VersionChoice
                 />
               )}
               {episode.playableId !== undefined && isPlayable(episode.versions) && (
-                <PlayButton playableId={episode.playableId} label={`Play ${name}`} />
+                <PlayButton
+                  playableId={episode.playableId}
+                  target={{ name, resumeSeconds: episode.resumeSeconds, watched: episode.watched }}
+                />
               )}
             </div>
           </li>
@@ -289,41 +292,80 @@ function isPlayable(versions: MediaVersion[]): boolean {
   return versions.some((v) => v.status !== 'missing');
 }
 
+/** What Play starts and the profile's watch state on it; `name` is the episode's, absent for a movie. */
+interface PlayTarget {
+  name?: string | undefined;
+  resumeSeconds?: number | undefined;
+  watched: boolean;
+}
+
 /** Play: MPV through the desktop app; a browser can't play until browser playback lands (SPEC §7.4). */
-function PlayButton({ playableId, label }: { playableId: string; label: string }) {
+function PlayButton({ playableId, target }: { playableId: string; target: PlayTarget }) {
   const playback = desktopPlayback();
   return playback ? (
-    <DesktopPlayButton playback={playback} playableId={playableId} label={label} />
+    <DesktopPlayButton playback={playback} playableId={playableId} target={target} />
   ) : (
-    <BrowserPlayButton label={label} />
+    <BrowserPlayButton target={target} />
   );
 }
 
+/**
+ * Play, or "Resume from 23:15" and "Start over" when the profile stopped part-way (SPEC §7.4, §11). Resume starts
+ * where the server's session says (`startSeconds` undefined); Start over starts at 0.
+ */
 function PlayControl({
-  label,
+  target,
   disabled,
   onPlay,
   children,
 }: {
-  label: string;
+  target: PlayTarget;
   disabled: boolean;
-  onPlay: () => void;
+  onPlay: (startSeconds?: number) => void;
   children?: ReactNode;
 }) {
+  const { name, resumeSeconds, watched } = target;
+  const of = name === undefined ? '' : ` ${name}`;
+  const at = resumeSeconds === undefined ? undefined : formatPosition(resumeSeconds);
   return (
     <div className="flex flex-col items-start gap-2">
-      <button
-        type="button"
-        aria-label={label}
-        disabled={disabled}
-        onClick={onPlay}
-        className="inline-flex items-center gap-2 rounded-card bg-highlight px-5 py-2 font-semibold text-bg shadow-soft transition-colors hover:bg-fg disabled:opacity-60"
-      >
-        <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
-          <path d="M4 2.5v11a.5.5 0 0 0 .76.43l9-5.5a.5.5 0 0 0 0-.86l-9-5.5A.5.5 0 0 0 4 2.5Z" />
-        </svg>
-        Play
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          aria-label={at === undefined ? `Play${of}` : `Resume${of} from ${at}`}
+          disabled={disabled}
+          onClick={() => {
+            onPlay();
+          }}
+          className="inline-flex items-center gap-2 rounded-card bg-highlight px-5 py-2 font-semibold text-bg shadow-soft transition-colors hover:bg-fg disabled:opacity-60"
+        >
+          <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+            <path d="M4 2.5v11a.5.5 0 0 0 .76.43l9-5.5a.5.5 0 0 0 0-.86l-9-5.5A.5.5 0 0 0 4 2.5Z" />
+          </svg>
+          {at === undefined ? 'Play' : `Resume from ${at}`}
+        </button>
+        {at !== undefined && (
+          <button
+            type="button"
+            aria-label={name === undefined ? 'Start over' : `Start ${name} over`}
+            disabled={disabled}
+            onClick={() => {
+              onPlay(0);
+            }}
+            className={`${buttonClass} bg-surface text-fg shadow-soft`}
+          >
+            Start over
+          </button>
+        )}
+        {watched && (
+          <span className="inline-flex items-center gap-1 text-sm text-fg-muted">
+            <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+              <path d="M6.2 11.6 2.9 8.3l1-1 2.3 2.3 5.9-5.9 1 1z" />
+            </svg>
+            Watched
+          </span>
+        )}
+      </div>
       {children}
     </div>
   );
@@ -340,19 +382,19 @@ function PlayError({ title, detail, action }: { title: string; detail?: string |
 }
 
 /** Plays in MPV through the desktop app; the state is the app's, so only the Playable that started it shows it. */
-function DesktopPlayButton({ playback, playableId, label }: { playback: DesktopPlayback; playableId: string; label: string }) {
+function DesktopPlayButton({ playback, playableId, target }: { playback: DesktopPlayback; playableId: string; target: PlayTarget }) {
   const state = useDesktopPlayback(playback);
   const [picked, setPicked] = useState<string | null>(null);
   const [pickFailed, setPickFailed] = useState(false);
   const mine = state.status !== 'idle' && state.playableId === playableId;
   return (
     <PlayControl
-      label={label}
+      target={target}
       disabled={mine && state.status === 'starting'}
-      onPlay={() => {
+      onPlay={(startSeconds) => {
         setPicked(null);
         setPickFailed(false);
-        void playback.play(playableId);
+        void playback.play(playableId, startSeconds);
       }}
     >
       {mine && state.status === 'starting' && (
@@ -423,11 +465,11 @@ function PlaybackFailureAlert({ failure, onOpenMpvSettings }: { failure: Playbac
 }
 
 /** In a plain browser, Play says where it works instead of doing nothing. */
-function BrowserPlayButton({ label }: { label: string }) {
+function BrowserPlayButton({ target }: { target: PlayTarget }) {
   const [pressed, setPressed] = useState(false);
   return (
     <PlayControl
-      label={label}
+      target={target}
       disabled={false}
       onPlay={() => {
         setPressed(true);
@@ -542,7 +584,12 @@ function Hero({ title }: { title: Title }) {
           )}
           {title.overview !== undefined && <p className="text-fg">{title.overview}</p>}
           <div className="flex flex-wrap items-start gap-3">
-            {title.playable && isPlayable(title.playable.versions) && <PlayButton playableId={title.playable.id} label="Play" />}
+            {title.playable && isPlayable(title.playable.versions) && (
+              <PlayButton
+                playableId={title.playable.id}
+                target={{ resumeSeconds: title.playable.resumeSeconds, watched: title.playable.watched }}
+              />
+            )}
             <FixMatchButton title={title} />
           </div>
         </div>
@@ -617,6 +664,21 @@ function LoadError({ error, onRetry }: { error: ApiError; onRetry: () => void })
   );
 }
 
+/** Refetches the title when a desktop launch stops playing, so Resume and Watched show the progress just recorded. */
+function useRefetchAfterPlayback(titleId: string) {
+  const playback = desktopPlayback();
+  const state = useDesktopPlayback(playback);
+  const queryClient = useQueryClient();
+  const playing = state.status === 'playing' ? state.playableId : undefined;
+  const last = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const was = last.current;
+    last.current = playing;
+    if (!playback || was === undefined || was === playing) return;
+    void playback.reported().then(() => queryClient.invalidateQueries({ queryKey: getGetTitleQueryKey(titleId) }));
+  }, [playback, playing, queryClient, titleId]);
+}
+
 /**
  * A title's detail page: hero, metadata, and the movie's versions or the show's seasons and episodes, with the version
  * Play uses marked and a picker for it (SPEC §11).
@@ -624,6 +686,7 @@ function LoadError({ error, onRetry }: { error: ApiError; onRetry: () => void })
 export function TitleDetail({ titleId }: { titleId: string }) {
   const title = useGetTitle(titleId);
   const choice = useVersionChoice(titleId);
+  useRefetchAfterPlayback(titleId);
 
   if (title.isPending) {
     return (

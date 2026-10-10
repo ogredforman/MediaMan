@@ -100,7 +100,8 @@ public sealed record VersionPreferenceDto(Guid? MediaFileId, string? Resolution,
 
 public sealed record PreferredVersionRequest(Guid MediaFileId);
 
-public sealed record MoviePlayable(Guid Id, IReadOnlyList<MediaVersion> Versions, Guid? SelectedMediaFileId);
+public sealed record MoviePlayable(
+    Guid Id, IReadOnlyList<MediaVersion> Versions, Guid? SelectedMediaFileId, double? ResumeSeconds, bool Watched);
 
 public sealed record SeasonDto(
     Guid Id,
@@ -120,7 +121,9 @@ public sealed record EpisodeDto(
     ArtworkRef? Still,
     Guid? PlayableId,
     IReadOnlyList<MediaVersion> Versions,
-    Guid? SelectedMediaFileId);
+    Guid? SelectedMediaFileId,
+    double? ResumeSeconds,
+    bool Watched);
 
 public sealed record MediaVersion(
     Guid MediaFileId,

@@ -70,6 +70,38 @@ describe('createDesktopPlayback', () => {
     expect(playback.getState()).toEqual({ status: 'idle' });
   });
 
+  it('starts over at 0 though the session resumes, and settles once the reports are answered', async () => {
+    const player = createFakeDesktopPlayer();
+    let answer: () => void = () => undefined;
+    const { api: answering, reports } = fakeApi(session);
+    // Reports wait for `answer`, so the test sees reported() before and after.
+    const api: PlaybackApi = {
+      createSession: (playableId) => answering.createSession(playableId),
+      reportProgress: (playableId, progress) =>
+        new Promise((resolve) => {
+          answer = () => {
+            resolve(answering.reportProgress(playableId, progress));
+          };
+        }),
+    };
+    const playback = createDesktopPlayback(player, api);
+
+    await playback.play('p1', 0);
+    expect(player.plays[0]?.options.startSeconds).toBe(0);
+
+    player.emit({ launchId: player.lastLaunchId(), type: 'progress', positionSeconds: 12, durationSeconds: 7000, paused: false });
+    let settled = false;
+    void playback.reported().then(() => {
+      settled = true;
+    });
+    await flush();
+    expect(settled).toBe(false);
+    answer();
+    await flush();
+    expect(settled).toBe(true);
+    expect(reports).toEqual([['p1', { positionSeconds: 12, durationSeconds: 7000 }]]);
+  });
+
   it('re-queries the server once when the stream fails, resuming at the last position', async () => {
     const player = createFakeDesktopPlayer();
     const { api, created } = fakeApi(session, { ...session, url: '/media-files/f1/stream?sid=s&exp=2&sig=c' });
