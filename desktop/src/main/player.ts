@@ -1,5 +1,5 @@
 // MPV playback, driven by the main process over MPV's JSON IPC (SPEC §7.4, §10.3).
-// Declarations only; the MPV implementation and FakePlayer arrive with the playback workstream.
+// MpvPlayer (mpvPlayer.ts) is the real one; tests use FakePlayer from src/fakes.
 
 /** An external subtitle MPV loads alongside the stream (`sub-add`). Desktop-internal, not part of the HTTP contract. */
 export interface SubtitleTrack {
