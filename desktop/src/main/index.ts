@@ -2,6 +2,9 @@
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
 import { registerBridge } from './bridge.js';
+import { DesktopSettings, executableOf, mpvPathFrom } from './desktopSettings.js';
+import { MpvPlayer } from './mpvPlayer.js';
+import { PlayerHost } from './playerHost.js';
 import { resolveServerCommand, resolveServerPort, ServerProcess, type IServerProcess } from './serverProcess.js';
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
 import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl } from './window.js';
@@ -9,6 +12,7 @@ import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl } from
 const uiUrl = resolveUiUrl(process.env);
 let server: IServerProcess | undefined;
 let serverUrl: string | undefined;
+let player: PlayerHost | undefined;
 
 function createMainWindow(): void {
   const preloadPath = path.join(import.meta.dirname, '..', 'preload', 'index.cjs');
@@ -37,9 +41,37 @@ function createMainWindow(): void {
   });
 }
 
+/** "Open MPV settings" (SPEC §7.4 step 6): the native picker for the MPV executable, saved for the next Play. */
+async function chooseMpv(settings: DesktopSettings): Promise<string | null> {
+  const options: Electron.OpenDialogOptions = {
+    title: 'Choose the MPV player',
+    buttonLabel: 'Use this MPV',
+    properties: ['openFile'],
+    ...(process.platform === 'win32' ? { filters: [{ name: 'Programs', extensions: ['exe'] }] } : {}),
+  };
+  const parent = BrowserWindow.getFocusedWindow();
+  const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+  const picked = result.filePaths[0];
+  if (result.canceled || picked === undefined) return null;
+  const mpvPath = executableOf(picked, process.platform);
+  await settings.setMpvPath(mpvPath);
+  return mpvPath;
+}
+
 void app.whenReady().then(async () => {
   const tokens = new TokenStore(path.join(app.getPath('userData'), 'servers.json'), safeStorageCipher(safeStorage));
-  registerBridge(ipcMain, { uiOrigin: uiUrl.origin, serverUrl: () => serverUrl, tokens });
+  const settings = new DesktopSettings(path.join(app.getPath('userData'), 'settings.json'));
+  player = new PlayerHost(
+    (mpvPath) => new MpvPlayer({ mpvPath }),
+    async () => mpvPathFrom(await settings.get(), process.env),
+  );
+  registerBridge(ipcMain, {
+    uiOrigin: uiUrl.origin,
+    serverUrl: () => serverUrl,
+    tokens,
+    player,
+    chooseMpv: () => chooseMpv(settings),
+  });
 
   const serverCommand = resolveServerCommand(process.env);
   if (serverCommand) {
@@ -71,6 +103,7 @@ app.on('window-all-closed', () => {
 // Stop the server this app started before exiting; quitting again once it has stopped goes through.
 let serverStopped = false;
 app.on('before-quit', (event) => {
+  void player?.stop();
   if (!server || serverStopped) return;
   event.preventDefault();
   serverStopped = true;

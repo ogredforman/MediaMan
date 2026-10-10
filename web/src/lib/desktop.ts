@@ -9,6 +9,31 @@ export interface DesktopTokenBridge {
   clear(): Promise<void>;
 }
 
+/** What MPV plays; every URL must be on the current server. Mirrors the desktop's `PlayOptions`. */
+export interface DesktopPlayOptions {
+  url: string;
+  startSeconds: number;
+  title: string;
+  subtitles: { url: string; language?: string; title?: string }[];
+}
+
+/** Events from MPV, tagged with the `launchId` passed to `play`. */
+export type DesktopPlayerEvent =
+  | { launchId: string; type: 'progress'; positionSeconds: number; durationSeconds: number; paused: boolean }
+  | { launchId: string; type: 'ended'; reason: 'eof' | 'quit' | 'error'; detail?: string };
+
+export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
+
+/** MPV, one launch at a time, run by the desktop app's main process. */
+export interface DesktopPlayerBridge {
+  play(launchId: string, options: DesktopPlayOptions): Promise<DesktopPlayResult>;
+  stop(): Promise<void>;
+  /** The native picker for the MPV executable; the saved path, or null when cancelled. */
+  chooseMpv(): Promise<string | null>;
+  /** Returns the unsubscribe. */
+  onEvent(callback: (event: DesktopPlayerEvent) => void): () => void;
+}
+
 /** `window.mediamanDesktop`; keep in step with the preload. */
 export interface MediamanDesktop {
   isDesktop: true;
@@ -18,6 +43,7 @@ export interface MediamanDesktop {
     baseUrl(): Promise<string | null>;
   };
   tokens: DesktopTokenBridge;
+  player: DesktopPlayerBridge;
 }
 
 declare global {

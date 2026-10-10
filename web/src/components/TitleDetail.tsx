@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { useId, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useId, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import {
   getGetTitleQueryKey,
   useClearPreferredVersion,
@@ -9,6 +9,7 @@ import {
   useSetPreferredVersion,
 } from '../api/mediaman';
 import type { Episode, MediaVersion, Season, TitleDetail as Title, VersionPreference } from '../api/mediaman.schemas';
+import { desktopPlayback, useDesktopPlayback, type DesktopPlayback, type PlaybackFailure } from '../lib/desktopPlayback';
 import { ApiError, artworkSrc } from '../lib/http';
 import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
 import type { FixMatchFile } from '../lib/fixMatch';
@@ -301,22 +302,34 @@ function playProblem(error: ApiError) {
   return error.problem;
 }
 
-/**
- * Prototype Play (SPEC §8 playback [P]): the dev-only endpoint launches MPV on the server's host.
- * The desktop app replaces it with playback sessions and IPlayer (SPEC §7.4).
- */
+/** Play: MPV through the desktop app when it's there, else the prototype's dev-only endpoint (SPEC §7.4, §13). */
 function PlayButton({ playableId, label }: { playableId: string; label: string }) {
-  const play = useDevPlay();
-  const problem = play.error instanceof ApiError ? playProblem(play.error) : undefined;
+  const playback = desktopPlayback();
+  return playback ? (
+    <DesktopPlayButton playback={playback} playableId={playableId} label={label} />
+  ) : (
+    <DevPlayButton playableId={playableId} label={label} />
+  );
+}
+
+function PlayControl({
+  label,
+  disabled,
+  onPlay,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onPlay: () => void;
+  children?: ReactNode;
+}) {
   return (
     <div className="flex flex-col items-start gap-2">
       <button
         type="button"
         aria-label={label}
-        disabled={play.isPending}
-        onClick={() => {
-          play.mutate({ playableId });
-        }}
+        disabled={disabled}
+        onClick={onPlay}
         className="inline-flex items-center gap-2 rounded-card bg-highlight px-5 py-2 font-semibold text-bg shadow-soft transition-colors hover:bg-fg disabled:opacity-60"
       >
         <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
@@ -324,19 +337,132 @@ function PlayButton({ playableId, label }: { playableId: string; label: string }
         </svg>
         Play
       </button>
+      {children}
+    </div>
+  );
+}
+
+function PlayError({ title, detail, action }: { title: string; detail?: string | undefined; action: string }) {
+  return (
+    <div role="alert" className="flex flex-col gap-1 text-sm">
+      <p>{title}</p>
+      {detail !== undefined && <p className="text-fg-muted">{detail}</p>}
+      <p className="text-fg-muted">{action}</p>
+    </div>
+  );
+}
+
+/** Plays in MPV through the desktop app; the state is the app's, so only the Playable that started it shows it. */
+function DesktopPlayButton({ playback, playableId, label }: { playback: DesktopPlayback; playableId: string; label: string }) {
+  const state = useDesktopPlayback(playback);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [pickFailed, setPickFailed] = useState(false);
+  const mine = state.status !== 'idle' && state.playableId === playableId;
+  return (
+    <PlayControl
+      label={label}
+      disabled={mine && state.status === 'starting'}
+      onPlay={() => {
+        setPicked(null);
+        setPickFailed(false);
+        void playback.play(playableId);
+      }}
+    >
+      {mine && state.status === 'starting' && (
+        <p role="status" className="text-sm text-fg-muted">
+          Starting MPV…
+        </p>
+      )}
+      {mine && state.status === 'playing' && (
+        <p role="status" className="text-sm text-fg-muted">
+          Playing {state.title} in MPV.
+        </p>
+      )}
+      {mine && state.status === 'failed' && picked !== null && (
+        <p role="status" className="text-sm text-fg-muted">
+          MPV is set to {picked}. Press Play to try again.
+        </p>
+      )}
+      {mine && state.status === 'failed' && picked === null && (
+        <PlaybackFailureAlert
+          failure={state.failure}
+          onOpenMpvSettings={() => {
+            setPickFailed(false);
+            playback.chooseMpv().then(setPicked, () => {
+              setPickFailed(true);
+            });
+          }}
+        />
+      )}
+      {mine && state.status === 'failed' && pickFailed && (
+        <PlayError title="Couldn't save the MPV choice." action="Press Open MPV settings to try again." />
+      )}
+    </PlayControl>
+  );
+}
+
+function PlaybackFailureAlert({ failure, onOpenMpvSettings }: { failure: PlaybackFailure; onOpenMpvSettings: () => void }) {
+  if (failure.kind === 'mpv') {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <PlayError
+          title="MPV couldn't start."
+          detail={failure.message}
+          action="Install MPV, or choose the MPV program in MPV settings, then press Play again."
+        />
+        <button type="button" className={buttonClass} onClick={onOpenMpvSettings}>
+          Open MPV settings
+        </button>
+      </div>
+    );
+  }
+  if (failure.kind === 'stream') {
+    return (
+      <PlayError
+        title="MPV couldn't play this file."
+        detail={failure.detail}
+        action="Check that the server is running and the file is still there, then press Play again."
+      />
+    );
+  }
+  const problem = failure.error instanceof ApiError ? failure.error.problem : undefined;
+  return (
+    <PlayError
+      title={problem?.title ?? "Couldn't start playback."}
+      detail={problem?.detail}
+      action={problem?.action ?? 'Check that the server is running, then press Play again.'}
+    />
+  );
+}
+
+/**
+ * Prototype Play (SPEC §8 playback [P]): the dev-only endpoint launches MPV on the server's host.
+ * Removed with the endpoint in PLAN 2.14c.
+ */
+function DevPlayButton({ playableId, label }: { playableId: string; label: string }) {
+  const play = useDevPlay();
+  const problem = play.error instanceof ApiError ? playProblem(play.error) : undefined;
+  return (
+    <PlayControl
+      label={label}
+      disabled={play.isPending}
+      onPlay={() => {
+        play.mutate({ playableId });
+      }}
+    >
       {play.isSuccess && (
         <p role="status" className="text-sm text-fg-muted">
           Playing {play.data.fileName} in MPV.
         </p>
       )}
       {play.isError && (
-        <div role="alert" className="flex flex-col gap-1 text-sm">
-          <p>{problem?.title ?? "Couldn't start playback."}</p>
-          {problem?.detail !== undefined && <p className="text-fg-muted">{problem.detail}</p>}
-          <p className="text-fg-muted">{problem?.action ?? 'Check that the server is running, then try again.'}</p>
-        </div>
+        <PlayError
+          title={problem?.title ?? "Couldn't start playback."}
+          detail={problem?.detail}
+          action={problem?.action ?? 'Check that the server is running, then try again.'}
+        />
       )}
-    </div>
+    </PlayControl>
   );
 }
 
