@@ -35,7 +35,21 @@ export interface MpvPlayerOptions {
   connect?: ConnectMpv;
   /** Builds the IPC endpoint for one launch; defaults to `ipcPathFor` on this platform. */
   ipcPath?: (id: string) => string;
+  /** MediaMan's `mpv.conf` and purple OSC, loaded on every launch; left out, MPV runs with its own OSC. */
+  assets?: MpvAssets;
   log?: (line: string) => void;
+}
+
+/** The config and OSC script in `desktop/mpv/` (SPEC §7.4 step 3, §11). */
+export interface MpvAssets {
+  config: string;
+  script: string;
+}
+
+/** The `mpv/` folder under the app's path. MPV reads them from disk, so packaging keeps them outside the asar. */
+export function mpvAssetsIn(appPath: string): MpvAssets {
+  const dir = path.join(appPath, 'mpv');
+  return { config: path.join(dir, 'mpv.conf'), script: path.join(dir, 'osc.lua') };
 }
 
 /** Thrown by `play()` when MPV can't be started; the UI offers "Open MPV settings" (SPEC §7.4 step 6). */
@@ -55,8 +69,10 @@ export function ipcPathFor(platform: NodeJS.Platform, tempDir: string, id: strin
 }
 
 /** MPV's command line for one launch. The URL comes after `--`, so it is never read as an option. */
-export function mpvArgs(opts: PlayOptions, ipcPath: string): string[] {
+export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets): string[] {
   const args = [`--input-ipc-server=${ipcPath}`, '--force-window=yes', '--idle=no', '--keep-open=no', `--force-media-title=${opts.title}`];
+  // The user's own mpv.conf and scripts still load; ours comes after, so it wins where both set an option.
+  if (assets) args.push('--osc=no', `--include=${assets.config}`, `--script=${assets.script}`);
   if (opts.startSeconds > 0) args.push(`--start=${String(opts.startSeconds)}`);
   args.push('--', opts.url);
   return args;
@@ -141,7 +157,7 @@ export class MpvPlayer implements IPlayer {
 
     this.launches++;
     const ipcPath = this.ipcPath(`${String(process.pid)}-${String(this.launches)}`);
-    const child = this.spawnMpv(this.options.mpvPath, mpvArgs(opts, ipcPath), this.log);
+    const child = this.spawnMpv(this.options.mpvPath, mpvArgs(opts, ipcPath, this.options.assets), this.log);
     const session: Session = {
       child,
       exit: Promise.resolve(),

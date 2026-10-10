@@ -3,7 +3,7 @@ import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
 import { registerBridge } from './bridge.js';
 import { DesktopSettings, executableOf, mpvPathFrom } from './desktopSettings.js';
-import { MpvPlayer } from './mpvPlayer.js';
+import { mpvAssetsIn, MpvPlayer } from './mpvPlayer.js';
 import { PlayerHost } from './playerHost.js';
 import { resolveServerCommand, resolveServerPort, ServerProcess, type IServerProcess } from './serverProcess.js';
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
@@ -62,7 +62,7 @@ void app.whenReady().then(async () => {
   const tokens = new TokenStore(path.join(app.getPath('userData'), 'servers.json'), safeStorageCipher(safeStorage));
   const settings = new DesktopSettings(path.join(app.getPath('userData'), 'settings.json'));
   player = new PlayerHost(
-    (mpvPath) => new MpvPlayer({ mpvPath }),
+    (mpvPath) => new MpvPlayer({ mpvPath, assets: mpvAssetsIn(app.getAppPath()) }),
     async () => mpvPathFrom(await settings.get(), process.env),
   );
   registerBridge(ipcMain, {
