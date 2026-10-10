@@ -64,6 +64,14 @@ internal static class AccountsModel
             b.HasOne<Playable>().WithMany().HasForeignKey(w => w.PlayableId).OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<VersionPreference>(b =>
+        {
+            b.HasKey(v => new { v.ProfileId, v.TitleId });
+            b.HasOne<Profile>().WithMany().HasForeignKey(v => v.ProfileId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<Title>().WithMany().HasForeignKey(v => v.TitleId).OnDelete(DeleteBehavior.Cascade);
+            b.HasOne<MediaFile>().WithMany().HasForeignKey(v => v.MediaFileId).OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<AuditEvent>(b =>
         {
             b.HasKey(e => e.Id);

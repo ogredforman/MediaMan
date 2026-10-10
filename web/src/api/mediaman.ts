@@ -72,6 +72,7 @@ import type {
   LoginRequest,
   MediaFileMatch,
   MediaFileMatchRequest,
+  PreferredVersionRequest,
   Problem,
   ProblemResponse,
   Profile,
@@ -2270,6 +2271,173 @@ export function useGetTitle<TData = Awaited<ReturnType<typeof getTitle>>, TError
 
 
 
+
+export const getSetPreferredVersionUrl = (titleId: string,) => {
+
+
+
+
+  return `/titles/${titleId}/preferred-version`
+}
+
+/**
+ * Records the chosen file and its quality (resolution and HDR format) for the session's profile. A movie plays
+ * that file while it's available. A show plays, for each episode, the best version with the same resolution and
+ * HDR format, so one pick carries across the whole show. When nothing matches, the highest quality plays.
+ * Other profiles keep their own choice.
+ * @summary Remembers which version the session's profile wants to play for this title (SPEC §7.4 step 2, §8 parsing).
+ */
+export const setPreferredVersion = async (titleId: string,
+    preferredVersionRequest: PreferredVersionRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getSetPreferredVersionUrl(titleId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(preferredVersionRequest)
+  }
+);}
+
+
+
+
+
+export const getSetPreferredVersionMutationKey = () => ['setPreferredVersion'] as const;
+
+export const getSetPreferredVersionMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPreferredVersion>>, TError,SetPreferredVersionMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPreferredVersion>>, TError,SetPreferredVersionMutationVariables, TContext> => {
+
+const mutationKey = getSetPreferredVersionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPreferredVersion>>, SetPreferredVersionMutationVariables> = (props) => {
+          const {titleId,data} = props ?? {};
+
+          return  setPreferredVersion(titleId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPreferredVersionMutationResult = NonNullable<Awaited<ReturnType<typeof setPreferredVersion>>>
+    export type SetPreferredVersionMutationBody = PreferredVersionRequest
+    export type SetPreferredVersionMutationError = ErrorType<Problem | ProblemResponse>
+    export type SetPreferredVersionMutationVariables = {titleId: string;data: PreferredVersionRequest}
+
+    /**
+ * @summary Remembers which version the session's profile wants to play for this title (SPEC §7.4 step 2, §8 parsing).
+ */
+export const useSetPreferredVersion = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPreferredVersion>>, TError,SetPreferredVersionMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setPreferredVersion>>,
+        TError,
+        SetPreferredVersionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetPreferredVersionMutationOptions(options), queryClient);
+    }
+
+export const getClearPreferredVersionUrl = (titleId: string,) => {
+
+
+
+
+  return `/titles/${titleId}/preferred-version`
+}
+
+/**
+ * @summary Forgets the profile's preferred version for this title, so the highest quality plays again.
+ */
+export const clearPreferredVersion = async (titleId: string, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+  return apiFetch<void>(getClearPreferredVersionUrl(titleId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getClearPreferredVersionMutationKey = () => ['clearPreferredVersion'] as const;
+
+export const getClearPreferredVersionMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearPreferredVersion>>, TError,ClearPreferredVersionMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearPreferredVersion>>, TError,ClearPreferredVersionMutationVariables, TContext> => {
+
+const mutationKey = getClearPreferredVersionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearPreferredVersion>>, ClearPreferredVersionMutationVariables> = (props) => {
+          const {titleId} = props ?? {};
+
+          return  clearPreferredVersion(titleId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearPreferredVersionMutationResult = NonNullable<Awaited<ReturnType<typeof clearPreferredVersion>>>
+
+    export type ClearPreferredVersionMutationError = ErrorType<Problem | ProblemResponse>
+    export type ClearPreferredVersionMutationVariables = {titleId: string}
+
+    /**
+ * @summary Forgets the profile's preferred version for this title, so the highest quality plays again.
+ */
+export const useClearPreferredVersion = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearPreferredVersion>>, TError,ClearPreferredVersionMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clearPreferredVersion>>,
+        TError,
+        ClearPreferredVersionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getClearPreferredVersionMutationOptions(options), queryClient);
+    }
 
 export const getGetArtworkUrl = (artworkId: string,
     params?: GetArtworkParams,) => {

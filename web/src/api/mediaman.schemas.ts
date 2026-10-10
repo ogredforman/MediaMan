@@ -623,6 +623,11 @@ export interface MoviePlayable {
   /** The Playable to start playback of. */
   id: string;
   versions: MediaVersion[];
+  /**
+     * The version Play uses for the session's profile: its preferred version if it applies, otherwise the
+     * highest quality (SPEC §7.4 step 2). Absent when no version can play.
+     */
+  selectedMediaFileId?: string;
 }
 
 /**
@@ -638,6 +643,8 @@ export interface Episode {
   still?: ArtworkRef;
   playableId?: string;
   versions: MediaVersion[];
+  /** The version Play uses for the session's profile, as on `MoviePlayable`. Absent when no version can play. */
+  selectedMediaFileId?: string;
 }
 
 export interface Season {
@@ -651,6 +658,19 @@ export interface Season {
   overview?: string;
   poster?: ArtworkRef;
   episodes: Episode[];
+}
+
+/**
+ * The session's profile's preferred version of this title (`setPreferredVersion`). Absent when the profile
+ * hasn't picked one, so the highest quality plays.
+ */
+export interface VersionPreference {
+  /** The file picked. Absent once that file is gone; its quality still applies. */
+  mediaFileId?: string;
+  /** The picked file's resolution, e.g. `2160p`, `1080p`. Absent when it couldn't be told. */
+  resolution?: string;
+  /** The picked file's HDR format, e.g. `HDR10`. Absent for SDR. */
+  hdrFormat?: string;
 }
 
 /**
@@ -671,6 +691,12 @@ export interface TitleDetail {
   logo?: ArtworkRef;
   playable?: MoviePlayable;
   seasons?: Season[];
+  versionPreference?: VersionPreference;
+}
+
+export interface PreferredVersionRequest {
+  /** A version of one of this title's Playables that isn't missing. */
+  mediaFileId: string;
 }
 
 /**

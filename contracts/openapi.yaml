@@ -758,6 +758,76 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /titles/{titleId}/preferred-version:
+    parameters:
+      - name: titleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setPreferredVersion
+      summary: Remembers which version the session's profile wants to play for this title (SPEC §7.4 step 2, §8 parsing).
+      description: |
+        Records the chosen file and its quality (resolution and HDR format) for the session's profile. A movie plays
+        that file while it's available. A show plays, for each episode, the best version with the same resolution and
+        HDR format, so one pick carries across the whole show. When nothing matches, the highest quality plays.
+        Other profiles keep their own choice.
+      tags: [library]
+      x-permission: library.view
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PreferredVersionRequest'
+      responses:
+        '204':
+          description: The preference is saved.
+        '400':
+          description: The file isn't an available version of this title (`version.invalid`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The title doesn't exist (`title.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The session hasn't picked a profile yet (`profile.required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+    delete:
+      operationId: clearPreferredVersion
+      summary: Forgets the profile's preferred version for this title, so the highest quality plays again.
+      tags: [library]
+      x-permission: library.view
+      responses:
+        '204':
+          description: The preference is cleared, or there was none.
+        '404':
+          description: The title doesn't exist (`title.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The session hasn't picked a profile yet (`profile.required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /artwork/{artworkId}:
     get:
       operationId: getArtwork
@@ -1665,6 +1735,36 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Season'
+        versionPreference:
+          $ref: '#/components/schemas/VersionPreference'
+
+    VersionPreference:
+      type: object
+      description: |
+        The session's profile's preferred version of this title (`setPreferredVersion`). Absent when the profile
+        hasn't picked one, so the highest quality plays.
+      additionalProperties: false
+      properties:
+        mediaFileId:
+          type: string
+          format: uuid
+          description: The file picked. Absent once that file is gone; its quality still applies.
+        resolution:
+          type: string
+          description: The picked file's resolution, e.g. `2160p`, `1080p`. Absent when it couldn't be told.
+        hdrFormat:
+          type: string
+          description: The picked file's HDR format, e.g. `HDR10`. Absent for SDR.
+
+    PreferredVersionRequest:
+      type: object
+      required: [mediaFileId]
+      additionalProperties: false
+      properties:
+        mediaFileId:
+          type: string
+          format: uuid
+          description: A version of one of this title's Playables that isn't missing.
 
     MoviePlayable:
       type: object
@@ -1679,6 +1779,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MediaVersion'
+        selectedMediaFileId:
+          type: string
+          format: uuid
+          description: |
+            The version Play uses for the session's profile: its preferred version if it applies, otherwise the
+            highest quality (SPEC §7.4 step 2). Absent when no version can play.
 
     Season:
       type: object
@@ -1732,6 +1838,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MediaVersion'
+        selectedMediaFileId:
+          type: string
+          format: uuid
+          description: The version Play uses for the session's profile, as on `MoviePlayable`. Absent when no version can play.
 
     DevPlayStarted:
       type: object

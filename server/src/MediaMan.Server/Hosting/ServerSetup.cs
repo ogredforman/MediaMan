@@ -51,6 +51,7 @@ public static class ServerSetup
         services.AddScoped<SetupService>();
         services.AddScoped<LibraryQueries>();
         services.AddScoped<LibraryService>();
+        services.AddScoped<VersionPreferenceService>();
         AddMetadata(services);
         AddScanning(services);
 
@@ -217,6 +218,7 @@ public static class ServerSetup
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
         app.MapMatchEndpoints();
+        app.MapVersionPreferenceEndpoints();
         app.MapArtworkEndpoints();
 #if MEDIAMAN_DEV
         // Dev-only (SPEC §13): the player is registered only by the dev configuration, so elsewhere this route is a 404.

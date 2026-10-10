@@ -357,6 +357,26 @@ export const getGetTitleMockHandler = (overrideResponse?: TitleDetail | ((info: 
   }, options)
 }
 
+export const getSetPreferredVersionMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.put('*/titles/:titleId/preferred-version', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
+export const getClearPreferredVersionMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.delete('*/titles/:titleId/preferred-version', async (info: Parameters<Parameters<typeof http.delete>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
 export const getGetArtworkMockHandler = (overrideResponse?: Blob | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Blob> | Blob), options?: RequestHandlerOptions) => {
   return http.get('*/artwork/:artworkId', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -405,6 +425,8 @@ export const getMediaManAPIMock = () => [
   getRelinkMediaFileMockHandler(),
   getListTitlesMockHandler(),
   getGetTitleMockHandler(),
+  getSetPreferredVersionMockHandler(),
+  getClearPreferredVersionMockHandler(),
   getGetArtworkMockHandler(),
   getDevPlayMockHandler()
 ]

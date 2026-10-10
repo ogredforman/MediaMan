@@ -115,6 +115,7 @@ The design must not preclude:
 | Session | A signed-in device | id, userId, deviceName, refreshTokenHash, createdAt, lastSeenAt, expiresAt, revoked, activeProfileId? |
 | Invite | A link to create an account | id, tokenHash, roleId, createdBy, expiresAt, maxUses, uses |
 | WatchState | A profile's progress on a Playable | profileId, playableId, positionSeconds, durationSeconds, watched, lastWatchedAt |
+| VersionPreference | A profile's preferred version of a Title: the file picked and its quality, which picks the matching version of every other episode and outlives the file (7.4) | profileId, titleId, mediaFileId?, resolution?, hdrFormat?, updatedAt |
 | Indexer | A configured torrent search source | id, name, type (Cardigann/Torznab), definitionId?, settings, enabled, useFlareSolverr, health |
 | IndexerDefinition | An imported Cardigann YAML definition | id, key, version, yaml, sourceUrl |
 | ReleaseResult | A search result (transient, cached briefly) | indexerId, title, magnet/torrentUrl, sizeBytes, seeders, leechers, publishDate, parsed (ParsedRelease), dangerousFiles?, quality (derived) |
