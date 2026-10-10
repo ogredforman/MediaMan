@@ -194,6 +194,9 @@ User 1─* SavedQualityProfile
 3. The desktop app launches MPV via `IPlayer` with the stream URL, start position and subtitles. The purple Lua OSC is loaded.
 4. The desktop app reports progress to the server every 10 s and on pause, seek and quit.
 5. At 90% or more, the Playable is marked watched. If the next episode exists, an "Up next" countdown (10 s, cancellable) starts it.
+   The countdown shows over the final credits: the run of named credits chapters that ends the file. When a post-credits
+   scene or preview follows the credits, or no chapter names them, it shows at the end of the file, where MPV holds the
+   last frame. Without a next episode, or after a cancel, MPV closes at the end of the file.
 6. If MPV fails to start, the UI shows the error with "Open MPV settings". If the stream URL fails, the server is re-queried once before an error is shown.
 
 ### 7.5 Play in a browser
@@ -558,6 +561,10 @@ interface IPlayer {
   play(opts: { url: string; startSeconds: number; subtitles: SubtitleTrack[]; title: string }): Promise<void>;
   onProgress(cb: (p: { positionSeconds: number; durationSeconds: number; paused: boolean }) => void): void;
   onEnded(cb: (reason: 'eof' | 'quit' | 'error', detail?: string) => void): void;
+  onCredits(cb: () => void): void;                      // the final credits started (7.4 step 5); once per launch
+  onEndReached(cb: () => void): void;                   // the file ended; MPV holds the last frame
+  showUpNext(offer: { title: string; seconds: number }): void;
+  onUpNextChoice(cb: (choice: 'play' | 'cancel') => void): void;
   stop(): Promise<void>;
 }
 interface IServerProcess {                              // Local mode
@@ -591,7 +598,7 @@ All fakes live in `server/tests/MediaMan.Fakes` (and `desktop/src/fakes` for TS)
 - **Community definitions (`IDefinitionSource`):** returns fixture YAML definitions from `tests/fixtures/definitions/`.
 - **FlareSolverr:** behind `IIndexerHttp`; the fake simulates solved and unsolved challenges.
 - **VPN:** covered by `INetworkInterfaces` and `IPublicIpProbe` fakes; no VPN is needed in tests.
-- **MPV (`IPlayer`):** `FakePlayer` (TS) records `play` calls and lets tests emit progress and ended events. Real MPV is used only in manual and smoke testing.
+- **MPV (`IPlayer`):** `FakePlayer` (TS) records `play` calls and Up next offers, and lets tests emit progress, credits, end-reached, Up next choices and ended events. Real MPV is used only in manual and smoke testing.
 - **Server process (`IServerProcess`):** `FakeServerProcess` resolves with a fixed URL pointing at the MSW mock API.
 - **Web UI vs. API:** MSW handlers generated from `contracts/openapi.yaml` with fixture data, so UI work never waits on the server.
 

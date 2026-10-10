@@ -14,6 +14,20 @@ describePlayerContract('FakePlayer', () => {
       player.emitEnded(reason, detail);
       return Promise.resolve();
     },
+    reachCredits: () => {
+      player.emitProgress({ positionSeconds: 1290, durationSeconds: 1380, paused: false });
+      player.emitCredits();
+      return Promise.resolve();
+    },
+    reachEnd: () => {
+      player.emitEndReached();
+      return Promise.resolve();
+    },
+    upNexts: () => player.upNexts,
+    chooseUpNext: (choice) => {
+      player.emitUpNextChoice(choice);
+      return Promise.resolve();
+    },
     failNextStart: () => {
       player.failNextPlay();
     },

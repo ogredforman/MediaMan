@@ -1,13 +1,18 @@
 // FakePlayer (SPEC §10.4): records play calls and lets tests emit progress and ended events; never starts MPV.
 import { PlayerStartError } from '../main/mpvPlayer.js';
-import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions } from '../main/player.js';
+import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
 
 export class FakePlayer implements IPlayer {
   readonly plays: PlayOptions[] = [];
+  /** Every "Up next" countdown shown while something played. */
+  readonly upNexts: UpNextOffer[] = [];
   stopCalls = 0;
   playing = false;
   private readonly progressListeners: ((p: PlayerProgress) => void)[] = [];
   private readonly endedListeners: ((reason: PlayerEndReason, detail?: string) => void)[] = [];
+  private readonly creditsListeners: (() => void)[] = [];
+  private readonly endReachedListeners: (() => void)[] = [];
+  private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
   private nextFailure: Error | undefined;
 
   /** Makes the next `play()` reject with `error`, as when MPV can't be started. */
@@ -21,6 +26,22 @@ export class FakePlayer implements IPlayer {
 
   onEnded(cb: (reason: PlayerEndReason, detail?: string) => void): void {
     this.endedListeners.push(cb);
+  }
+
+  onCredits(cb: () => void): void {
+    this.creditsListeners.push(cb);
+  }
+
+  onEndReached(cb: () => void): void {
+    this.endReachedListeners.push(cb);
+  }
+
+  onUpNextChoice(cb: (choice: UpNextChoice) => void): void {
+    this.upNextListeners.push(cb);
+  }
+
+  showUpNext(offer: UpNextOffer): void {
+    if (this.playing) this.upNexts.push(offer);
   }
 
   async play(opts: PlayOptions): Promise<void> {
@@ -44,6 +65,24 @@ export class FakePlayer implements IPlayer {
   emitProgress(progress: PlayerProgress): void {
     if (!this.playing) return;
     for (const listener of this.progressListeners) listener(progress);
+  }
+
+  /** Playback entered the final credits. Ignored when nothing plays. */
+  emitCredits(): void {
+    if (!this.playing) return;
+    for (const listener of this.creditsListeners) listener();
+  }
+
+  /** Playback reached the end of the file and holds the last frame. Ignored when nothing plays. */
+  emitEndReached(): void {
+    if (!this.playing) return;
+    for (const listener of this.endReachedListeners) listener();
+  }
+
+  /** The viewer's answer to the "Up next" countdown. Ignored when nothing plays. */
+  emitUpNextChoice(choice: UpNextChoice): void {
+    if (!this.playing) return;
+    for (const listener of this.upNextListeners) listener(choice);
   }
 
   /** Ends the current playback. Ignored when nothing plays, so each play ends once. */

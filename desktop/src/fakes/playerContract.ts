@@ -1,6 +1,6 @@
 // IPlayer contract tests (SPEC §12): the same behaviour from FakePlayer and the real MpvPlayer driven by a fake MPV.
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions } from '../main/player.js';
+import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
 
 /** Drives one player implementation from the outside, the way MPV (or a test) would. */
 export interface PlayerHarness {
@@ -9,6 +9,14 @@ export interface PlayerHarness {
   progress(progress: PlayerProgress): Promise<void>;
   /** Ends the current playback the way MPV does at the end of the file or when the stream fails. */
   end(reason: 'eof' | 'error', detail?: string): Promise<void>;
+  /** Makes playback enter the final credits. */
+  reachCredits(): Promise<void>;
+  /** Makes playback reach the end of the file, holding the last frame. */
+  reachEnd(): Promise<void>;
+  /** The "Up next" countdowns the player was shown, in order. */
+  upNexts(): UpNextOffer[];
+  /** The viewer answers the countdown. */
+  chooseUpNext(choice: UpNextChoice): Promise<void>;
   failNextStart(): void;
   /** How many times playback actually started. */
   launches(): number;
@@ -26,11 +34,16 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
     let harness: PlayerHarness;
     let progress: PlayerProgress[];
     let ended: [PlayerEndReason, string | undefined][];
+    let marks: string[];
 
     beforeEach(() => {
       harness = makeHarness();
       progress = [];
       ended = [];
+      marks = [];
+      harness.player.onCredits(() => marks.push('credits'));
+      harness.player.onEndReached(() => marks.push('endReached'));
+      harness.player.onUpNextChoice((choice) => marks.push(choice));
       harness.player.onProgress((p) => progress.push(p));
       harness.player.onEnded((reason, detail) => ended.push([reason, detail]));
     });
@@ -48,6 +61,36 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       await harness.player.stop();
 
       expect(ended).toEqual([['eof', undefined]]);
+    });
+
+    it('reports the final credits and the end of the file without ending, after a progress report', async () => {
+      await harness.player.play(contractPlay);
+      await harness.reachCredits();
+      const reportsAtCredits = progress.length;
+      await harness.reachEnd();
+
+      expect(marks).toEqual(['credits', 'endReached']);
+      expect(reportsAtCredits).toBeGreaterThan(0);
+      expect(ended).toEqual([]);
+    });
+
+    it('shows Up next over the current playback and reports the choices', async () => {
+      await harness.player.play(contractPlay);
+      harness.player.showUpNext({ title: 'The Office S01E03 · Health Care', seconds: 10 });
+      await harness.chooseUpNext('cancel');
+      await harness.chooseUpNext('play');
+
+      expect(harness.upNexts()).toEqual([{ title: 'The Office S01E03 · Health Care', seconds: 10 }]);
+      expect(marks).toEqual(['cancel', 'play']);
+    });
+
+    it('shows no Up next when nothing plays', async () => {
+      harness.player.showUpNext({ title: 'Next', seconds: 10 });
+      await harness.player.play(contractPlay);
+      await harness.player.stop();
+      harness.player.showUpNext({ title: 'Next', seconds: 10 });
+
+      expect(harness.upNexts()).toEqual([]);
     });
 
     it('ends with an error and its detail when the stream fails', async () => {

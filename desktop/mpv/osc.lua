@@ -1,10 +1,14 @@
 -- MediaMan on-screen controller (SPEC §7.4 step 3, §8 playback [M], §11): the title, a progress bar with chapters,
--- play/pause and time, and audio and subtitle menus, in the purple theme. Loaded with --script by the desktop app,
+-- play/pause and time, audio and subtitle menus, and the "Up next" countdown, in the purple theme. Loaded with --script by the desktop app,
 -- with the built-in OSC off (mpv.conf). It talks to the desktop main process only through MPV script messages and
 -- properties (.claude/rules/desktop.md). Needs MPV 0.37 or later (the mouse-pos property).
 --
 -- Keys: `a` opens the audio menu and `u` the subtitle menu (rebind with `script-binding osc/audio-menu` and
 -- `script-binding osc/subtitle-menu` in input.conf); in a menu, Up/Down move, Enter picks and Esc closes.
+--
+-- Up next (SPEC §7.4 step 5): the main process sends `script-message mediaman-up-next <seconds> <title>`; the card
+-- counts down and answers `script-message mediaman-up-next-choice play` when it runs out or on Play now (Enter), or
+-- `... cancel` on Cancel (Esc) or a seek.
 
 local assdraw = require 'mp.assdraw'
 local options = require 'mp.options'
@@ -56,6 +60,7 @@ local state = {
   tracks = {},
   dragging = false,
   menu = nil, -- { kind = 'audio' | 'sub', items = { { label, id, selected } }, focus = n }
+  up_next = nil, -- { title, seconds, deadline, timer }
   elements = {}, -- clickable areas from the last render
   click_bound = false,
 }
@@ -63,7 +68,7 @@ local state = {
 local overlay = mp.create_osd_overlay('ass-events')
 
 -- Defined under Input; drawing and the click binding call them.
-local toggle_menu, on_click
+local toggle_menu, on_click, finish_up_next
 
 -- Helpers --------------------------------------------------------------------------------------------------------
 
@@ -331,6 +336,44 @@ local function draw_menu(ass, els)
   end
 end
 
+local function draw_up_next(ass, els)
+  local up = state.up_next
+  local s = state.s
+  local width, height, pad = 560 * s, 172 * s, 24 * s
+  local x1 = state.w - 48 * s
+  local x0 = x1 - width
+  local y1 = state.h - 150 * s
+  local y0 = y1 - height
+  local remaining = math.max(0, up.deadline - mp.get_time())
+
+  box(ass, x0, y0, x1, y1, color.surface, 0x08, 12 * s)
+  els[#els + 1] = { x0 = x0, y0 = y0, x1 = x1, y1 = y1, keep_menu = true, action = function() end }
+  text(ass, x0 + pad, y0 + pad + 10 * s, 4, 20 * s, color.highlight, 'Up next', 0x30)
+  text(ass, x0 + pad, y0 + pad + 46 * s, 4, 26 * s, color.text, truncate(up.title, math.floor((width - 2 * pad) / (13 * s))))
+
+  local bw, bh = 136 * s, 44 * s
+  local by0, by1 = y1 - pad - bh, y1 - pad
+  text(ass, x0 + pad, (by0 + by1) / 2, 4, 20 * s, color.highlight,
+    string.format('Starting in %d s', math.ceil(remaining)), 0x30)
+  local buttons = {
+    { label = 'Play now', x1 = x1 - pad, fill = color.accent, choice = 'play' },
+    { label = 'Cancel', x1 = x1 - pad - bw - 12 * s, fill = color.background, choice = 'cancel' },
+  }
+  for _, b in ipairs(buttons) do
+    local bx0 = b.x1 - bw
+    local hot = hovered(bx0, by0, b.x1, by1)
+    box(ass, bx0, by0, b.x1, by1, b.fill, hot and 0x00 or 0x30, 8 * s)
+    text(ass, (bx0 + b.x1) / 2, (by0 + by1) / 2, 5, 22 * s, hot and color.highlight or color.text, b.label)
+    els[#els + 1] = { x0 = bx0, y0 = by0, x1 = b.x1, y1 = by1, keep_menu = true, action = function()
+      finish_up_next(b.choice)
+    end }
+  end
+
+  -- How much of the countdown is left, along the bottom edge of the card.
+  local track = width - 24 * s
+  box(ass, x0 + 12 * s, y1 - 6 * s, x0 + 12 * s + track * remaining / up.seconds, y1 - 3 * s, color.accent, 0)
+end
+
 -- Visibility and rendering ---------------------------------------------------------------------------------------
 
 local function over_controls()
@@ -365,7 +408,8 @@ local function render()
   if not w or w <= 0 or h <= 0 then return end
   state.w, state.h = w, h
   state.s = math.max(0.6, math.min(h / 1080, 2.5)) * opts.scale
-  if not visible() then
+  local controls = visible()
+  if not controls and not state.up_next then
     overlay:remove()
     state.elements = {}
     update_click_binding()
@@ -374,11 +418,14 @@ local function render()
 
   local ass = assdraw.ass_new()
   local els = {}
-  fade(ass, 0, 110 * state.s, false)
-  text(ass, 48 * state.s, 46 * state.s, 4, 34 * state.s, color.text,
-    truncate(state.title, math.max(10, math.floor((w - 96 * state.s) / (17 * state.s)))))
-  draw_bottom(ass, els)
-  if state.menu then draw_menu(ass, els) end
+  if controls then
+    fade(ass, 0, 110 * state.s, false)
+    text(ass, 48 * state.s, 46 * state.s, 4, 34 * state.s, color.text,
+      truncate(state.title, math.max(10, math.floor((w - 96 * state.s) / (17 * state.s)))))
+    draw_bottom(ass, els)
+  end
+  if state.up_next then draw_up_next(ass, els) end
+  if controls and state.menu then draw_menu(ass, els) end
   state.elements = els
 
   overlay.res_x, overlay.res_y = w, h
@@ -474,6 +521,35 @@ on_click = function(e)
   end
 end
 
+-- Up next --------------------------------------------------------------------------------------------------------
+
+local up_next_keys = { 'mediaman-up-next-enter', 'mediaman-up-next-kp-enter', 'mediaman-up-next-esc' }
+
+finish_up_next = function(choice)
+  local up = state.up_next
+  if not up then return end
+  up.timer:kill()
+  state.up_next = nil
+  for _, name in ipairs(up_next_keys) do mp.remove_key_binding(name) end
+  mp.commandv('script-message', 'mediaman-up-next-choice', choice)
+  request_render()
+end
+
+mp.register_script_message('mediaman-up-next', function(seconds, title)
+  if state.up_next then return end
+  local total = math.max(1, math.min(60, math.floor(tonumber(seconds) or 10)))
+  local up = { title = title or '', seconds = total, deadline = mp.get_time() + total }
+  up.timer = mp.add_periodic_timer(0.25, function()
+    if mp.get_time() >= up.deadline then finish_up_next('play') else request_render() end
+  end)
+  state.up_next = up
+  local function play() finish_up_next('play') end
+  mp.add_forced_key_binding('ENTER', 'mediaman-up-next-enter', play)
+  mp.add_forced_key_binding('KP_ENTER', 'mediaman-up-next-kp-enter', play)
+  mp.add_forced_key_binding('ESC', 'mediaman-up-next-esc', function() finish_up_next('cancel') end)
+  request_render()
+end)
+
 mp.add_key_binding('a', 'audio-menu', function() toggle_menu('audio') end)
 mp.add_key_binding('u', 'subtitle-menu', function() toggle_menu('sub') end)
 
@@ -530,5 +606,9 @@ mp.observe_property('track-list', 'native', function(_, v)
 end)
 
 mp.observe_property('osd-dimensions', 'native', request_render)
-mp.register_event('seek', poke)
+mp.register_event('seek', function()
+  -- Seeking means the viewer wants to keep watching this one.
+  finish_up_next('cancel')
+  poke()
+end)
 mp.register_event('file-loaded', poke)

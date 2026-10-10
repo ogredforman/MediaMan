@@ -17,10 +17,22 @@ export interface DesktopPlayOptions {
   subtitles: { url: string; language?: string; title?: string }[];
 }
 
-/** Events from MPV, tagged with the `launchId` passed to `play`. */
+/** The "Up next" countdown MPV shows: the next episode's title and the seconds before it starts. */
+export interface DesktopUpNextOffer {
+  title: string;
+  seconds: number;
+}
+
+/**
+ * Events from MPV, tagged with the `launchId` passed to `play`. `credits` is the start of the final credits (once),
+ * `endReached` the end of the file with MPV holding the last frame, and `upNext` the viewer's answer to the countdown.
+ */
 export type DesktopPlayerEvent =
   | { launchId: string; type: 'progress'; positionSeconds: number; durationSeconds: number; paused: boolean }
-  | { launchId: string; type: 'ended'; reason: 'eof' | 'quit' | 'error'; detail?: string };
+  | { launchId: string; type: 'ended'; reason: 'eof' | 'quit' | 'error'; detail?: string }
+  | { launchId: string; type: 'credits' }
+  | { launchId: string; type: 'endReached' }
+  | { launchId: string; type: 'upNext'; choice: 'play' | 'cancel' };
 
 export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
 
@@ -28,6 +40,8 @@ export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; m
 export interface DesktopPlayerBridge {
   play(launchId: string, options: DesktopPlayOptions): Promise<DesktopPlayResult>;
   stop(): Promise<void>;
+  /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
+  upNext(launchId: string, offer: DesktopUpNextOffer): Promise<void>;
   /** The native picker for the MPV executable; the saved path, or null when cancelled. */
   chooseMpv(): Promise<string | null>;
   /** Returns the unsubscribe. */

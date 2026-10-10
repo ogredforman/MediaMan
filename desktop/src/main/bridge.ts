@@ -1,6 +1,6 @@
 // The main-process side of the preload bridge (src/preload/index.cts): the current server, its tokens and the player.
 // Only the web UI's origin may call it, and it only ever acts on the current server.
-import type { PlayOptions, SubtitleTrack } from './player.js';
+import type { PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
 import type { PlayerEvent, PlayerHost, PlayResult } from './playerHost.js';
 import { parseStoredTokens, type StoredTokens, type TokenStore } from './tokenStore.js';
 
@@ -12,6 +12,7 @@ export const bridgeChannels = {
   tokensClear: 'mediaman:tokens-clear',
   playerPlay: 'mediaman:player-play',
   playerStop: 'mediaman:player-stop',
+  playerUpNext: 'mediaman:player-up-next',
   playerChooseMpv: 'mediaman:player-choose-mpv',
 } as const;
 
@@ -35,7 +36,7 @@ export interface BridgeOptions {
   /** The server the desktop app started or connected to; undefined when the UI reaches the API on its own origin. */
   serverUrl: () => string | undefined;
   tokens: Pick<TokenStore, 'get' | 'set' | 'clear'>;
-  player: Pick<PlayerHost, 'play' | 'stop'>;
+  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext'>;
   /** Shows the native picker for the MPV executable and saves the choice; null when cancelled. */
   chooseMpv: () => Promise<string | null>;
 }
@@ -77,6 +78,14 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
     }),
   );
   ipc.handle(bridgeChannels.playerStop, guard(() => options.player.stop()));
+  ipc.handle(
+    bridgeChannels.playerUpNext,
+    guard((_, launchId: unknown, value: unknown) => {
+      const offer = parseUpNextOffer(value);
+      if (typeof launchId !== 'string' || !offer) throw new Error("This Up next request isn't valid.");
+      options.player.upNext(launchId, offer);
+    }),
+  );
   ipc.handle(bridgeChannels.playerChooseMpv, guard(() => options.chooseMpv()));
 }
 
@@ -96,6 +105,17 @@ export function parsePlayOptions(value: unknown, serverOrigin: string): PlayOpti
   }
   return { url, startSeconds, title, subtitles: tracks };
 }
+
+/** The renderer's "Up next" countdown, checked: a display title and a whole number of seconds up to a minute. */
+export function parseUpNextOffer(value: unknown): UpNextOffer | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const { title, seconds } = value as Record<string, unknown>;
+  if (typeof title !== 'string' || title.trim() === '' || title.length > maxUpNextTitle) return undefined;
+  if (typeof seconds !== 'number' || !Number.isInteger(seconds) || seconds < 1 || seconds > 60) return undefined;
+  return { title, seconds };
+}
+
+const maxUpNextTitle = 500;
 
 function parseSubtitle(value: unknown, serverOrigin: string): SubtitleTrack | undefined {
   if (typeof value !== 'object' || value === null) return undefined;

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FakePlayer } from '../fakes/fakePlayer.js';
-import { bridgeChannels, bridgeEvents, parsePlayOptions, registerBridge, type BridgeEvent, type IpcMainLike } from './bridge.js';
+import { bridgeChannels, bridgeEvents, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type IpcMainLike } from './bridge.js';
 import { PlayerHost } from './playerHost.js';
 import type { StoredTokens } from './tokenStore.js';
 
@@ -145,6 +145,19 @@ describe('registerBridge', () => {
     expect(player.plays).toEqual([]);
   });
 
+  it('shows Up next on the current launch and refuses an invalid offer', async () => {
+    const { call, player } = setUp(serverOrigin);
+    const { event } = uiWindow();
+    const offer = { title: 'Show S01E02 · Two', seconds: 10 };
+    await call(bridgeChannels.playerPlay, event, 'launch-1', playRequest);
+
+    await call(bridgeChannels.playerUpNext, event, 'launch-1', offer);
+    await expect(call(bridgeChannels.playerUpNext, event, 'launch-1', { ...offer, seconds: 0 })).rejects.toThrow(/Up next/);
+    await expect(call(bridgeChannels.playerUpNext, event, 7, offer)).rejects.toThrow(/Up next/);
+
+    expect(player.upNexts).toEqual([offer]);
+  });
+
   it('answers the picked MPV, or null when the picker is cancelled', async () => {
     const { call, cancelPicker } = setUp(undefined);
 
@@ -158,6 +171,15 @@ describe('registerBridge', () => {
 
     for (const channel of [...Object.values(bridgeChannels), ...Object.values(bridgeEvents)]) {
       expect(preload).toContain(`'${channel}'`);
+    }
+  });
+});
+
+describe('parseUpNextOffer', () => {
+  it('keeps a valid offer and refuses the rest', () => {
+    expect(parseUpNextOffer({ title: 'Next', seconds: 10 })).toEqual({ title: 'Next', seconds: 10 });
+    for (const value of [{ title: '', seconds: 10 }, { title: 'x'.repeat(501), seconds: 10 }, { title: 'Next', seconds: 1.5 }, { title: 'Next', seconds: 61 }, { seconds: 10 }, null]) {
+      expect(parseUpNextOffer(value)).toBeUndefined();
     }
   });
 });

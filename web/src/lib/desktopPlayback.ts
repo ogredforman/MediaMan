@@ -1,8 +1,8 @@
-// Play on desktop (SPEC §7.4 steps 1–4 and 6): a playback session from the server, MPV through the desktop bridge,
-// and every progress event reported back. It lives outside React so leaving the page doesn't stop the reports.
+// Play on desktop (SPEC §7.4): a playback session from the server, MPV through the desktop bridge, every progress
+// event reported back, and "Up next" from the credits (or the end of the file) when the server names a next episode. It lives outside React so leaving the page doesn't stop the reports.
 import { useSyncExternalStore } from 'react';
 import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
-import type { PlaybackSession, WatchProgressReport } from '../api/mediaman.schemas';
+import type { NextEpisode, PlaybackSession, WatchProgress, WatchProgressReport } from '../api/mediaman.schemas';
 import { desktopBridge, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
 import { apiUrl } from './http';
 
@@ -22,7 +22,7 @@ export type DesktopPlaybackState =
 
 export interface PlaybackApi {
   createSession(playableId: string): Promise<PlaybackSession>;
-  reportProgress(playableId: string, report: WatchProgressReport): Promise<unknown>;
+  reportProgress(playableId: string, report: WatchProgressReport): Promise<WatchProgress>;
 }
 
 const serverApi: PlaybackApi = {
@@ -37,7 +37,14 @@ interface Launch {
   retry: boolean;
   /** The last position MPV reported, where a re-query resumes. */
   positionSeconds?: number;
+  /** The next episode, from the latest progress the server recorded. */
+  next?: NextEpisode | undefined;
+  /** Up next is shown at most once per launch; after a cancel, MPV closes at the end of the file. */
+  upNext: 'none' | 'offered' | 'cancelled';
 }
+
+/** How long "Up next" counts down before the next episode starts (SPEC §7.4 step 5). */
+export const upNextSeconds = 10;
 
 export interface DesktopPlayback {
   getState: () => DesktopPlaybackState;
@@ -60,13 +67,32 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
     for (const listener of listeners) listener();
   };
 
-  const report = (playableId: string, progress: WatchProgressReport) => {
+  const report = (self: Launch, progress: WatchProgressReport) => {
     // A failed report is dropped; the next one (10 s later at most) carries the newer position anyway.
-    reports = reports.then(() => api.reportProgress(playableId, progress)).catch(() => undefined);
+    reports = reports
+      .then(() => api.reportProgress(self.playableId, progress))
+      .then((recorded) => {
+        self.next = recorded.nextEpisode;
+      })
+      .catch(() => undefined);
+  };
+
+  // MPV reports progress just before the credits and the end of the file, so waiting for the reports gives the
+  // server's answer for this episode.
+  const offerUpNext = async (self: Launch, atEnd: boolean): Promise<void> => {
+    await reports;
+    if (current !== self) return;
+    if (self.upNext === 'none' && self.next) {
+      self.upNext = 'offered';
+      await player.upNext(self.launchId, { title: self.next.title, seconds: upNextSeconds });
+    } else if (atEnd && self.upNext !== 'offered') {
+      // Nothing to play next, or the viewer cancelled it: close MPV at the end, as for a movie.
+      await player.stop();
+    }
   };
 
   const launch = async (playableId: string, retry: boolean, positionSeconds?: number): Promise<void> => {
-    const self: Launch = { launchId: crypto.randomUUID(), playableId, retry };
+    const self: Launch = { launchId: crypto.randomUUID(), playableId, retry, upNext: 'none' };
     if (positionSeconds !== undefined) self.positionSeconds = positionSeconds;
     current = self;
     launches.set(self.launchId, self);
@@ -98,13 +124,24 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
   const onEvent = (event: DesktopPlayerEvent) => {
     const self = launches.get(event.launchId);
     if (!self) return;
-    if (event.type === 'progress') {
-      self.positionSeconds = event.positionSeconds;
-      report(self.playableId, {
-        positionSeconds: Math.max(0, event.positionSeconds),
-        durationSeconds: Math.max(0, event.durationSeconds),
-      });
-      return;
+    switch (event.type) {
+      case 'progress':
+        self.positionSeconds = event.positionSeconds;
+        report(self, {
+          positionSeconds: Math.max(0, event.positionSeconds),
+          durationSeconds: Math.max(0, event.durationSeconds),
+        });
+        return;
+      case 'credits':
+      case 'endReached':
+        offerUpNext(self, event.type === 'endReached').catch(() => undefined);
+        return;
+      case 'upNext':
+        if (event.choice === 'cancel') self.upNext = 'cancelled';
+        else if (current === self && self.next) void launch(self.next.playableId, false);
+        return;
+      case 'ended':
+        break;
     }
     launches.delete(self.launchId);
     if (current !== self) return;

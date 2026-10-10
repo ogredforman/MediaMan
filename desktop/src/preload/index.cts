@@ -10,6 +10,7 @@ const channels = {
   tokensClear: 'mediaman:tokens-clear',
   playerPlay: 'mediaman:player-play',
   playerStop: 'mediaman:player-stop',
+  playerUpNext: 'mediaman:player-up-next',
   playerChooseMpv: 'mediaman:player-choose-mpv',
   playerEvent: 'mediaman:player-event',
 } as const;
@@ -31,6 +32,8 @@ contextBridge.exposeInMainWorld('mediamanDesktop', {
   player: {
     play: (launchId: string, options: unknown): Promise<unknown> => ipcRenderer.invoke(channels.playerPlay, launchId, options),
     stop: (): Promise<void> => ipcRenderer.invoke(channels.playerStop) as Promise<void>,
+    /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
+    upNext: (launchId: string, offer: unknown): Promise<void> => ipcRenderer.invoke(channels.playerUpNext, launchId, offer) as Promise<void>,
     /** The native picker for the MPV executable; resolves to the saved path, or null when cancelled. */
     chooseMpv: (): Promise<string | null> => ipcRenderer.invoke(channels.playerChooseMpv) as Promise<string | null>,
     onEvent: (callback: (event: unknown) => void): (() => void) => {
