@@ -44,7 +44,11 @@ void app.whenReady().then(async () => {
   const serverCommand = resolveServerCommand(process.env);
   if (serverCommand) {
     try {
-      server = new ServerProcess({ command: serverCommand, port: resolveServerPort(process.env) });
+      server = new ServerProcess({
+        command: serverCommand,
+        port: resolveServerPort(process.env),
+        allowedOrigin: uiUrl.origin,
+      });
       serverUrl = (await server.start()).baseUrl;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

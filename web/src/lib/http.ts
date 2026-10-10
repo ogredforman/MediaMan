@@ -3,7 +3,12 @@ import { refreshTokens } from '../api/mediaman';
 import type { AuthTokens, Problem } from '../api/mediaman.schemas';
 import { clearTokens, refreshMarginMs, refreshSession, RefreshRejectedError, storedTokens } from './session';
 
-const baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? '';
+let baseUrl: string = import.meta.env.VITE_API_BASE_URL ?? '';
+
+/** Points the API at another server origin (the desktop app's server); overrides `VITE_API_BASE_URL`. */
+export function setApiBaseUrl(url: string): void {
+  baseUrl = url.replace(/\/+$/, '');
+}
 
 /** The absolute URL of a contract path, e.g. `/titles`. */
 export function apiUrl(path: string): string {

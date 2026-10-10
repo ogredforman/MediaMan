@@ -27,6 +27,8 @@ export interface ServerProcessOptions {
   command: ServerCommand;
   port?: number;
   env?: NodeJS.ProcessEnv;
+  /** The web UI's origin, which the spawned server lets call its API (CORS, `MediaMan:AllowedOrigins`). */
+  allowedOrigin?: string;
   healthTimeoutMs?: number;
   pollIntervalMs?: number;
   stopGraceMs?: number;
@@ -119,7 +121,8 @@ export class ServerProcess implements IServerProcess {
 
     let exitDetail: string | undefined;
     this.exited = false;
-    const env = { ...(this.options.env ?? process.env), MediaMan__Server__Port: String(this.port) };
+    const env: NodeJS.ProcessEnv = { ...(this.options.env ?? process.env), MediaMan__Server__Port: String(this.port) };
+    if (this.options.allowedOrigin) env.MediaMan__AllowedOrigins__0 = this.options.allowedOrigin;
     const child = this.spawnServer(this.options.command, env, this.log);
     this.child = child;
     this.exit = new Promise<void>((resolve) => {

@@ -1,9 +1,11 @@
 import type { AuthTokens } from '../api/mediaman.schemas';
+import type { DesktopTokenBridge } from './desktop';
 
 // The signed-in session, shared by every tab of this origin through localStorage. A refresh token works once and
 // reusing one revokes the session (ADR 0008), so refreshes are single-flight across tabs: under a Web Lock where
 // the browser has one, otherwise under a localStorage lease (Web Locks needs a secure context, and Server mode is
-// usually plain http on the LAN).
+// usually plain http on the LAN). Inside the desktop app the tokens live in its encrypted store instead
+// (keepTokensOnDesktop): read once before the first render, then kept in memory and written back on every change.
 
 const storageKey = 'mediaman.auth';
 const lockName = 'mediaman.refresh';
@@ -39,8 +41,48 @@ function readJson(key: string): unknown {
   }
 }
 
+interface DesktopSession {
+  bridge: DesktopTokenBridge;
+  tokens: AuthTokens | undefined;
+}
+
+// The desktop app has one window, so one in-memory copy is the whole truth.
+let desktop: DesktopSession | undefined;
+// Bridge writes run one at a time, so a sign-out can't land before the refresh that preceded it.
+let desktopWrites: Promise<void> = Promise.resolve();
+
+/**
+ * Keeps the tokens in the desktop app's store from now on, starting from the ones it holds. Unreadable or missing
+ * tokens start signed out; localStorage is never used for them on desktop.
+ */
+export async function keepTokensOnDesktop(bridge: DesktopTokenBridge): Promise<void> {
+  const session: DesktopSession = { bridge, tokens: undefined };
+  desktop = session;
+  try {
+    const value = await bridge.get();
+    if (isTokens(value)) session.tokens = value;
+  } catch (error) {
+    console.error(`Could not read the saved sign-in from this device: ${errorMessage(error)}`);
+  }
+  notify();
+}
+
+function persistDesktop(write: (bridge: DesktopTokenBridge) => Promise<void>): void {
+  const session = desktop;
+  if (session === undefined) return;
+  desktopWrites = desktopWrites
+    .then(() => write(session.bridge))
+    .catch((error: unknown) => {
+      // The message never carries the tokens; the session still works until the app quits.
+      console.error(`Could not save the sign-in on this device: ${errorMessage(error)}`);
+    });
+}
+
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
 /** The stored tokens, or undefined when signed out (or the stored value is unreadable). */
 export function storedTokens(): AuthTokens | undefined {
+  if (desktop !== undefined) return desktop.tokens;
   const value = readJson(storageKey);
   return isTokens(value) ? value : undefined;
 }
@@ -54,11 +96,24 @@ function notify(): void {
 }
 
 export function storeTokens(tokens: AuthTokens): void {
+  if (desktop !== undefined) {
+    desktop.tokens = tokens;
+    persistDesktop((bridge) => bridge.set(tokens));
+    notify();
+    return;
+  }
   localStorage.setItem(storageKey, JSON.stringify(tokens));
   notify();
 }
 
 export function clearTokens(): void {
+  if (desktop !== undefined) {
+    if (desktop.tokens === undefined) return;
+    desktop.tokens = undefined;
+    persistDesktop((bridge) => bridge.clear());
+    notify();
+    return;
+  }
   if (localStorage.getItem(storageKey) === null) return;
   localStorage.removeItem(storageKey);
   notify();

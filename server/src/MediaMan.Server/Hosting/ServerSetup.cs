@@ -48,6 +48,7 @@ public static class ServerSetup
 
         services.ConfigureHttpJsonOptions(o => o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
         services.AddProblemDetails(o => o.CustomizeProblemDetails = Problems.Customize);
+        services.AddCors();
         services.AddSingleton<SetupState>();
         services.AddScoped<SetupService>();
         services.AddScoped<LibraryQueries>();
@@ -201,6 +202,25 @@ public static class ServerSetup
     {
         app.UseExceptionHandler();
         app.UseStatusCodePages();
+        return app;
+    }
+
+    /// <summary>
+    /// Lets the configured UI origins (<see cref="MediaManOptions.AllowedOrigins"/>) call the API; runs before the
+    /// setup gate and auth so preflights are answered and their <c>401</c>/<c>423</c> responses stay readable.
+    /// </summary>
+    public static WebApplication UseMediaManCors(this WebApplication app)
+    {
+        var origins = app.Services.GetRequiredService<IOptions<MediaManOptions>>().Value.AllowedOrigins
+            .Where(o => !string.IsNullOrWhiteSpace(o))
+            .Select(o => o.Trim().TrimEnd('/'))
+            .ToArray();
+        if (origins.Length == 0)
+        {
+            return app;
+        }
+
+        app.UseCors(policy => policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod());
         return app;
     }
 

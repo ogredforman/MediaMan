@@ -405,6 +405,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - All endpoints are authenticated except setup, login (including token refresh), invite redemption and health.
   - Rate limiting on authentication, and escalating IP bans while remote access is on (7.11).
   - Clients outside the local network are refused until the Superadmin turns on remote access (7.12).
+  - Browsers may call the API cross-origin (CORS) only from the configured UI origins (`MediaMan:AllowedOrigins`, none by default; the desktop app passes its UI's origin to the server it starts), without credentials since tokens are bearer tokens.
   - Never logs secrets.
 - **Data portability:** a single SQLite file, the per-install key file and an artwork cache folder. Backup and restore are just copying files. Settings export and import as JSON.
 - **Accessibility:** keyboard navigable throughout; visible focus states; WCAG AA contrast for text.
