@@ -886,6 +886,13 @@ export interface PlaybackSession {
   durationSeconds?: number;
   /** External subtitle files next to the version. Subtitles inside the file aren't listed. */
   subtitles: SubtitleTrack[];
+  /**
+     * The profile's audio languages as the tags media may carry, in preference order: each preferred code
+     * followed by its ISO 639-2 forms (`de` gives `de`, `ger`, `deu`). Empty when the profile has none.
+     */
+  audioLanguages: string[];
+  /** The profile's subtitle languages, as tags in preference order like `audioLanguages`. */
+  subtitleLanguages: string[];
 }
 
 /**

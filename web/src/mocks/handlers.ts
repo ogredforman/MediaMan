@@ -304,6 +304,8 @@ export const handlers = [
       title: version.fileName,
       ...resumeOf(playableId),
       subtitles: [],
+      audioLanguages: [],
+      subtitleLanguages: [],
     };
     return HttpResponse.json(session);
   }),

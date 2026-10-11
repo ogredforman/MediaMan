@@ -75,6 +75,8 @@ export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets):
   // The user's own mpv.conf and scripts still load; ours comes after, so it wins where both set an option.
   if (assets) args.push('--osc=no', `--include=${assets.config}`, `--script=${assets.script}`);
   if (opts.startSeconds > 0) args.push(`--start=${String(opts.startSeconds)}`);
+  if (opts.audioLanguages?.length) args.push(`--alang=${opts.audioLanguages.join(',')}`);
+  if (opts.subtitleLanguages?.length) args.push(`--slang=${opts.subtitleLanguages.join(',')}`);
   args.push('--', opts.url);
   return args;
 }

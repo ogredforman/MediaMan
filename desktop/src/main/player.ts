@@ -14,6 +14,10 @@ export interface PlayOptions {
   startSeconds: number;
   subtitles: SubtitleTrack[];
   title: string;
+  /** The profile's audio language tags in preference order (`--alang`), e.g. `de,ger,deu`. */
+  audioLanguages?: string[];
+  /** The profile's subtitle language tags in preference order (`--slang`); MPV applies them to embedded tracks. */
+  subtitleLanguages?: string[];
 }
 
 export interface PlayerProgress {

@@ -170,6 +170,34 @@ public sealed class PlaybackApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_session_carries_no_language_tags_without_preferences()
+    {
+        var session = await CreateAsync(_client, _seed.MoviePlayableId);
+
+        session.AudioLanguages.Should().BeEmpty();
+        session.SubtitleLanguages.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_session_carries_the_profile_languages_as_match_tags_in_preference_order()
+    {
+        using var patched = await _client.PatchAsJsonAsync(
+            $"/profiles/{_profileId}", new UpdateProfileRequest(null, null, ["ja", "en"], ["de"]), Ct);
+        patched.IsSuccessStatusCode.Should().BeTrue(await patched.Content.ReadAsStringAsync(Ct));
+
+        var session = await CreateAsync(_client, _seed.MoviePlayableId);
+
+        session.AudioLanguages.Should().Equal("ja", "jpn", "en", "eng");
+        session.SubtitleLanguages.Should().Equal("de", "ger", "deu");
+    }
+
+    [Fact]
+    public void Match_tags_skip_unknown_codes()
+    {
+        PlaybackService.MatchTagsOf(["xx", "fr"]).Should().Equal("fr", "fre", "fra");
+    }
+
+    [Fact]
     public async Task A_browser_is_told_to_use_the_desktop_app_for_now()
     {
         using var response = await PostAsync(_client, new { playableId = _seed.MoviePlayableId, capabilities = new { player = "browser", containers = _browserContainers } });

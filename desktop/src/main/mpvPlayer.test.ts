@@ -440,6 +440,11 @@ describe('mpvArgs', () => {
     ]);
   });
 
+  it('passes the language preferences as --alang and --slang, and leaves out empty ones', () => {
+    const args = mpvArgs({ ...contractPlay, audioLanguages: ['de', 'ger', 'deu', 'en', 'eng'], subtitleLanguages: [] }, 'p');
+    expect(args.slice(args.indexOf('--force-media-title=Alien (1979)') + 1)).toEqual(['--alang=de,ger,deu,en,eng', '--', contractPlay.url]);
+  });
+
   it('loads the MediaMan config and OSC after the launch options, with the built-in OSC off', () => {
     const args = mpvArgs(contractPlay, 'p', { config: 'conf', script: 'osc' });
     expect(args.slice(args.indexOf('--osc=no'), args.indexOf('--'))).toEqual(['--osc=no', '--include=conf', '--script=osc']);

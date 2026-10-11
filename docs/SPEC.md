@@ -191,7 +191,8 @@ User 1─* SavedQualityProfile
 1. The user presses Play. The client calls `POST /playback/sessions` with its capabilities (`player: mpv`, so it can decode everything).
 2. The server picks a version (the profile's preferred version if set, otherwise the highest quality), and returns
    a direct-stream URL, the resume position, and the external subtitle URLs.
-3. The desktop app launches MPV via `IPlayer` with the stream URL, start position and subtitles. The purple Lua OSC is loaded.
+3. The desktop app launches MPV via `IPlayer` with the stream URL, start position and subtitles, and the profile's audio and
+   subtitle languages (`--alang`/`--slang`; the best-matching non-forced external subtitle is turned on). The purple Lua OSC is loaded.
 4. The desktop app reports progress to the server every 10 s and on pause, seek and quit.
 5. At 90% or more, the Playable is marked watched. If the next episode exists, an "Up next" countdown (10 s, cancellable) starts it.
    The countdown shows over the final credits: the run of named credits chapters that ends the file. When a post-credits

@@ -14,7 +14,9 @@ export interface DesktopPlayOptions {
   url: string;
   startSeconds: number;
   title: string;
-  subtitles: { url: string; language?: string; title?: string }[];
+  subtitles: { url: string; language?: string; title?: string; isDefault?: boolean }[];
+  audioLanguages: string[];
+  subtitleLanguages: string[];
 }
 
 /** The "Up next" countdown MPV shows: the next episode's title and the seconds before it starts. */

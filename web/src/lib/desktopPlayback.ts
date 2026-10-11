@@ -2,7 +2,7 @@
 // event reported back, and "Up next" from the credits (or the end of the file) when the server names a next episode. It lives outside React so leaving the page doesn't stop the reports.
 import { useSyncExternalStore } from 'react';
 import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
-import type { NextEpisode, PlaybackSession, WatchProgress, WatchProgressReport } from '../api/mediaman.schemas';
+import type { NextEpisode, PlaybackSession, SubtitleTrack, WatchProgress, WatchProgressReport } from '../api/mediaman.schemas';
 import { desktopBridge, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
 import { apiUrl } from './http';
 
@@ -182,6 +182,7 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
 
 /** The session as MPV's launch: absolute URLs on the current server, starting at `positionSeconds` (Start over, a re-query). */
 export function playOptions(session: PlaybackSession, positionSeconds?: number): DesktopPlayOptions {
+  const preferred = preferredSubtitle(session.subtitles, session.subtitleLanguages);
   return {
     url: absolute(session.url),
     startSeconds: positionSeconds ?? session.resumeSeconds ?? 0,
@@ -190,8 +191,29 @@ export function playOptions(session: PlaybackSession, positionSeconds?: number):
       url: absolute(s.url),
       title: s.fileName,
       ...(s.language === undefined ? {} : { language: s.language }),
+      ...(s === preferred ? { isDefault: true } : {}),
     })),
+    audioLanguages: session.audioLanguages,
+    subtitleLanguages: session.subtitleLanguages,
   };
+}
+
+/**
+ * The external subtitle to turn on: the non-forced one whose language comes earliest in the profile's tags (`pt-BR`
+ * matches `pt`). MPV's `--slang` only chooses among the file's own tracks, not ones added after it loads.
+ */
+function preferredSubtitle(subtitles: SubtitleTrack[], tags: string[]): SubtitleTrack | undefined {
+  let best: SubtitleTrack | undefined;
+  let bestRank = tags.length;
+  for (const s of subtitles) {
+    if (s.forced || s.language === undefined) continue;
+    const rank = tags.indexOf(s.language.toLowerCase().replace(/-.*/, ''));
+    if (rank !== -1 && rank < bestRank) {
+      best = s;
+      bestRank = rank;
+    }
+  }
+  return best;
 }
 
 /** `apiUrl` can be relative to the page (e.g. `/api` behind the Vite proxy); MPV needs a full URL. */
