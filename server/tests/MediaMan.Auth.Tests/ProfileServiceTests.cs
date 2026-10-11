@@ -7,6 +7,9 @@ namespace MediaMan.Auth.Tests;
 
 public sealed class ProfileServiceTests : IAsyncLifetime
 {
+    private static readonly string[] _japaneseThenEnglish = ["ja", "en"];
+    private static readonly string[] _english = ["en"];
+
     private readonly FakeClock _clock = new();
     private TempDatabase _db = null!;
     private User _owner = null!;
@@ -80,13 +83,47 @@ public sealed class ProfileServiceTests : IAsyncLifetime
 
         await using var context = _db.CreateContext();
         var service = new ProfileService(context, _clock);
-        (await service.UpdateAsync(_owner.Id, kids.Id, " Children ", null, Ct)).Profile.Should()
+        (await service.UpdateAsync(_owner.Id, kids.Id, new ProfileChanges(Name: " Children "), Ct)).Profile.Should()
             .BeEquivalentTo(new { Name = "Children", Avatar = "teal" });
-        (await service.UpdateAsync(_owner.Id, kids.Id, null, "amber", Ct)).Profile.Should()
+        (await service.UpdateAsync(_owner.Id, kids.Id, new ProfileChanges(Avatar: "amber"), Ct)).Profile.Should()
             .BeEquivalentTo(new { Name = "Children", Avatar = "amber" });
-        (await service.UpdateAsync(_owner.Id, kids.Id, "guest", null, Ct)).Failure.Should().Be(ProfileFailure.NameTaken);
-        (await service.UpdateAsync(_owner.Id, kids.Id, "CHILDREN", null, Ct)).Profile!.Name.Should()
+        (await service.UpdateAsync(_owner.Id, kids.Id, new ProfileChanges(Name: "guest"), Ct)).Failure.Should().Be(ProfileFailure.NameTaken);
+        (await service.UpdateAsync(_owner.Id, kids.Id, new ProfileChanges(Name: "CHILDREN"), Ct)).Profile!.Name.Should()
             .Be("CHILDREN", "a profile may change the case of its own name");
+    }
+
+    [Fact]
+    public async Task Language_preferences_are_replaced_in_order_and_kept_by_other_edits()
+    {
+        var kids = (await CreateAsync(_owner, "Kids")).Profile!;
+
+        await using (var context = _db.CreateContext())
+        {
+            var service = new ProfileService(context, _clock);
+            (await service.UpdateAsync(_owner.Id, kids.Id, new ProfileChanges(AudioLanguages: ["ja", "en"], SubtitleLanguages: ["en"]), Ct))
+                .Profile.Should().BeEquivalentTo(new { AudioLangPrefs = _japaneseThenEnglish, SubtitleLangPrefs = _english },
+                    o => o.WithStrictOrdering());
+            (await service.UpdateAsync(_owner.Id, kids.Id, new ProfileChanges(Name: "Children", SubtitleLanguages: []), Ct)).Failure.Should().BeNull();
+        }
+
+        await using var check = _db.CreateContext();
+        (await check.Profiles.SingleAsync(p => p.Id == kids.Id, Ct)).Should().BeEquivalentTo(
+            new { Name = "Children", AudioLangPrefs = _japaneseThenEnglish, SubtitleLangPrefs = Array.Empty<string>() },
+            o => o.WithStrictOrdering());
+    }
+
+    [Fact]
+    public async Task Invalid_language_preferences_are_keyed_by_list()
+    {
+        var kids = (await CreateAsync(_owner, "Kids")).Profile!;
+        await using var context = _db.CreateContext();
+        var service = new ProfileService(context, _clock);
+
+        var result = await service.UpdateAsync(_owner.Id, kids.Id,
+            new ProfileChanges(AudioLanguages: ["en", "klingon"], SubtitleLanguages: ["en", "en"]), Ct);
+
+        result.Failure.Should().Be(ProfileFailure.Invalid);
+        result.Errors!.Keys.Should().BeEquivalentTo("audioLanguages", "subtitleLanguages");
     }
 
     [Fact]
@@ -96,7 +133,7 @@ public sealed class ProfileServiceTests : IAsyncLifetime
         await using var context = _db.CreateContext();
         var service = new ProfileService(context, _clock);
 
-        (await service.UpdateAsync(_owner.Id, theirs.Id, "Mine", null, Ct)).Failure.Should().Be(ProfileFailure.NotFound);
+        (await service.UpdateAsync(_owner.Id, theirs.Id, new ProfileChanges(Name: "Mine"), Ct)).Failure.Should().Be(ProfileFailure.NotFound);
         (await service.DeleteAsync(_owner.Id, theirs.Id, Ct)).Should().Be(ProfileFailure.NotFound);
         (await service.SelectAsync(_owner.Id, Guid.NewGuid(), theirs.Id, Ct)).Failure.Should().Be(ProfileFailure.NotFound);
     }
