@@ -65,6 +65,7 @@ import type {
   GetArtworkParams,
   GetSubtitleParams,
   Health,
+  Home,
   Library,
   LibraryCreateRequest,
   LibraryPage,
@@ -2069,6 +2070,110 @@ export const useRelinkMediaFile = <TError = ErrorType<Problem | ProblemResponse>
       > => {
       return useMutation(getRelinkMediaFileMutationOptions(options), queryClient);
     }
+
+export const getGetHomeUrl = () => {
+
+
+
+
+  return `/home`
+}
+
+/**
+ * Only titles with a matched file count, as in `listTitles`. Rows come in display order (Continue Watching, Next
+ * Up, Recently Added, then genres), and a row with no items is left out. Without a picked profile the personal
+ * rows (Continue Watching and Next Up) are left out and the hero's Play starts from the beginning.
+ * @summary The Home screen for the session's profile, the hero pick and its rows (SPEC §8 browsing, §11 Home).
+ */
+export const getHome = async ( options?: Parameters<typeof apiFetch>[1]): Promise<Home> => {
+
+  return apiFetch<Home>(getGetHomeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetHomeQueryKey = () => {
+    return [
+    `/home`
+    ] as const;
+    }
+
+
+export const getGetHomeQueryOptions = <TData = Awaited<ReturnType<typeof getHome>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHome>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHomeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHome>>> = ({ signal }) => getHome({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHome>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetHomeQueryResult = NonNullable<Awaited<ReturnType<typeof getHome>>>
+export type GetHomeQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetHome<TData = Awaited<ReturnType<typeof getHome>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHome>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHome>>,
+          TError,
+          Awaited<ReturnType<typeof getHome>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHome<TData = Awaited<ReturnType<typeof getHome>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHome>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHome>>,
+          TError,
+          Awaited<ReturnType<typeof getHome>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetHome<TData = Awaited<ReturnType<typeof getHome>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHome>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The Home screen for the session's profile, the hero pick and its rows (SPEC §8 browsing, §11 Home).
+ */
+
+export function useGetHome<TData = Awaited<ReturnType<typeof getHome>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHome>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetHomeQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListTitlesUrl = (params?: ListTitlesParams,) => {
   const normalizedParams = new URLSearchParams();

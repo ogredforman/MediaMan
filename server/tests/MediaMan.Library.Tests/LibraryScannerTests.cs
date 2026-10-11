@@ -89,6 +89,20 @@ public sealed class LibraryScannerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_new_file_records_when_it_was_found_and_keeps_it_when_it_changes()
+    {
+        var path = CreateFile("Movie.One.2001.mkv");
+        await ScanAsync();
+        var found = _clock.UtcNow;
+
+        _clock.Advance(TimeSpan.FromDays(2));
+        File.WriteAllText(path, "a longer placeholder than before");
+        await ScanAsync();
+
+        (await FilesAsync()).Single().AddedAt.Should().Be(found);
+    }
+
+    [Fact]
     public async Task Changed_size_or_mtime_reprobes_and_resets_to_pending()
     {
         var bigger = CreateFile("Movie.One.2001.mkv");

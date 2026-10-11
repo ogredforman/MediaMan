@@ -48,6 +48,10 @@ public class MediaFile
     public required string Path { get; set; }
     public long SizeBytes { get; set; }
     public DateTimeOffset Mtime { get; set; }
+
+    /// <summary>When a scan first found the file; Recently Added sorts by it (SPEC §8 browsing).</summary>
+    public DateTimeOffset AddedAt { get; set; }
+
     public ProbeResult? Probe { get; set; }
     public ParsedRelease? Parsed { get; set; }
     public MediaFileStatus Status { get; set; }

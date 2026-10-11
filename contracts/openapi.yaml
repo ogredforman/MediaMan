@@ -702,6 +702,26 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /home:
+    get:
+      operationId: getHome
+      summary: The Home screen for the session's profile, the hero pick and its rows (SPEC §8 browsing, §11 Home).
+      description: |
+        Only titles with a matched file count, as in `listTitles`. Rows come in display order (Continue Watching, Next
+        Up, Recently Added, then genres), and a row with no items is left out. Without a picked profile the personal
+        rows (Continue Watching and Next Up) are left out and the hero's Play starts from the beginning.
+      tags: [library]
+      x-permission: library.view
+      responses:
+        '200':
+          description: The Home screen.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Home'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /titles:
     get:
       operationId: listTitles
@@ -1904,6 +1924,115 @@ components:
             $ref: '#/components/schemas/TitleSummary'
         pageInfo:
           $ref: '#/components/schemas/PageInfo'
+
+    Home:
+      type: object
+      required: [rows]
+      additionalProperties: false
+      properties:
+        hero:
+          $ref: '#/components/schemas/HomeHero'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeRow'
+
+    HomeHero:
+      type: object
+      description: |
+        The title the banner features: one of the ten most recently added titles with a backdrop, changing once a UTC
+        day. Absent when no title has a backdrop.
+      required: [title]
+      additionalProperties: false
+      properties:
+        title:
+          $ref: '#/components/schemas/TitleSummary'
+        overview:
+          type: string
+        backdrop:
+          $ref: '#/components/schemas/ArtworkRef'
+        logo:
+          $ref: '#/components/schemas/ArtworkRef'
+        playableId:
+          type: string
+          format: uuid
+          description: |
+            What Play starts. For a show, the episode the profile is part-way through, else its next episode, else the
+            first episode of the first season (specials last). Absent when nothing can play.
+        episode:
+          $ref: '#/components/schemas/HomeEpisode'
+        resumeSeconds:
+          type: number
+          minimum: 0
+          description: Where the profile stopped in `playableId`, when resume is offered (as on `MoviePlayable`).
+
+    HomeRowKind:
+      type: string
+      enum: [continueWatching, nextUp, recentlyAdded, genre]
+
+    HomeRow:
+      type: object
+      description: |
+        One row of at most 20 items. `continueWatching`: titles the profile is part-way through, most recent first.
+        `nextUp`: the next episode of each show whose last-watched episode was finished, most recent first.
+        `recentlyAdded`: titles by when their newest file was found. `genre`: the genre's titles by rating; there are at
+        most 6 genre rows, for the genres with the most titles (at least 3).
+      required: [kind, items]
+      additionalProperties: false
+      properties:
+        kind:
+          $ref: '#/components/schemas/HomeRowKind'
+        genre:
+          type: string
+          description: The genre, on `genre` rows only.
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HomeItem'
+
+    HomeItem:
+      type: object
+      description: A card. `playableId` is set on Continue Watching and Next Up items, and `episode` when it's an episode.
+      required: [title]
+      additionalProperties: false
+      properties:
+        title:
+          $ref: '#/components/schemas/TitleSummary'
+        playableId:
+          type: string
+          format: uuid
+        episode:
+          $ref: '#/components/schemas/HomeEpisode'
+        progress:
+          $ref: '#/components/schemas/HomeProgress'
+
+    HomeEpisode:
+      type: object
+      required: [seasonNumber, number]
+      additionalProperties: false
+      properties:
+        seasonNumber:
+          type: integer
+          minimum: 0
+        number:
+          type: integer
+        name:
+          type: string
+        still:
+          $ref: '#/components/schemas/ArtworkRef'
+
+    HomeProgress:
+      type: object
+      description: How far the profile got, on Continue Watching items whose duration is known.
+      required: [positionSeconds, durationSeconds]
+      additionalProperties: false
+      properties:
+        positionSeconds:
+          type: number
+          minimum: 0
+        durationSeconds:
+          type: number
+          exclusiveMinimum: 0
 
     TitleDetail:
       type: object

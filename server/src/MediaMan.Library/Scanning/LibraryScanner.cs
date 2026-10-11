@@ -98,7 +98,7 @@ public sealed class LibraryScanner(MediaManDbContext db, IMediaProbe probe, IClo
 
                 if (file is null)
                 {
-                    file = new MediaFile { Id = Ids.New(clock), LibraryId = libraryId, Path = found.Path };
+                    file = new MediaFile { Id = Ids.New(clock), LibraryId = libraryId, Path = found.Path, AddedAt = clock.UtcNow };
                     db.MediaFiles.Add(file);
                     stored[found.Path] = file;
                     added++;

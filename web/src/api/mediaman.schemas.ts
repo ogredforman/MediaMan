@@ -659,6 +659,84 @@ export interface TitlePage {
   pageInfo: PageInfo;
 }
 
+export interface HomeEpisode {
+  /** @minimum 0 */
+  seasonNumber: number;
+  number: number;
+  name?: string;
+  still?: ArtworkRef;
+}
+
+/**
+ * The title the banner features: one of the ten most recently added titles with a backdrop, changing once a UTC
+ * day. Absent when no title has a backdrop.
+ */
+export interface HomeHero {
+  title: TitleSummary;
+  overview?: string;
+  backdrop?: ArtworkRef;
+  logo?: ArtworkRef;
+  /**
+     * What Play starts. For a show, the episode the profile is part-way through, else its next episode, else the
+     * first episode of the first season (specials last). Absent when nothing can play.
+     */
+  playableId?: string;
+  episode?: HomeEpisode;
+  /**
+     * Where the profile stopped in `playableId`, when resume is offered (as on `MoviePlayable`).
+     * @minimum 0
+     */
+  resumeSeconds?: number;
+}
+
+export type HomeRowKind = typeof HomeRowKind[keyof typeof HomeRowKind];
+
+
+export const HomeRowKind = {
+  continueWatching: 'continueWatching',
+  nextUp: 'nextUp',
+  recentlyAdded: 'recentlyAdded',
+  genre: 'genre',
+} as const;
+
+/**
+ * How far the profile got, on Continue Watching items whose duration is known.
+ */
+export interface HomeProgress {
+  /** @minimum 0 */
+  positionSeconds: number;
+  /** @exclusiveMinimum 0 */
+  durationSeconds: number;
+}
+
+/**
+ * A card. `playableId` is set on Continue Watching and Next Up items, and `episode` when it's an episode.
+ */
+export interface HomeItem {
+  title: TitleSummary;
+  playableId?: string;
+  episode?: HomeEpisode;
+  progress?: HomeProgress;
+}
+
+/**
+ * One row of at most 20 items. `continueWatching`: titles the profile is part-way through, most recent first.
+ * `nextUp`: the next episode of each show whose last-watched episode was finished, most recent first.
+ * `recentlyAdded`: titles by when their newest file was found. `genre`: the genre's titles by rating; there are at
+ * most 6 genre rows, for the genres with the most titles (at least 3).
+ */
+export interface HomeRow {
+  kind: HomeRowKind;
+  /** The genre, on `genre` rows only. */
+  genre?: string;
+  items: HomeItem[];
+}
+
+export interface Home {
+  hero?: HomeHero;
+  rows: HomeRow[];
+}
+
 /**
  * One file holding a Playable. A multi-episode file is a version of each episode it holds, with `part`
  * counting from 1. A `missing` file keeps its version for 30 days in case its drive comes back (SPEC §7.2).

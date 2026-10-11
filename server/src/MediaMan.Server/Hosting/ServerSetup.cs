@@ -52,6 +52,7 @@ public static class ServerSetup
         services.AddSingleton<SetupState>();
         services.AddScoped<SetupService>();
         services.AddScoped<LibraryQueries>();
+        services.AddScoped<HomeQueries>();
         services.AddScoped<LibraryService>();
         services.AddScoped<VersionPreferenceService>();
         services.AddScoped<PlaybackService>();
@@ -240,6 +241,7 @@ public static class ServerSetup
         app.MapProfileEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();
+        app.MapHomeEndpoints();
         app.MapMatchEndpoints();
         app.MapVersionPreferenceEndpoints();
         app.MapArtworkEndpoints();
