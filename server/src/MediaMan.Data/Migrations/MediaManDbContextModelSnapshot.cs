@@ -458,6 +458,9 @@ namespace MediaMan.Data.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<long>("AddedAt")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("AttentionReason")
                         .HasColumnType("TEXT");
 

@@ -1,5 +1,7 @@
 using MediaMan.Fakes;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace MediaMan.Data.Tests;
 
@@ -26,6 +28,28 @@ public class MigrationTests
         await using var context = db.CreateContext();
 
         context.Database.HasPendingModelChanges().Should().BeFalse("run `dotnet ef migrations add` after changing the model");
+    }
+
+    [Fact]
+    public async Task Files_found_before_added_at_existed_take_their_mtime()
+    {
+        await using var db = TempDatabase.CreateEmpty();
+        await using (var context = db.CreateContext())
+        {
+            await context.GetService<IMigrator>().MigrateAsync("AddVersionPreferences", Ct);
+            await context.Database.ExecuteSqlRawAsync(
+                """
+                INSERT INTO "Libraries" ("Id", "Name", "Kind", "ContentType", "RootPaths", "ScanIntervalMinutes")
+                VALUES ('0199D0C0-0000-7000-8000-000000000001', 'Media', 'External', 'Mixed', '[]', 60);
+                INSERT INTO "MediaFiles" ("Id", "LibraryId", "Path", "SizeBytes", "Mtime", "Status")
+                VALUES ('0199D0C0-0000-7000-8000-000000000002', '0199D0C0-0000-7000-8000-000000000001', 'a.mkv', 1, 1700000000000, 'Matched');
+                """, Ct);
+            await context.Database.MigrateAsync(Ct);
+        }
+
+        await using var migrated = db.CreateContext();
+        var file = await migrated.MediaFiles.SingleAsync(Ct);
+        file.AddedAt.Should().Be(file.Mtime).And.Be(DateTimeOffset.FromUnixTimeMilliseconds(1_700_000_000_000));
     }
 
     [Fact]
