@@ -11,6 +11,12 @@ namespace MediaMan.Server.Tests;
 /// <summary>Profiles and the session's pick (SPEC §7.11 step 3, §8 accounts): <c>/profiles</c> and <c>PUT /auth/session/profile</c>.</summary>
 public sealed class ProfileApiTests : IAsyncLifetime
 {
+    private static readonly string[] _japaneseThenEnglish = ["ja", "en"];
+    private static readonly string[] _english = ["en"];
+    private static readonly string[] _unknownLanguage = ["xx"];
+    private static readonly string?[] _englishThenNull = ["en", null];
+    private static readonly string[] _sixLanguages = ["en", "fr", "de", "es", "it", "ja"];
+
     private readonly MediaManFactory _factory = new();
     private HttpClient _client = null!;
 
@@ -58,6 +64,13 @@ public sealed class ProfileApiTests : IAsyncLifetime
         await ContractDocument.Instance.AssertConformsAsync(updated, Ct);
         (await ReadAsync<ProfileDto>(updated)).Should().BeEquivalentTo(new { kids.Id, Name = "Children", Avatar = "teal" });
 
+        using var languages = await SendAsync(HttpMethod.Patch, $"/profiles/{kids.Id}", token,
+            new { audioLanguages = _japaneseThenEnglish, subtitleLanguages = _english });
+        languages.StatusCode.Should().Be(HttpStatusCode.OK);
+        await ContractDocument.Instance.AssertConformsAsync(languages, Ct);
+        (await ReadAsync<ProfileDto>(languages)).Should().BeEquivalentTo(
+            new { Name = "Children", AudioLanguages = _japaneseThenEnglish, SubtitleLanguages = _english }, o => o.WithStrictOrdering());
+
         using var deleted = await SendAsync(HttpMethod.Delete, $"/profiles/{kids.Id}", token);
         deleted.StatusCode.Should().Be(HttpStatusCode.NoContent);
         await ContractDocument.Instance.AssertConformsAsync(deleted, Ct);
@@ -79,6 +92,11 @@ public sealed class ProfileApiTests : IAsyncLifetime
         await AssertProblemAsync(await SendAsync(HttpMethod.Delete, $"/profiles/{only.Id}", token), HttpStatusCode.Conflict, "profile.last");
         await AssertProblemAsync(await SendAsync(HttpMethod.Patch, $"/profiles/{Guid.NewGuid()}", token, new { name = "Ghost" }),
             HttpStatusCode.NotFound, "profile.not_found");
+        await AssertProblemAsync(await SendAsync(HttpMethod.Patch, $"/profiles/{only.Id}", token,
+                new { audioLanguages = _unknownLanguage, subtitleLanguages = _sixLanguages }),
+            HttpStatusCode.BadRequest, "profile.invalid", fields: ["audioLanguages", "subtitleLanguages"]);
+        await AssertProblemAsync(await SendAsync(HttpMethod.Patch, $"/profiles/{only.Id}", token, new { audioLanguages = _englishThenNull }),
+            HttpStatusCode.BadRequest, "profile.invalid", fields: ["audioLanguages"]);
 
         for (var i = 1; i < ProfileService.MaximumProfiles; i++)
         {
@@ -88,6 +106,15 @@ public sealed class ProfileApiTests : IAsyncLifetime
 
         await AssertProblemAsync(await SendAsync(HttpMethod.Post, "/profiles", token, new { name = "One too many" }),
             HttpStatusCode.Conflict, "profile.limit");
+    }
+
+    [Fact]
+    public void The_contract_offers_exactly_the_languages_the_server_accepts()
+    {
+        var codes = ContractDocument.Instance.Root["components"]!["schemas"]!["LanguageCode"]!["enum"]!.AsArray()
+            .Select(code => code!.GetValue<string>());
+
+        codes.Should().Equal(MediaMan.Core.Languages.Codes);
     }
 
     [Fact]

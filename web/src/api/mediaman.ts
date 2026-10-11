@@ -946,7 +946,7 @@ export const getUpdateProfileUrl = (profileId: string,) => {
 }
 
 /**
- * @summary Renames a profile or changes its avatar. Omitted fields stay as they are.
+ * @summary Renames a profile or changes its avatar or language preferences. Omitted fields stay as they are.
  */
 export const updateProfile = async (profileId: string,
     updateProfileRequest: UpdateProfileRequest, options?: Parameters<typeof apiFetch>[1]): Promise<Profile> => {
@@ -1013,7 +1013,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateProfileMutationVariables = {profileId: string;data: UpdateProfileRequest}
 
     /**
- * @summary Renames a profile or changes its avatar. Omitted fields stay as they are.
+ * @summary Renames a profile or changes its avatar or language preferences. Omitted fields stay as they are.
  */
 export const useUpdateProfile = <TError = ErrorType<Problem | ProblemResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateProfile>>, TError,UpdateProfileMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}

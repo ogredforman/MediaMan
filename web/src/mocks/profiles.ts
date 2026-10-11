@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import {
+  LanguageCode as LanguageCodes,
   ProfileAvatar as Avatars,
   type CreateProfileRequest,
   type Profile,
@@ -11,7 +12,18 @@ import {
 
 const maximumProfiles = 10;
 const maximumNameLength = 32;
+const maximumLanguages = 5;
 const avatars = Object.values(Avatars);
+const languages: string[] = Object.values(LanguageCodes);
+
+/** The server's rule for a language list: known codes, no repeats, at most five. */
+function languageProblem(list: string[] | undefined): string | undefined {
+  if (list === undefined) return undefined;
+  if (list.length > maximumLanguages) return `Pick at most ${String(maximumLanguages)} languages.`;
+  const unknown = list.find((code) => !languages.includes(code));
+  if (unknown !== undefined) return `'${unknown}' isn't a language you can pick.`;
+  return new Set(list).size === list.length ? undefined : 'List each language once.';
+}
 
 const problem = (body: Record<string, unknown> & { status: number }) =>
   HttpResponse.json(body, { status: body.status, headers: { 'Content-Type': 'application/problem+json' } });
@@ -26,7 +38,13 @@ const notFound = () =>
   });
 
 /** The first mock profile, picked until a sign-in or setup starts a session with none. */
-export const mockProfile: Profile = { id: '01920000-0000-7000-8000-0000000000a1', name: 'owner', avatar: 'violet' };
+export const mockProfile: Profile = {
+  id: '01920000-0000-7000-8000-0000000000a1',
+  name: 'owner',
+  avatar: 'violet',
+  audioLanguages: [],
+  subtitleLanguages: [],
+};
 
 /**
  * The signed-in account's profiles, kept in memory with the server's rules (SPEC §7.11): names unique ignoring case,
@@ -47,7 +65,17 @@ export function createProfileStore() {
   const list = (): ProfileList => ({ items: profiles, ...(activeProfileId === undefined ? {} : { activeProfileId }) });
 
   /** The `profile.invalid` or `profile.name_taken` answer for these fields, if they break a rule. */
-  const check = (name: string | undefined, avatar: string | undefined, nameRequired: boolean, ownId?: string) => {
+  const check = (
+    // The body as sent, which may break the contract: that is what the checks are for.
+    {
+      name,
+      avatar,
+      audioLanguages,
+      subtitleLanguages,
+    }: { name?: string; avatar?: string; audioLanguages?: string[]; subtitleLanguages?: string[] },
+    nameRequired: boolean,
+    ownId?: string,
+  ) => {
     const errors: Record<string, string[]> = {};
     const trimmed = name?.trim();
     if (trimmed === undefined ? nameRequired : trimmed.length === 0 || trimmed.length > maximumNameLength) {
@@ -56,6 +84,10 @@ export function createProfileStore() {
     if (avatar !== undefined && !avatars.includes(avatar as ProfileAvatar)) {
       errors.avatar = [`Pick one of the preset avatars: ${avatars.join(', ')}.`];
     }
+    const audioProblem = languageProblem(audioLanguages);
+    if (audioProblem !== undefined) errors.audioLanguages = [audioProblem];
+    const subtitleProblem = languageProblem(subtitleLanguages);
+    if (subtitleProblem !== undefined) errors.subtitleLanguages = [subtitleProblem];
     if (Object.keys(errors).length > 0) {
       return problem({
         title: 'Some profile details need fixing.',
@@ -81,7 +113,7 @@ export function createProfileStore() {
     http.get('*/profiles', () => HttpResponse.json(list())),
     http.post('*/profiles', async ({ request }) => {
       const body = (await request.json()) as CreateProfileRequest;
-      const invalid = check(body.name, body.avatar, true);
+      const invalid = check(body, true);
       if (invalid !== undefined) return invalid;
       if (profiles.length >= maximumProfiles) {
         return problem({
@@ -97,6 +129,8 @@ export function createProfileStore() {
         id: `01920000-0000-7000-8000-${String(nextId).padStart(12, '0')}`,
         name: body.name.trim(),
         avatar: body.avatar ?? avatars[profiles.length % avatars.length] ?? 'violet',
+        audioLanguages: [],
+        subtitleLanguages: [],
       };
       profiles = [...profiles, profile];
       return HttpResponse.json(profile, { status: 201 });
@@ -105,9 +139,15 @@ export function createProfileStore() {
       const existing = profiles.find((p) => p.id === params.profileId);
       if (existing === undefined) return notFound();
       const body = (await request.json()) as UpdateProfileRequest;
-      const invalid = check(body.name, body.avatar, false, existing.id);
+      const invalid = check(body, false, existing.id);
       if (invalid !== undefined) return invalid;
-      const updated: Profile = { ...existing, name: body.name?.trim() ?? existing.name, avatar: body.avatar ?? existing.avatar };
+      const updated: Profile = {
+        ...existing,
+        name: body.name?.trim() ?? existing.name,
+        avatar: body.avatar ?? existing.avatar,
+        audioLanguages: body.audioLanguages ?? existing.audioLanguages,
+        subtitleLanguages: body.subtitleLanguages ?? existing.subtitleLanguages,
+      };
       profiles = profiles.map((p) => (p.id === existing.id ? updated : p));
       return HttpResponse.json(updated);
     }),

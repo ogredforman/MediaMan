@@ -7,13 +7,13 @@ namespace MediaMan.Server.Endpoints;
 
 // Request and response bodies; each record is the contract schema of the same name.
 
-public sealed record ProfileDto(Guid Id, string Name, string Avatar);
+public sealed record ProfileDto(Guid Id, string Name, string Avatar, IReadOnlyList<string> AudioLanguages, IReadOnlyList<string> SubtitleLanguages);
 
 public sealed record ProfileList(IReadOnlyList<ProfileDto> Items, Guid? ActiveProfileId);
 
 public sealed record CreateProfileRequest(string? Name, string? Avatar);
 
-public sealed record UpdateProfileRequest(string? Name, string? Avatar);
+public sealed record UpdateProfileRequest(string? Name, string? Avatar, IReadOnlyList<string>? AudioLanguages, IReadOnlyList<string>? SubtitleLanguages);
 
 public sealed record SelectProfileRequest(Guid? ProfileId);
 
@@ -52,7 +52,8 @@ public static class ProfileEndpoints
     private static async Task<Results<Ok<ProfileDto>, ValidationProblem, ProblemHttpResult>> UpdateAsync(
         Guid profileId, UpdateProfileRequest request, HttpContext http, ProfileService profiles, CancellationToken ct)
     {
-        var result = await profiles.UpdateAsync(CurrentUserOf(http).UserId, profileId, request.Name, request.Avatar, ct);
+        var result = await profiles.UpdateAsync(CurrentUserOf(http).UserId, profileId,
+            new ProfileChanges(request.Name, request.Avatar, request.AudioLanguages, request.SubtitleLanguages), ct);
         return result.Profile is { } profile ? TypedResults.Ok(ToDto(profile)) : Failure<Ok<ProfileDto>>(result);
     }
 
@@ -94,7 +95,7 @@ public static class ProfileEndpoints
         http.Features.Get<CurrentUser>() ?? throw new InvalidOperationException("Profile routes need a signed-in user.");
 
     private static ProfileDto ToDto(Profile profile) =>
-        new(profile.Id, profile.Name, profile.Avatar ?? ProfileService.Avatars[0]);
+        new(profile.Id, profile.Name, profile.Avatar ?? ProfileService.Avatars[0], profile.AudioLangPrefs, profile.SubtitleLangPrefs);
 
     private static ProblemHttpResult NotFound => Problems.Result(StatusCodes.Status404NotFound, "profile.not_found",
         "Profile not found.", "The profile doesn't exist, or it was deleted.", "Reload the profile list.");

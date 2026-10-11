@@ -92,6 +92,61 @@ describe('profile picker', () => {
     });
   });
 
+  it('edits audio and subtitle languages in order of preference', async () => {
+    const user = userEvent.setup();
+    renderApp('/profiles');
+
+    await user.click(await screen.findByRole('button', { name: 'Manage profiles' }));
+    await user.click(within(profileList()).getByRole('button', { name: 'Edit owner' }));
+    expect(screen.getByText('No preference: the file’s default audio plays.')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Add an audio language'), 'English');
+    await user.selectOptions(screen.getByLabelText('Add an audio language'), 'Japanese');
+    await user.click(screen.getByRole('button', { name: 'Move Japanese up' }));
+    await user.selectOptions(screen.getByLabelText('Add a subtitle language'), 'English');
+    await user.selectOptions(screen.getByLabelText('Add a subtitle language'), 'French');
+    await user.click(screen.getByRole('button', { name: 'Remove French' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await user.click(await within(profileList()).findByRole('button', { name: 'Edit owner' }));
+    const audio = within(screen.getByRole('list', { name: 'Audio languages' })).getAllByRole('listitem');
+    expect(audio.map((item) => item.firstChild?.textContent)).toEqual(['1. Japanese', '2. English']);
+    const subtitles = within(screen.getByRole('list', { name: 'Subtitle languages' })).getAllByRole('listitem');
+    expect(subtitles.map((item) => item.firstChild?.textContent)).toEqual(['1. English']);
+    expect(within(screen.getByLabelText('Add an audio language')).queryByRole('option', { name: 'Japanese' })).toBeNull();
+  });
+
+  it('stops adding at five languages and shows a refused list on its field', async () => {
+    const user = userEvent.setup();
+    renderApp('/profiles');
+
+    await user.click(await screen.findByRole('button', { name: 'Manage profiles' }));
+    await user.click(within(profileList()).getByRole('button', { name: 'Edit owner' }));
+    for (const name of ['English', 'French', 'German', 'Italian', 'Spanish']) {
+      await user.selectOptions(screen.getByLabelText('Add an audio language'), name);
+    }
+    expect(screen.queryByLabelText('Add an audio language')).not.toBeInTheDocument();
+    expect(screen.getByText(/That’s the most you can pick \(5\)/)).toBeInTheDocument();
+
+    server.use(
+      http.patch('*/profiles/:profileId', () =>
+        HttpResponse.json(
+          {
+            title: 'Some profile details need fixing.',
+            status: 400,
+            code: 'profile.invalid',
+            action: 'Fix the highlighted fields, then save again.',
+            errors: { audioLanguages: ['Pick at most 5 languages.'] },
+          },
+          { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Pick at most 5 languages.');
+    await user.click(screen.getByRole('button', { name: 'Remove Spanish' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('asks again after the picked profile is deleted', async () => {
     const user = userEvent.setup();
     const { router } = renderApp('/profiles');

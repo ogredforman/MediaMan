@@ -191,6 +191,68 @@ export const ProfileAvatar = {
 } as const;
 
 /**
+ * An ISO 639-1 code from the languages a profile can prefer (SPEC §8 playback). Players match it against the 2-
+ * and 3-letter tags media uses (`de`, `ger`, `deu`).
+ */
+export type LanguageCode = typeof LanguageCode[keyof typeof LanguageCode];
+
+
+export const LanguageCode = {
+  ar: 'ar',
+  bg: 'bg',
+  bn: 'bn',
+  ca: 'ca',
+  cs: 'cs',
+  da: 'da',
+  de: 'de',
+  el: 'el',
+  en: 'en',
+  es: 'es',
+  et: 'et',
+  eu: 'eu',
+  fa: 'fa',
+  fi: 'fi',
+  fr: 'fr',
+  gl: 'gl',
+  he: 'he',
+  hi: 'hi',
+  hr: 'hr',
+  hu: 'hu',
+  id: 'id',
+  is: 'is',
+  it: 'it',
+  ja: 'ja',
+  ko: 'ko',
+  lt: 'lt',
+  lv: 'lv',
+  ms: 'ms',
+  nl: 'nl',
+  no: 'no',
+  pl: 'pl',
+  pt: 'pt',
+  ro: 'ro',
+  ru: 'ru',
+  sk: 'sk',
+  sl: 'sl',
+  sr: 'sr',
+  sv: 'sv',
+  ta: 'ta',
+  te: 'te',
+  th: 'th',
+  tl: 'tl',
+  tr: 'tr',
+  uk: 'uk',
+  vi: 'vi',
+  zh: 'zh',
+} as const;
+
+/**
+ * Languages in order of preference, most preferred first. At most 5, no repeats; empty means no preference.
+ * @maxItems 5
+ */
+export type LanguagePreferences = LanguageCode[];
+
+/**
  * A Netflix-style viewer under an account (SPEC §6.1). Watch state belongs to a profile.
  */
 export interface Profile {
@@ -201,6 +263,8 @@ export interface Profile {
      */
   name: string;
   avatar: ProfileAvatar;
+  audioLanguages: LanguagePreferences;
+  subtitleLanguages: LanguagePreferences;
 }
 
 export interface ProfileList {
@@ -220,6 +284,8 @@ export interface UpdateProfileRequest {
   /** 1 to 32 characters after trimming, unique within the account ignoring case. */
   name?: string;
   avatar?: ProfileAvatar;
+  audioLanguages?: LanguagePreferences;
+  subtitleLanguages?: LanguagePreferences;
 }
 
 export interface SelectProfileRequest {

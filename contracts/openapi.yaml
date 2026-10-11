@@ -308,7 +308,7 @@ paths:
       - $ref: '#/components/parameters/ProfileId'
     patch:
       operationId: updateProfile
-      summary: Renames a profile or changes its avatar. Omitted fields stay as they are.
+      summary: Renames a profile or changes its avatar or language preferences. Omitted fields stay as they are.
       tags: [profiles]
       x-permission: authenticated
       requestBody:
@@ -325,7 +325,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Profile'
         '400':
-          description: A field is invalid (`profile.invalid`); `errors` is keyed by field (`name`, `avatar`).
+          description: A field is invalid (`profile.invalid`); `errors` is keyed by field (`name`, `avatar`, `audioLanguages`,
+            `subtitleLanguages`).
           content:
             application/problem+json:
               schema:
@@ -1353,10 +1354,25 @@ components:
       description: A preset avatar, a colour clients render with the profile's initial.
       enum: [violet, blue, teal, green, amber, orange, rose, slate]
 
+    LanguageCode:
+      type: string
+      description: |
+        An ISO 639-1 code from the languages a profile can prefer (SPEC §8 playback). Players match it against the 2-
+        and 3-letter tags media uses (`de`, `ger`, `deu`).
+      enum: [ar, bg, bn, ca, cs, da, de, el, en, es, et, eu, fa, fi, fr, gl, he, hi, hr, hu, id, is, it, ja, ko, lt, lv, ms, nl, no, pl, pt, ro, ru, sk, sl, sr, sv, ta, te, th, tl, tr, uk, vi, zh]
+
+    LanguagePreferences:
+      type: array
+      description: Languages in order of preference, most preferred first. At most 5, no repeats; empty means no preference.
+      maxItems: 5
+      uniqueItems: true
+      items:
+        $ref: '#/components/schemas/LanguageCode'
+
     Profile:
       type: object
       description: A Netflix-style viewer under an account (SPEC §6.1). Watch state belongs to a profile.
-      required: [id, name, avatar]
+      required: [id, name, avatar, audioLanguages, subtitleLanguages]
       additionalProperties: false
       properties:
         id:
@@ -1368,6 +1384,10 @@ components:
           maxLength: 32
         avatar:
           $ref: '#/components/schemas/ProfileAvatar'
+        audioLanguages:
+          $ref: '#/components/schemas/LanguagePreferences'
+        subtitleLanguages:
+          $ref: '#/components/schemas/LanguagePreferences'
 
     ProfileList:
       type: object
@@ -1404,6 +1424,10 @@ components:
           description: 1 to 32 characters after trimming, unique within the account ignoring case.
         avatar:
           $ref: '#/components/schemas/ProfileAvatar'
+        audioLanguages:
+          $ref: '#/components/schemas/LanguagePreferences'
+        subtitleLanguages:
+          $ref: '#/components/schemas/LanguagePreferences'
 
     SelectProfileRequest:
       type: object

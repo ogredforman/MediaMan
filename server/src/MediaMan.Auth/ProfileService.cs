@@ -24,6 +24,13 @@ public enum ProfileFailure
     Last,
 }
 
+/// <summary>A profile edit; a null field stays as it is. Language lists replace the old ones, most preferred first.</summary>
+public sealed record ProfileChanges(
+    string? Name = null,
+    string? Avatar = null,
+    IReadOnlyList<string>? AudioLanguages = null,
+    IReadOnlyList<string>? SubtitleLanguages = null);
+
 public sealed record ProfileResult(Profile? Profile, ProfileFailure? Failure, IReadOnlyDictionary<string, string[]>? Errors = null)
 {
     public static ProfileResult Success(Profile profile) => new(profile, null);
@@ -87,7 +94,7 @@ public sealed class ProfileService(MediaManDbContext db, IClock clock)
     /// <summary>Adds a profile. Without an avatar it gets the next preset one in turn.</summary>
     public async Task<ProfileResult> CreateAsync(Guid userId, string? name, string? avatar, CancellationToken cancellationToken)
     {
-        var errors = Validate(name, avatar, nameRequired: true);
+        var errors = Validate(new ProfileChanges(name, avatar), nameRequired: true);
         if (errors.Count > 0)
         {
             return new ProfileResult(null, ProfileFailure.Invalid, errors);
@@ -118,10 +125,10 @@ public sealed class ProfileService(MediaManDbContext db, IClock clock)
         return await SaveAsync(profile, cancellationToken);
     }
 
-    /// <summary>Renames a profile or changes its avatar; a null field stays as it is.</summary>
-    public async Task<ProfileResult> UpdateAsync(Guid userId, Guid profileId, string? name, string? avatar, CancellationToken cancellationToken)
+    /// <summary>Renames a profile or changes its avatar or language preferences (SPEC §8 playback).</summary>
+    public async Task<ProfileResult> UpdateAsync(Guid userId, Guid profileId, ProfileChanges changes, CancellationToken cancellationToken)
     {
-        var errors = Validate(name, avatar, nameRequired: false);
+        var errors = Validate(changes, nameRequired: false);
         if (errors.Count > 0)
         {
             return new ProfileResult(null, ProfileFailure.Invalid, errors);
@@ -133,7 +140,7 @@ public sealed class ProfileService(MediaManDbContext db, IClock clock)
             return ProfileResult.Failed(ProfileFailure.NotFound);
         }
 
-        if (name is not null)
+        if (changes.Name is { } name)
         {
             var trimmed = name.Trim();
             if (await NameTakenAsync(userId, trimmed, exceptId: profileId, cancellationToken))
@@ -144,7 +151,17 @@ public sealed class ProfileService(MediaManDbContext db, IClock clock)
             profile.Name = trimmed;
         }
 
-        profile.Avatar = avatar ?? profile.Avatar;
+        profile.Avatar = changes.Avatar ?? profile.Avatar;
+        if (changes.AudioLanguages is { } audio)
+        {
+            profile.AudioLangPrefs = [.. audio];
+        }
+
+        if (changes.SubtitleLanguages is { } subtitles)
+        {
+            profile.SubtitleLangPrefs = [.. subtitles];
+        }
+
         return await SaveAsync(profile, cancellationToken);
     }
 
@@ -205,8 +222,9 @@ public sealed class ProfileService(MediaManDbContext db, IClock clock)
         }
     }
 
-    private static Dictionary<string, string[]> Validate(string? name, string? avatar, bool nameRequired)
+    private static Dictionary<string, string[]> Validate(ProfileChanges changes, bool nameRequired)
     {
+        var (name, avatar, audio, subtitles) = changes;
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         if (name is null ? nameRequired : name.Trim().Length is 0 or > MaximumNameLength)
         {
@@ -216,6 +234,16 @@ public sealed class ProfileService(MediaManDbContext db, IClock clock)
         if (avatar is not null && !Avatars.Contains(avatar, StringComparer.Ordinal))
         {
             errors["avatar"] = [$"Pick one of the preset avatars: {string.Join(", ", Avatars)}."];
+        }
+
+        if (audio is not null && Languages.ProblemWith(audio) is { } audioProblem)
+        {
+            errors["audioLanguages"] = [audioProblem];
+        }
+
+        if (subtitles is not null && Languages.ProblemWith(subtitles) is { } subtitleProblem)
+        {
+            errors["subtitleLanguages"] = [subtitleProblem];
         }
 
         return errors;

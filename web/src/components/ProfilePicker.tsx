@@ -8,10 +8,17 @@ import {
   useSelectSessionProfile,
   useUpdateProfile,
 } from '../api/mediaman';
-import { ProfileAvatar as Avatars, type Profile, type ProfileAvatar, type ProfileList } from '../api/mediaman.schemas';
+import {
+  ProfileAvatar as Avatars,
+  type LanguageCode,
+  type Profile,
+  type ProfileAvatar,
+  type ProfileList,
+} from '../api/mediaman.schemas';
 import type { ApiError } from '../lib/http';
 import { FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
+import { LanguagePreferences } from './LanguagePreferences';
 
 /** Matches the server's rules (SPEC §7.11); the server checks them again. */
 const maximumProfiles = 10;
@@ -185,7 +192,10 @@ function Screen({ heading, children }: { heading: string; children: ReactNode })
   );
 }
 
-/** Adds a profile (`profile` undefined) or edits one: name, preset avatar, and delete with a confirmation. */
+/**
+ * Adds a profile (`profile` undefined) or edits one: name, preset avatar, audio and subtitle languages (SPEC §8
+ * playback), and delete with a confirmation.
+ */
 function ProfileForm({
   profile,
   canDelete,
@@ -200,6 +210,8 @@ function ProfileForm({
   const queryClient = useQueryClient();
   const [name, setName] = useState(profile?.name ?? '');
   const [avatar, setAvatar] = useState<ProfileAvatar>(profile?.avatar ?? defaultAvatar);
+  const [audioLanguages, setAudioLanguages] = useState<LanguageCode[]>(profile?.audioLanguages ?? []);
+  const [subtitleLanguages, setSubtitleLanguages] = useState<LanguageCode[]>(profile?.subtitleLanguages ?? []);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
@@ -258,7 +270,7 @@ function ProfileForm({
       return;
     }
     if (profile === undefined) create.mutate({ data: { name: trimmed, avatar } });
-    else update.mutate({ profileId: profile.id, data: { name: trimmed, avatar } });
+    else update.mutate({ profileId: profile.id, data: { name: trimmed, avatar, audioLanguages, subtitleLanguages } });
   };
 
   const heading = profile === undefined ? 'Add profile' : 'Edit profile';
@@ -321,6 +333,29 @@ function ProfileForm({
           </div>
           <FieldError messages={errors.avatar} />
         </fieldset>
+
+        {profile !== undefined && (
+          <>
+            <LanguagePreferences
+              kind="audio"
+              value={audioLanguages}
+              onChange={(value) => {
+                setAudioLanguages(value);
+                setErrors(({ audioLanguages: _, ...rest }) => rest);
+              }}
+              errors={errors.audioLanguages}
+            />
+            <LanguagePreferences
+              kind="subtitle"
+              value={subtitleLanguages}
+              onChange={(value) => {
+                setSubtitleLanguages(value);
+                setErrors(({ subtitleLanguages: _, ...rest }) => rest);
+              }}
+              errors={errors.subtitleLanguages}
+            />
+          </>
+        )}
 
         {problem !== undefined && (
           <p role="alert" className="text-sm">
