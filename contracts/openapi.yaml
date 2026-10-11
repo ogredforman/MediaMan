@@ -2124,7 +2124,7 @@ components:
     PlaybackSession:
       type: object
       description: How the client plays a Playable.
-      required: [playableId, mediaFileId, method, url, title, subtitles]
+      required: [playableId, mediaFileId, method, url, title, subtitles, audioLanguages, subtitleLanguages]
       additionalProperties: false
       properties:
         playableId:
@@ -2161,6 +2161,18 @@ components:
           description: External subtitle files next to the version. Subtitles inside the file aren't listed.
           items:
             $ref: '#/components/schemas/SubtitleTrack'
+        audioLanguages:
+          type: array
+          description: |
+            The profile's audio languages as the tags media may carry, in preference order: each preferred code
+            followed by its ISO 639-2 forms (`de` gives `de`, `ger`, `deu`). Empty when the profile has none.
+          items:
+            type: string
+        subtitleLanguages:
+          type: array
+          description: The profile's subtitle languages, as tags in preference order like `audioLanguages`.
+          items:
+            type: string
 
     SubtitleTrack:
       type: object

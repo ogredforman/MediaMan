@@ -189,6 +189,14 @@ describe('parsePlayOptions', () => {
     expect(parsePlayOptions(playRequest, serverOrigin)).toEqual(playRequest);
   });
 
+  it('keeps the language preferences', () => {
+    const withLanguages = { ...playRequest, audioLanguages: ['de', 'ger', 'deu'], subtitleLanguages: [] };
+    expect(parsePlayOptions(withLanguages, serverOrigin)).toEqual(withLanguages);
+    // Five preferences with the most tags the server sends (`no` has six).
+    const most = { ...playRequest, audioLanguages: Array.from({ length: 30 }, () => 'nno') };
+    expect(parsePlayOptions(most, serverOrigin)).toEqual(most);
+  });
+
   it.each([
     ['a stream on another server', { ...playRequest, url: 'https://elsewhere.example/stream' }],
     ['a local file', { ...playRequest, url: 'file:///movie.mkv' }],
@@ -196,6 +204,10 @@ describe('parsePlayOptions', () => {
     ['a negative start', { ...playRequest, startSeconds: -1 }],
     ['no title', { ...playRequest, title: undefined }],
     ['a non-boolean default', { ...playRequest, subtitles: [{ url: `${serverOrigin}/a.srt`, isDefault: 'yes' }] }],
+    ["audio languages that aren't a list", { ...playRequest, audioLanguages: 'de' }],
+    ['a subtitle language carrying a comma', { ...playRequest, subtitleLanguages: ['de,--script=x'] }],
+    ["a language tag that isn't a string", { ...playRequest, audioLanguages: [7] }],
+    ['too many language tags', { ...playRequest, audioLanguages: Array.from({ length: 31 }, () => 'en') }],
     ['no object', 'play'],
   ])('refuses %s', (_, value) => {
     expect(parsePlayOptions(value, serverOrigin)).toBeUndefined();

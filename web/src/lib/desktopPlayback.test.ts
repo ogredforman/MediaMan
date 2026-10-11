@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { NextEpisode, PlaybackSession, WatchProgressReport } from '../api/mediaman.schemas';
+import type { NextEpisode, PlaybackSession, SubtitleTrack, WatchProgressReport } from '../api/mediaman.schemas';
 import { createFakeDesktopPlayer } from '../test/fakeDesktopPlayer';
 import { createDesktopPlayback, playOptions, type PlaybackApi } from './desktopPlayback';
 import { ApiError } from './http';
@@ -12,7 +12,16 @@ const session: PlaybackSession = {
   title: 'Alien (1979)',
   resumeSeconds: 300,
   subtitles: [{ url: '/media-files/f1/subtitles/ab?sid=s&exp=1&sig=b', format: 'srt', fileName: 'Alien.en.srt', language: 'en', forced: false }],
+  audioLanguages: [],
+  subtitleLanguages: [],
 };
+
+/** A sidecar named `Alien.<tags>.srt`, its language the first tag. */
+function sidecar(tags: string, forced = false): SubtitleTrack {
+  return { url: `/s/${tags}`, format: 'srt', fileName: `Alien.${tags}.srt`, language: tags.split('.')[0], forced };
+}
+
+const defaults = (s: PlaybackSession) => playOptions(s).subtitles.filter((t) => t.isDefault).map((t) => t.title);
 
 /** A server answering sessions in order (the last one repeats) and recording progress reports; `server.next` is the next episode it names. */
 function fakeApi(...sessions: (PlaybackSession | Error)[]) {
@@ -42,9 +51,34 @@ describe('playOptions', () => {
       startSeconds: 300,
       title: 'Alien (1979)',
       subtitles: [{ url: `${window.location.origin}/media-files/f1/subtitles/ab?sid=s&exp=1&sig=b`, title: 'Alien.en.srt', language: 'en' }],
+      audioLanguages: [],
+      subtitleLanguages: [],
     });
     expect(playOptions({ ...session, resumeSeconds: undefined }).startSeconds).toBe(0);
     expect(playOptions(session, 1234).startSeconds).toBe(1234);
+  });
+
+  it('passes the language tags through for MPV', () => {
+    const options = playOptions({ ...session, audioLanguages: ['de', 'ger', 'deu'], subtitleLanguages: ['en', 'eng'] });
+    expect(options.audioLanguages).toEqual(['de', 'ger', 'deu']);
+    expect(options.subtitleLanguages).toEqual(['en', 'eng']);
+  });
+
+  it('turns on the non-forced sidecar matching the earliest preferred language', () => {
+    const subtitles = [sidecar('en'), sidecar('de', true), sidecar('de.sdh'), sidecar('fr')];
+    expect(defaults({ ...session, subtitles, subtitleLanguages: ['de', 'ger', 'deu', 'en', 'eng'] })).toEqual(['Alien.de.sdh.srt']);
+    expect(defaults({ ...session, subtitles, subtitleLanguages: ['ja', 'jpn', 'fr', 'fre', 'fra'] })).toEqual(['Alien.fr.srt']);
+  });
+
+  it('matches a three-letter or regional tag, whatever its case', () => {
+    expect(defaults({ ...session, subtitles: [sidecar('GER')], subtitleLanguages: ['de', 'ger', 'deu'] })).toEqual(['Alien.GER.srt']);
+    expect(defaults({ ...session, subtitles: [sidecar('pt-BR')], subtitleLanguages: ['pt', 'por'] })).toEqual(['Alien.pt-BR.srt']);
+  });
+
+  it('turns none on when nothing matches, only a forced one does, or the profile prefers none', () => {
+    expect(defaults({ ...session, subtitles: [sidecar('en')], subtitleLanguages: ['de', 'ger', 'deu'] })).toEqual([]);
+    expect(defaults({ ...session, subtitles: [sidecar('de', true)], subtitleLanguages: ['de', 'ger', 'deu'] })).toEqual([]);
+    expect(defaults({ ...session, subtitles: [sidecar('en')] })).toEqual([]);
   });
 });
 

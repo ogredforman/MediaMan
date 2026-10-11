@@ -1,4 +1,5 @@
 using MediaMan.Auth;
+using MediaMan.Core;
 using MediaMan.Core.Domain;
 using MediaMan.Data;
 using MediaMan.Playback.Progress;
@@ -51,6 +52,8 @@ public sealed class PlaybackService(MediaManDbContext db, VersionPreferenceServi
             .Select(s => new SubtitleTrackDto(
                 signer.SignForSession(SubtitlePathOf(file.Id, s.Id), sessionId), s.Format, s.FileName, s.Language, s.Forced))
             .ToList();
+        // A profile deleted since the session picked it plays without preferences rather than failing.
+        var profile = await db.Profiles.AsNoTracking().SingleOrDefaultAsync(p => p.Id == profileId, ct);
 
         return (new PlaybackSessionDto(
             playableId,
@@ -60,8 +63,14 @@ public sealed class PlaybackService(MediaManDbContext db, VersionPreferenceServi
             await DisplayNameAsync(playable, ct),
             watch is null ? null : WatchRules.ResumeAt(watch.PositionSeconds, watch.DurationSeconds > 0 ? watch.DurationSeconds : duration ?? 0),
             duration,
-            subtitles), null);
+            subtitles,
+            MatchTagsOf(profile?.AudioLangPrefs ?? []),
+            MatchTagsOf(profile?.SubtitleLangPrefs ?? [])), null);
     }
+
+    /// <summary>The tags media may use for each preferred language, in preference order; unknown codes are skipped.</summary>
+    public static IReadOnlyList<string> MatchTagsOf(IEnumerable<string> preferences) =>
+        [.. preferences.Where(Languages.IsKnown).SelectMany(Languages.MatchTags).Distinct(StringComparer.Ordinal)];
 
     /// <summary>The version to play among the Playable's files present on disk: the profile's preference, else the highest quality.</summary>
     public async Task<MediaFile?> PickFileAsync(Guid playableId, Guid? profileId, CancellationToken ct)

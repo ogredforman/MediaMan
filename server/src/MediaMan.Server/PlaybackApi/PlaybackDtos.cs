@@ -20,7 +20,9 @@ public sealed record PlaybackSessionDto(
     string Title,
     double? ResumeSeconds,
     double? DurationSeconds,
-    IReadOnlyList<SubtitleTrackDto> Subtitles);
+    IReadOnlyList<SubtitleTrackDto> Subtitles,
+    IReadOnlyList<string> AudioLanguages,
+    IReadOnlyList<string> SubtitleLanguages);
 
 public sealed record SubtitleTrackDto(string Url, string Format, string FileName, string? Language, bool Forced);
 

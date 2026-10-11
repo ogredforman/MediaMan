@@ -93,7 +93,7 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
 export function parsePlayOptions(value: unknown, serverOrigin: string): PlayOptions | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
   const v = value as Record<string, unknown>;
-  const { url, startSeconds, title, subtitles } = v;
+  const { url, startSeconds, title, subtitles, audioLanguages, subtitleLanguages } = v;
   if (!isServerUrl(url, serverOrigin) || typeof title !== 'string') return undefined;
   if (typeof startSeconds !== 'number' || !Number.isFinite(startSeconds) || startSeconds < 0) return undefined;
   if (!Array.isArray(subtitles)) return undefined;
@@ -103,8 +103,36 @@ export function parsePlayOptions(value: unknown, serverOrigin: string): PlayOpti
     if (!track) return undefined;
     tracks.push(track);
   }
-  return { url, startSeconds, title, subtitles: tracks };
+  const audio = parseLanguageTags(audioLanguages);
+  const subtitle = parseLanguageTags(subtitleLanguages);
+  if (audio === null || subtitle === null) return undefined;
+  return {
+    url,
+    startSeconds,
+    title,
+    subtitles: tracks,
+    ...(audio === undefined ? {} : { audioLanguages: audio }),
+    ...(subtitle === undefined ? {} : { subtitleLanguages: subtitle }),
+  };
 }
+
+/**
+ * Language tags for `--alang`/`--slang`: absent is fine (undefined), otherwise up to 30 lowercase 2–3 letter tags,
+ * so none can carry a comma or an option into MPV's command line; anything else is null.
+ */
+function parseLanguageTags(value: unknown): string[] | null | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > maxLanguageTags) return null;
+  const tags: string[] = [];
+  for (const tag of value as unknown[]) {
+    if (typeof tag !== 'string' || !/^[a-z]{2,3}$/.test(tag)) return null;
+    tags.push(tag);
+  }
+  return tags;
+}
+
+// Five preferences of up to six tags each (`no` has the most: `no,nor,nb,nob,nn,nno`).
+const maxLanguageTags = 30;
 
 /** The renderer's "Up next" countdown, checked: a display title and a whole number of seconds up to a minute. */
 export function parseUpNextOffer(value: unknown): UpNextOffer | undefined {
