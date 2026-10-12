@@ -1,5 +1,6 @@
 // The local MediaMan server the desktop app spawns in Local mode (SPEC §10.1, §10.3).
 import { spawn } from 'node:child_process';
+import path from 'node:path';
 
 export interface IServerProcess {
   start(): Promise<{ baseUrl: string }>;
@@ -40,11 +41,18 @@ export interface ServerProcessOptions {
 /**
  * `MEDIAMAN_SERVER_PATH` is the server build to run: a `.dll` runs under `dotnet`, anything else is run directly.
  * Unset means the desktop app doesn't start a server (in development one runs on its own, see docs/LOCAL-DEV.md).
+ * A relative path is taken from where `npm` was run (`INIT_CWD`), not `desktop/`, where `npm start -w desktop` runs.
  */
-export function resolveServerCommand(env: Readonly<Record<string, string | undefined>>): ServerCommand | undefined {
+export function resolveServerCommand(
+  env: Readonly<Record<string, string | undefined>>,
+  cwd: string = process.cwd(),
+): ServerCommand | undefined {
   const raw = env.MEDIAMAN_SERVER_PATH?.trim();
   if (!raw) return undefined;
-  return raw.toLowerCase().endsWith('.dll') ? { command: 'dotnet', args: [raw] } : { command: raw, args: [] };
+  const serverPath = path.isAbsolute(raw) ? raw : path.resolve(cwd, env.INIT_CWD?.trim() ?? '', raw);
+  return serverPath.toLowerCase().endsWith('.dll')
+    ? { command: 'dotnet', args: [serverPath] }
+    : { command: serverPath, args: [] };
 }
 
 /** `MEDIAMAN_SERVER_PORT`, or the server's default port. */

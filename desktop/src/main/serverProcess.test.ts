@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SERVER_PORT,
@@ -200,6 +201,23 @@ describe('resolveServerCommand', () => {
   it('runs anything else directly', () => {
     expect(resolveServerCommand({ MEDIAMAN_SERVER_PATH: '/opt/mediaman/MediaMan.Server' })).toEqual({
       command: '/opt/mediaman/MediaMan.Server',
+      args: [],
+    });
+  });
+
+  it('resolves a relative path from where npm was run, not the desktop workspace', () => {
+    const root = path.resolve('repo');
+    const relative = path.join('server', 'bin', 'MediaMan.Server.dll');
+    expect(resolveServerCommand({ MEDIAMAN_SERVER_PATH: relative, INIT_CWD: root }, path.join(root, 'desktop'))).toEqual({
+      command: 'dotnet',
+      args: [path.join(root, relative)],
+    });
+  });
+
+  it('resolves a relative path from the working directory outside npm', () => {
+    const cwd = path.resolve('somewhere');
+    expect(resolveServerCommand({ MEDIAMAN_SERVER_PATH: 'MediaMan.Server' }, cwd)).toEqual({
+      command: path.join(cwd, 'MediaMan.Server'),
       args: [],
     });
   });
