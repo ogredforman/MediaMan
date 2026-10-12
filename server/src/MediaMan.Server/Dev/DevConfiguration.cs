@@ -5,7 +5,6 @@ using MediaMan.Metadata.Images;
 using MediaMan.Metadata.Tmdb;
 using MediaMan.Playback.Probing;
 using MediaMan.Server.Hosting;
-using Microsoft.Extensions.Options;
 
 namespace MediaMan.Server.Dev;
 
@@ -24,10 +23,7 @@ public static class DevConfiguration
         AddProvider<IImageDownloader>(services, providers.Images, "Images", "PLAN 2.2", () => new FakeImageDownloader(),
             sp => sp.GetRequiredService<HttpImageDownloader>());
         AddProvider<IMediaProbe>(services, providers.MediaProbe, "MediaProbe", "PLAN 1.5", () => new FakeMediaProbe(),
-            sp => new FfprobeMediaProbe(new FfprobeOptions
-            {
-                ExecutablePath = sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
-            }));
+            sp => sp.GetRequiredService<FfprobeMediaProbe>());
         AddProvider<IFileWatcher>(services, providers.FileWatcher, "FileWatcher", "PLAN 2.8", () => new FakeFileWatcher(),
             _ => new FileSystemFileWatcher());
 

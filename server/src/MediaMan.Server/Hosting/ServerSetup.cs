@@ -11,6 +11,7 @@ using MediaMan.Library.Scanning;
 using MediaMan.Library.Watching;
 using MediaMan.Metadata.Images;
 using MediaMan.Metadata.Tmdb;
+using MediaMan.Playback.Probing;
 #if MEDIAMAN_DEV
 using MediaMan.Server.Dev;
 #endif
@@ -171,11 +172,17 @@ public static class ServerSetup
     }
 
     /// <summary>
-    /// The scan pipeline. The media probe is registered only by the dev configuration for now, so the pipeline is
-    /// built through factories, which DI's build-time validation skips; <see cref="ScanCoordinator.IsAvailable"/> gates use.
+    /// The scan pipeline. The media probe runs ffprobe as a separate process from <c>MediaMan:Tools:FfprobePath</c>
+    /// (SPEC §10.1). The pipeline is built through factories, which DI's build-time validation skips, so a host without a
+    /// probe or metadata provider still starts; <see cref="ScanCoordinator.IsAvailable"/> gates use.
     /// </summary>
     private static void AddScanning(IServiceCollection services)
     {
+        services.AddSingleton(sp => new FfprobeMediaProbe(new FfprobeOptions
+        {
+            ExecutablePath = sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
+        }));
+        services.AddSingleton<IMediaProbe>(sp => sp.GetRequiredService<FfprobeMediaProbe>());
         services.AddSingleton(new MatcherOptions());
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryScanner>(sp));
         services.AddScoped(sp => ActivatorUtilities.CreateInstance<LibraryMatcher>(sp));

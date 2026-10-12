@@ -5,6 +5,7 @@ using MediaMan.Core.Domain;
 using MediaMan.Core.Modules;
 using MediaMan.Data;
 using MediaMan.Fakes;
+using MediaMan.Playback.Probing;
 using MediaMan.Server.LibraryApi;
 using MediaMan.Server.Scanning;
 using MediaMan.Server.Tests.Conformance;
@@ -206,6 +207,24 @@ public sealed class ScanApiTests : IAsyncLifetime
         await ContractDocument.Instance.AssertConformsAsync(response, Ct);
         (await ProblemCodeAsync(response)).Should().Be("scan.unavailable");
         factory.Services.GetRequiredService<ScanCoordinator>().Get(_libraryId).State.Should().Be("idle");
+    }
+
+    [Fact]
+    public async Task Outside_the_dev_configuration_scanning_uses_ffprobe_at_the_configured_path()
+    {
+        // A binary that doesn't exist, so the probe fails before any process starts.
+        var ffprobe = Path.Combine(_media, "no-such-ffprobe");
+        await using var factory = new MediaManFactory(
+            settings: new Dictionary<string, string> { ["MediaMan:Tools:FfprobePath"] = ffprobe })
+        {
+            KeepMediaProbe = true,
+        };
+
+        factory.Services.GetRequiredService<ScanCoordinator>().IsAvailable.Should().BeTrue();
+        var probe = factory.Services.GetRequiredService<IMediaProbe>();
+        probe.Should().BeOfType<FfprobeMediaProbe>();
+        var probing = () => probe.ProbeAsync(Path.Combine(_media, "Movies", "Dune.mkv"), Ct);
+        (await probing.Should().ThrowAsync<InvalidOperationException>()).WithMessage($"*'{ffprobe}'*MediaMan:Tools:FfprobePath*");
     }
 
     private async Task ScanAndWaitAsync()

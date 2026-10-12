@@ -32,8 +32,8 @@ public sealed class DevConfigurationTests : IDisposable
         }
 
         return dataDirectory is null
-            ? new MediaManFactory("Development", settings)
-            : new MediaManFactory("Development", settings) { DataDirectory = dataDirectory, KeepDataDirectory = true };
+            ? new MediaManFactory("Development", settings) { KeepMediaProbe = true }
+            : new MediaManFactory("Development", settings) { DataDirectory = dataDirectory, KeepDataDirectory = true, KeepMediaProbe = true };
     }
 
     private static async Task<List<Core.Domain.Library>> LibrariesAsync(MediaManFactory factory, CancellationToken ct)
@@ -140,11 +140,14 @@ public sealed class DevConfigurationTests : IDisposable
         var ct = TestContext.Current.CancellationToken;
         await using var factory = new MediaManFactory(
             "Testing",
-            new Dictionary<string, string> { ["MediaMan:Dev:MediaPath"] = _mediaPath });
+            new Dictionary<string, string> { ["MediaMan:Dev:MediaPath"] = _mediaPath })
+        {
+            KeepMediaProbe = true,
+        };
 
         (await LibrariesAsync(factory, ct)).Should().BeEmpty();
         factory.Services.GetRequiredService<IMetadataProvider>().Should().BeOfType<TmdbMetadataProvider>();
-        factory.Services.GetService<IMediaProbe>().Should().BeNull();
+        factory.Services.GetRequiredService<IMediaProbe>().Should().BeOfType<FfprobeMediaProbe>();
     }
 
     [Fact]
