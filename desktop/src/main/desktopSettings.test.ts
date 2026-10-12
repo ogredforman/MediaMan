@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DesktopSettings, executableOf, mpvPathFrom } from './desktopSettings.js';
+import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './desktopSettings.js';
 
 let dir: string;
 let file: string;
@@ -26,6 +26,15 @@ describe('DesktopSettings', () => {
     expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({ mpvPath: mpv });
   });
 
+  it('forgets the picked MPV', async () => {
+    await new DesktopSettings(file).setMpvPath(path.join(dir, 'mpv.exe'));
+
+    await new DesktopSettings(file).clearMpvPath();
+
+    await expect(new DesktopSettings(file).get()).resolves.toEqual({});
+    expect(JSON.parse(await readFile(file, 'utf8'))).toEqual({});
+  });
+
   it.each([['not json'], ['[]'], ['{"mpvPath": 42}'], ['{"mpvPath": "  "}']])(
     'reads %s as the defaults',
     async (content) => {
@@ -41,6 +50,14 @@ describe('mpvPathFrom', () => {
     expect(mpvPathFrom({ mpvPath: '/picked/mpv' }, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toBe('/picked/mpv');
     expect(mpvPathFrom({}, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toBe('/env/mpv');
     expect(mpvPathFrom({}, {})).toBe('mpv');
+  });
+});
+
+describe('mpvSettingFrom', () => {
+  it('names where the MPV in use comes from', () => {
+    expect(mpvSettingFrom({ mpvPath: '/picked/mpv' }, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toEqual({ path: '/picked/mpv', source: 'picked' });
+    expect(mpvSettingFrom({}, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toEqual({ path: '/env/mpv', source: 'environment' });
+    expect(mpvSettingFrom({}, { MEDIAMAN_MPV_PATH: '  ' })).toEqual({ path: 'mpv', source: 'default' });
   });
 });
 

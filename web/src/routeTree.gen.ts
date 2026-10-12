@@ -20,7 +20,11 @@ import { Route as AppSearchRouteImport } from './routes/_app/search'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppShowsRouteImport } from './routes/_app/shows'
 import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings.index'
+import { Route as AppSettingsAboutRouteImport } from './routes/_app/settings.about'
 import { Route as AppSettingsLibrariesRouteImport } from './routes/_app/settings.libraries'
+import { Route as AppSettingsMetadataRouteImport } from './routes/_app/settings.metadata'
+import { Route as AppSettingsPlaybackRouteImport } from './routes/_app/settings.playback'
+import { Route as AppSettingsServerRouteImport } from './routes/_app/settings.server'
 import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titleId'
 
 const AppRoute = AppRouteImport.update({
@@ -77,9 +81,29 @@ const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsAboutRoute = AppSettingsAboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSettingsLibrariesRoute = AppSettingsLibrariesRouteImport.update({
   id: '/libraries',
   path: '/libraries',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsMetadataRoute = AppSettingsMetadataRouteImport.update({
+  id: '/metadata',
+  path: '/metadata',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsPlaybackRoute = AppSettingsPlaybackRouteImport.update({
+  id: '/playback',
+  path: '/playback',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
+const AppSettingsServerRoute = AppSettingsServerRouteImport.update({
+  id: '/server',
+  path: '/server',
   getParentRoute: () => AppSettingsRoute,
 } as any)
 const AppTitlesTitleIdRoute = AppTitlesTitleIdRouteImport.update({
@@ -98,7 +122,11 @@ export interface FileRoutesByFullPath {
   '/search': typeof AppSearchRoute
   '/settings': typeof AppSettingsRouteWithChildren
   '/shows': typeof AppShowsRoute
+  '/settings/about': typeof AppSettingsAboutRoute
   '/settings/libraries': typeof AppSettingsLibrariesRoute
+  '/settings/metadata': typeof AppSettingsMetadataRoute
+  '/settings/playback': typeof AppSettingsPlaybackRoute
+  '/settings/server': typeof AppSettingsServerRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
   '/settings/': typeof AppSettingsIndexRoute
 }
@@ -111,7 +139,11 @@ export interface FileRoutesByTo {
   '/search': typeof AppSearchRoute
   '/shows': typeof AppShowsRoute
   '/': typeof AppIndexRoute
+  '/settings/about': typeof AppSettingsAboutRoute
   '/settings/libraries': typeof AppSettingsLibrariesRoute
+  '/settings/metadata': typeof AppSettingsMetadataRoute
+  '/settings/playback': typeof AppSettingsPlaybackRoute
+  '/settings/server': typeof AppSettingsServerRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
   '/settings': typeof AppSettingsIndexRoute
 }
@@ -127,7 +159,11 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRouteWithChildren
   '/_app/shows': typeof AppShowsRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/settings/about': typeof AppSettingsAboutRoute
   '/_app/settings/libraries': typeof AppSettingsLibrariesRoute
+  '/_app/settings/metadata': typeof AppSettingsMetadataRoute
+  '/_app/settings/playback': typeof AppSettingsPlaybackRoute
+  '/_app/settings/server': typeof AppSettingsServerRoute
   '/_app/titles/$titleId': typeof AppTitlesTitleIdRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
 }
@@ -143,7 +179,11 @@ export interface FileRouteTypes {
     | '/search'
     | '/settings'
     | '/shows'
+    | '/settings/about'
     | '/settings/libraries'
+    | '/settings/metadata'
+    | '/settings/playback'
+    | '/settings/server'
     | '/titles/$titleId'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
@@ -156,7 +196,11 @@ export interface FileRouteTypes {
     | '/search'
     | '/shows'
     | '/'
+    | '/settings/about'
     | '/settings/libraries'
+    | '/settings/metadata'
+    | '/settings/playback'
+    | '/settings/server'
     | '/titles/$titleId'
     | '/settings'
   id:
@@ -171,7 +215,11 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/shows'
     | '/_app/'
+    | '/_app/settings/about'
     | '/_app/settings/libraries'
+    | '/_app/settings/metadata'
+    | '/_app/settings/playback'
+    | '/_app/settings/server'
     | '/_app/titles/$titleId'
     | '/_app/settings/'
   fileRoutesById: FileRoutesById
@@ -262,11 +310,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsIndexRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/settings/about': {
+      id: '/_app/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof AppSettingsAboutRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/_app/settings/libraries': {
       id: '/_app/settings/libraries'
       path: '/libraries'
       fullPath: '/settings/libraries'
       preLoaderRoute: typeof AppSettingsLibrariesRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/metadata': {
+      id: '/_app/settings/metadata'
+      path: '/metadata'
+      fullPath: '/settings/metadata'
+      preLoaderRoute: typeof AppSettingsMetadataRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/playback': {
+      id: '/_app/settings/playback'
+      path: '/playback'
+      fullPath: '/settings/playback'
+      preLoaderRoute: typeof AppSettingsPlaybackRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
+    '/_app/settings/server': {
+      id: '/_app/settings/server'
+      path: '/server'
+      fullPath: '/settings/server'
+      preLoaderRoute: typeof AppSettingsServerRouteImport
       parentRoute: typeof AppSettingsRoute
     }
     '/_app/titles/$titleId': {
@@ -280,12 +356,20 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppSettingsRouteChildren {
+  AppSettingsAboutRoute: typeof AppSettingsAboutRoute
   AppSettingsLibrariesRoute: typeof AppSettingsLibrariesRoute
+  AppSettingsMetadataRoute: typeof AppSettingsMetadataRoute
+  AppSettingsPlaybackRoute: typeof AppSettingsPlaybackRoute
+  AppSettingsServerRoute: typeof AppSettingsServerRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteChildren: AppSettingsRouteChildren = {
+  AppSettingsAboutRoute: AppSettingsAboutRoute,
   AppSettingsLibrariesRoute: AppSettingsLibrariesRoute,
+  AppSettingsMetadataRoute: AppSettingsMetadataRoute,
+  AppSettingsPlaybackRoute: AppSettingsPlaybackRoute,
+  AppSettingsServerRoute: AppSettingsServerRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 

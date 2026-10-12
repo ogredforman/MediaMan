@@ -2,7 +2,7 @@
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
 import { registerBridge } from './bridge.js';
-import { DesktopSettings, executableOf, mpvPathFrom } from './desktopSettings.js';
+import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './desktopSettings.js';
 import { mpvAssetsIn, MpvPlayer } from './mpvPlayer.js';
 import { PlayerHost } from './playerHost.js';
 import { resolveServerCommand, resolveServerPort, ServerProcess, type IServerProcess } from './serverProcess.js';
@@ -71,6 +71,11 @@ void app.whenReady().then(async () => {
     tokens,
     player,
     chooseMpv: () => chooseMpv(settings),
+    mpvSetting: async () => mpvSettingFrom(await settings.get(), process.env),
+    useDefaultMpv: async () => {
+      await settings.clearMpvPath();
+      return mpvSettingFrom(await settings.get(), process.env);
+    },
   });
 
   const serverCommand = resolveServerCommand(process.env);

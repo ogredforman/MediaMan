@@ -246,6 +246,7 @@ public static class ServerSetup
         app.MapSetupEndpoints();
         app.MapSettingsEndpoints();
         app.MapAuthEndpoints();
+        app.MapAccountEndpoints();
         app.MapProfileEndpoints();
         app.MapEventEndpoints();
         app.MapLibraryEndpoints();

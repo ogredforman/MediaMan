@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { FakePlayer } from '../fakes/fakePlayer.js';
 import { bridgeChannels, bridgeEvents, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type IpcMainLike } from './bridge.js';
 import { PlayerHost } from './playerHost.js';
+import type { MpvSetting } from './desktopSettings.js';
 import type { StoredTokens } from './tokenStore.js';
 
 const uiOrigin = 'http://localhost:5173';
@@ -30,6 +31,7 @@ function setUp(serverUrl: string | undefined) {
   const stored = new Map<string, StoredTokens>();
   const player = new FakePlayer();
   let chosen: string | null = '/picked/mpv';
+  let mpv: MpvSetting = { path: '/picked/mpv', source: 'picked' };
   registerBridge(ipc, {
     uiOrigin,
     serverUrl: () => serverUrl,
@@ -43,6 +45,11 @@ function setUp(serverUrl: string | undefined) {
       () => Promise.resolve('mpv'),
     ),
     chooseMpv: () => Promise.resolve(chosen),
+    mpvSetting: () => Promise.resolve(mpv),
+    useDefaultMpv: () => {
+      mpv = { path: 'mpv', source: 'default' };
+      return Promise.resolve(mpv);
+    },
   });
   const call = (channel: string, event: BridgeEvent, ...args: unknown[]) =>
     Promise.resolve().then(() => handlers.get(channel)?.(event, ...args));
@@ -164,6 +171,15 @@ describe('registerBridge', () => {
     await expect(call(bridgeChannels.playerChooseMpv, fromUi)).resolves.toBe('/picked/mpv');
     cancelPicker();
     await expect(call(bridgeChannels.playerChooseMpv, fromUi)).resolves.toBeNull();
+  });
+
+  it('answers the MPV in use and goes back to the default', async () => {
+    const { call } = setUp(undefined);
+
+    await expect(call(bridgeChannels.playerMpvSetting, fromUi)).resolves.toEqual({ path: '/picked/mpv', source: 'picked' });
+    await expect(call(bridgeChannels.playerUseDefaultMpv, fromUi)).resolves.toEqual({ path: 'mpv', source: 'default' });
+    await expect(call(bridgeChannels.playerMpvSetting, fromUi)).resolves.toEqual({ path: 'mpv', source: 'default' });
+    await expect(call(bridgeChannels.playerUseDefaultMpv, { senderFrame: { url: 'https://evil.example/' } })).rejects.toThrow();
   });
 
   it('uses the same channel names as the preload', () => {

@@ -1,6 +1,6 @@
 // A stand-in for the desktop bridge's `player` (desktop/src/preload/index.cts): records launches and lets tests
 // send MPV's events. Never starts MPV.
-import type { DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
+import type { DesktopMpvSetting, DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
 
 export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   readonly plays: { launchId: string; options: DesktopPlayOptions }[];
@@ -12,6 +12,8 @@ export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   failNextPlay(message: string): void;
   /** What the MPV picker answers; null is a cancel. */
   pickMpv(path: string | null): void;
+  /** What `mpvSetting` answers until a pick or Use default changes it. */
+  setMpvSetting(setting: DesktopMpvSetting): void;
   emit(event: DesktopPlayerEvent): void;
   stopCalls: number;
 }
@@ -20,6 +22,7 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
   const listeners = new Set<(event: DesktopPlayerEvent) => void>();
   let failure: string | undefined;
   let picked: string | null = null;
+  let mpv: DesktopMpvSetting = { path: 'mpv', source: 'default' };
   const fake: FakeDesktopPlayer = {
     plays: [],
     upNexts: [],
@@ -41,7 +44,15 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
       fake.upNexts.push({ launchId, offer });
       return Promise.resolve();
     },
-    chooseMpv: () => Promise.resolve(picked),
+    chooseMpv() {
+      if (picked !== null) mpv = { path: picked, source: 'picked' };
+      return Promise.resolve(picked);
+    },
+    mpvSetting: () => Promise.resolve(mpv),
+    useDefaultMpv() {
+      mpv = { path: 'mpv', source: 'default' };
+      return Promise.resolve(mpv);
+    },
     onEvent(callback) {
       listeners.add(callback);
       return () => {
@@ -58,6 +69,9 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     },
     pickMpv(path) {
       picked = path;
+    },
+    setMpvSetting(setting) {
+      mpv = setting;
     },
     emit(event) {
       for (const listener of listeners) listener(event);

@@ -36,6 +36,12 @@ export type DesktopPlayerEvent =
   | { launchId: string; type: 'endReached' }
   | { launchId: string; type: 'upNext'; choice: 'play' | 'cancel' };
 
+/** The MPV the next Play uses: picked in Settings, `MEDIAMAN_MPV_PATH`, or `mpv` from PATH. Mirrors the desktop's `MpvSetting`. */
+export interface DesktopMpvSetting {
+  path: string;
+  source: 'picked' | 'environment' | 'default';
+}
+
 export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
 
 /** MPV, one launch at a time, run by the desktop app's main process. */
@@ -46,6 +52,10 @@ export interface DesktopPlayerBridge {
   upNext(launchId: string, offer: DesktopUpNextOffer): Promise<void>;
   /** The native picker for the MPV executable; the saved path, or null when cancelled. */
   chooseMpv(): Promise<string | null>;
+  /** The MPV the next Play uses and where it comes from. */
+  mpvSetting(): Promise<DesktopMpvSetting>;
+  /** Forgets the picked MPV; resolves to the setting now in use. */
+  useDefaultMpv(): Promise<DesktopMpvSetting>;
   /** Returns the unsubscribe. */
   onEvent(callback: (event: DesktopPlayerEvent) => void): () => void;
 }

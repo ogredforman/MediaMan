@@ -46,11 +46,13 @@ import {
   LanguageCode,
   LibraryKind,
   MediaFileStatus,
+  Permission,
   ProfileAvatar,
   ServerMode,
   TitleKind
 } from './mediaman.schemas';
 import type {
+  Account,
   AttentionFilePage,
   AuthTokens,
   CatalogSearchResult,
@@ -89,6 +91,8 @@ export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthToken
 export const getRefreshTokensResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
 export const getSelectSessionProfileResponseMock = (overrideResponse: Partial<Extract<Profile, object>> = {}): Profile => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), audioLanguages: faker.helpers.arrayElements(Object.values(LanguageCode)), subtitleLanguages: faker.helpers.arrayElements(Object.values(LanguageCode)), ...overrideResponse})
+
+export const getGetAccountResponseMock = (overrideResponse: Partial<Extract<Account, object>> = {}): Account => ({id: faker.string.uuid(), username: faker.string.alpha({length: {min: 10, max: 20}}), isSuperadmin: faker.datatype.boolean(), permissions: faker.helpers.arrayElements(Object.values(Permission)), ...overrideResponse})
 
 export const getListProfilesResponseMock = (overrideResponse: Partial<Extract<ProfileList, object>> = {}): ProfileList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), audioLanguages: faker.helpers.arrayElements(Object.values(LanguageCode)), subtitleLanguages: faker.helpers.arrayElements(Object.values(LanguageCode))})), activeProfileId: faker.helpers.arrayElement([faker.string.uuid(), undefined]), ...overrideResponse})
 
