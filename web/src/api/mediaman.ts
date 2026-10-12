@@ -77,6 +77,8 @@ import type {
   LoginRequest,
   MediaFileMatch,
   MediaFileMatchRequest,
+  MetadataSettings,
+  MetadataSettingsRequest,
   PlaybackSession,
   PreferredVersionRequest,
   Problem,
@@ -315,6 +317,107 @@ export const useCompleteSetup = <TError = ErrorType<Problem | ProblemResponse>,
       return useMutation(getCompleteSetupMutationOptions(options), queryClient);
     }
 
+export const getGetServerModeUrl = () => {
+
+
+
+
+  return `/server/mode`
+}
+
+/**
+ * @summary The recorded mode and whether the server must restart to use it (SPEC §8 setup, §11 Settings).
+ */
+export const getServerMode = async ( options?: Parameters<typeof apiFetch>[1]): Promise<ServerModeState> => {
+
+  return apiFetch<ServerModeState>(getGetServerModeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetServerModeQueryKey = () => {
+    return [
+    `/server/mode`
+    ] as const;
+    }
+
+
+export const getGetServerModeQueryOptions = <TData = Awaited<ReturnType<typeof getServerMode>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getServerMode>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetServerModeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getServerMode>>> = ({ signal }) => getServerMode({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getServerMode>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetServerModeQueryResult = NonNullable<Awaited<ReturnType<typeof getServerMode>>>
+export type GetServerModeQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetServerMode<TData = Awaited<ReturnType<typeof getServerMode>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getServerMode>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getServerMode>>,
+          TError,
+          Awaited<ReturnType<typeof getServerMode>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetServerMode<TData = Awaited<ReturnType<typeof getServerMode>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getServerMode>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getServerMode>>,
+          TError,
+          Awaited<ReturnType<typeof getServerMode>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetServerMode<TData = Awaited<ReturnType<typeof getServerMode>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getServerMode>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The recorded mode and whether the server must restart to use it (SPEC §8 setup, §11 Settings).
+ */
+
+export function useGetServerMode<TData = Awaited<ReturnType<typeof getServerMode>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getServerMode>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetServerModeQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getSetServerModeUrl = () => {
 
 
@@ -401,6 +504,197 @@ export const useSetServerMode = <TError = ErrorType<Problem | ProblemResponse>,
         TContext
       > => {
       return useMutation(getSetServerModeMutationOptions(options), queryClient);
+    }
+
+export const getGetMetadataSettingsUrl = () => {
+
+
+
+
+  return `/settings/metadata`
+}
+
+/**
+ * @summary Where the TMDB access token in use comes from (SPEC §8 metadata, §11 Settings). The token is never returned.
+ */
+export const getMetadataSettings = async ( options?: Parameters<typeof apiFetch>[1]): Promise<MetadataSettings> => {
+
+  return apiFetch<MetadataSettings>(getGetMetadataSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMetadataSettingsQueryKey = () => {
+    return [
+    `/settings/metadata`
+    ] as const;
+    }
+
+
+export const getGetMetadataSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getMetadataSettings>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMetadataSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMetadataSettings>>> = ({ signal }) => getMetadataSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMetadataSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getMetadataSettings>>>
+export type GetMetadataSettingsQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetMetadataSettings<TData = Awaited<ReturnType<typeof getMetadataSettings>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMetadataSettings>>,
+          TError,
+          Awaited<ReturnType<typeof getMetadataSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMetadataSettings<TData = Awaited<ReturnType<typeof getMetadataSettings>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMetadataSettings>>,
+          TError,
+          Awaited<ReturnType<typeof getMetadataSettings>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMetadataSettings<TData = Awaited<ReturnType<typeof getMetadataSettings>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Where the TMDB access token in use comes from (SPEC §8 metadata, §11 Settings). The token is never returned.
+ */
+
+export function useGetMetadataSettings<TData = Awaited<ReturnType<typeof getMetadataSettings>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMetadataSettings>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMetadataSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetMetadataSettingsUrl = () => {
+
+
+
+
+  return `/settings/metadata`
+}
+
+/**
+ * The token is stored encrypted with the per-install key and is never logged or returned (SPEC §9). An empty
+ * `tmdbAccessToken` clears the override, so the configured or shipped token is used again.
+ * @summary Sets or clears the TMDB access token that overrides the shipped one; the next TMDB request uses it.
+ */
+export const setMetadataSettings = async (metadataSettingsRequest: MetadataSettingsRequest, options?: Parameters<typeof apiFetch>[1]): Promise<MetadataSettings> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<MetadataSettings>(getSetMetadataSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(metadataSettingsRequest)
+  }
+);}
+
+
+
+
+
+export const getSetMetadataSettingsMutationKey = () => ['setMetadataSettings'] as const;
+
+export const getSetMetadataSettingsMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setMetadataSettings>>, TError,SetMetadataSettingsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setMetadataSettings>>, TError,SetMetadataSettingsMutationVariables, TContext> => {
+
+const mutationKey = getSetMetadataSettingsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setMetadataSettings>>, SetMetadataSettingsMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  setMetadataSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetMetadataSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof setMetadataSettings>>>
+    export type SetMetadataSettingsMutationBody = MetadataSettingsRequest
+    export type SetMetadataSettingsMutationError = ErrorType<Problem | ProblemResponse>
+    export type SetMetadataSettingsMutationVariables = {data: MetadataSettingsRequest}
+
+    /**
+ * @summary Sets or clears the TMDB access token that overrides the shipped one; the next TMDB request uses it.
+ */
+export const useSetMetadataSettings = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setMetadataSettings>>, TError,SetMetadataSettingsMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setMetadataSettings>>,
+        TError,
+        SetMetadataSettingsMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetMetadataSettingsMutationOptions(options), queryClient);
     }
 
 export const getLoginUrl = () => {

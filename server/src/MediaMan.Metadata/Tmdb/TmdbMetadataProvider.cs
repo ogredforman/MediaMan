@@ -252,7 +252,7 @@ public sealed class TmdbMetadataProvider(
                     throw new KeyNotFoundException($"TMDB has no {what}.");
                 case HttpStatusCode.Unauthorized:
                     throw new HttpRequestException(
-                        "TMDB rejected the access token. Set a valid TMDB read-access token in MediaMan:Metadata:Tmdb:AccessToken.",
+                        "TMDB rejected the access token. Set a valid TMDB read-access token in Settings → Metadata.",
                         null,
                         response.StatusCode);
                 case HttpStatusCode.TooManyRequests when attempt < options.RetryDelays.Count:

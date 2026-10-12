@@ -218,6 +218,24 @@ public sealed class SetupApiTests : IDisposable
     }
 
     [Fact]
+    public async Task Reading_the_mode_shows_the_recorded_one_and_whether_a_restart_is_needed()
+    {
+        await using var factory = new MediaManFactory();
+        using var client = await factory.CreateSignedInClientAsync(Ct);
+
+        using var before = await client.GetAsync(new Uri("/server/mode", UriKind.Relative), Ct);
+        before.StatusCode.Should().Be(HttpStatusCode.OK);
+        await ContractDocument.Instance.AssertConformsAsync(before, Ct);
+        (await before.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("restartRequired").GetBoolean().Should().BeFalse();
+
+        using var put = await client.PutAsJsonAsync("/server/mode", new { mode = "server" }, Ct);
+        using var after = await client.GetAsync(new Uri("/server/mode", UriKind.Relative), Ct);
+        var state = await after.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        state.GetProperty("mode").GetString().Should().Be("server");
+        state.GetProperty("restartRequired").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
     public async Task An_unknown_mode_is_refused()
     {
         await using var factory = new MediaManFactory();

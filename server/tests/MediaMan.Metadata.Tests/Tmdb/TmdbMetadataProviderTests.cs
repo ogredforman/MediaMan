@@ -39,9 +39,9 @@ public sealed class TmdbMetadataProviderTests : IDisposable
         }
     }
 
-    private TmdbMetadataProvider Provider(string? accessToken = null) => new(
+    private TmdbMetadataProvider Provider(string? accessToken = null, Func<string?>? accessTokenOverride = null) => new(
         new HttpClient(_handler, disposeHandler: false),
-        new TmdbOptions { AccessToken = accessToken, CacheDirectory = _cacheDirectory },
+        new TmdbOptions { AccessToken = accessToken, AccessTokenOverride = accessTokenOverride, CacheDirectory = _cacheDirectory },
         _clock,
         (wait, _) =>
         {
@@ -287,7 +287,25 @@ public sealed class TmdbMetadataProviderTests : IDisposable
         using var provider = Provider();
 
         await FluentActions.Awaiting(() => provider.GetTitleAsync(ExternalId.Parse("tmdb:movie/603"), Ct))
-            .Should().ThrowAsync<HttpRequestException>().WithMessage("*access token*MediaMan:Metadata:Tmdb:AccessToken*");
+            .Should().ThrowAsync<HttpRequestException>().WithMessage("*access token*Settings → Metadata*");
+    }
+
+    [Fact]
+    public async Task A_runtime_override_wins_from_the_next_request_and_blank_falls_back()
+    {
+        string? runtime = null;
+        using var provider = Provider(accessToken: "configured-token", accessTokenOverride: () => runtime);
+
+        await provider.GetTitleAsync(ExternalId.Parse("tmdb:movie/603"), Ct);
+        runtime = " settings-token ";
+        await provider.GetTitleAsync(ExternalId.Parse("tmdb:tv/1396"), Ct);
+        runtime = " ";
+        await provider.GetSeasonAsync(ExternalId.Parse("tmdb:tv/1396"), 1, Ct);
+
+        _handler.Requests.Select(r => r.Headers.Authorization).Should().Equal(
+            new AuthenticationHeaderValue("Bearer", "configured-token"),
+            new AuthenticationHeaderValue("Bearer", "settings-token"),
+            new AuthenticationHeaderValue("Bearer", "configured-token"));
     }
 
     [Fact]

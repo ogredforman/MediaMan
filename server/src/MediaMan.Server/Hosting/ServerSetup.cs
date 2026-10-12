@@ -19,6 +19,7 @@ using MediaMan.Server.Events;
 using MediaMan.Server.LibraryApi;
 using MediaMan.Server.PlaybackApi;
 using MediaMan.Server.Scanning;
+using MediaMan.Server.Settings;
 using MediaMan.Server.Setup;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -58,11 +59,13 @@ public static class ServerSetup
         services.AddScoped<PlaybackService>();
         services.AddScoped<ProgressService>();
         services.AddScoped<WatchedService>();
+        services.AddScoped<MetadataSettingsService>();
         AddMetadata(services);
         AddScanning(services);
 
         // Hosted services start in registration order: the schema exists before anything seeds it.
         services.AddHostedService<DatabaseMigrator>();
+        services.AddHostedService<MetadataSettingsLoader>();
         AddDevConfiguration(services, section.Get<MediaManOptions>()?.Dev ?? new DevOptions(), environment);
         services.AddHostedService<ScanWorker>();
         services.AddHostedService<ScanScheduler>();
@@ -134,9 +137,11 @@ public static class ServerSetup
     /// </summary>
     private static void AddMetadata(IServiceCollection services)
     {
+        services.AddSingleton<TmdbTokenOverride>();
         services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<MediaManOptions>>().Value;
+            var tokenOverride = sp.GetRequiredService<TmdbTokenOverride>();
             var http = new HttpClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(15) })
             {
                 Timeout = TimeSpan.FromSeconds(30),
@@ -146,6 +151,7 @@ public static class ServerSetup
                 new TmdbOptions
                 {
                     AccessToken = options.Metadata.Tmdb.AccessToken,
+                    AccessTokenOverride = () => tokenOverride.Token,
                     Language = options.Metadata.Tmdb.Language,
                     CacheDirectory = Path.Combine(options.DataDirectory, "cache", "tmdb"),
                 },
@@ -238,6 +244,7 @@ public static class ServerSetup
     {
         app.MapHealthEndpoints();
         app.MapSetupEndpoints();
+        app.MapSettingsEndpoints();
         app.MapAuthEndpoints();
         app.MapProfileEndpoints();
         app.MapEventEndpoints();

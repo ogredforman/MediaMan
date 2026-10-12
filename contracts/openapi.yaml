@@ -102,6 +102,20 @@ paths:
           $ref: '#/components/responses/Problem'
 
   /server/mode:
+    get:
+      operationId: getServerMode
+      summary: The recorded mode and whether the server must restart to use it (SPEC §8 setup, §11 Settings).
+      tags: [setup]
+      x-permission: server.control
+      responses:
+        '200':
+          description: The recorded mode, or the one the server runs in if setup hasn't recorded one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServerModeState'
+        default:
+          $ref: '#/components/responses/Problem'
     put:
       operationId: setServerMode
       summary: "Records where the server listens; takes effect when the server restarts (SPEC §7.1 step 3, §8 setup)."
@@ -122,6 +136,53 @@ paths:
                 $ref: '#/components/schemas/ServerModeState'
         '400':
           description: The mode is missing or unknown (`bad_request`); `errors.mode` says why.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /settings/metadata:
+    get:
+      operationId: getMetadataSettings
+      summary: Where the TMDB access token in use comes from (SPEC §8 metadata, §11 Settings). The token is never returned.
+      tags: [settings]
+      x-permission: settings.manage
+      responses:
+        '200':
+          description: The metadata settings.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataSettings'
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: setMetadataSettings
+      summary: Sets or clears the TMDB access token that overrides the shipped one; the next TMDB request uses it.
+      description: |
+        The token is stored encrypted with the per-install key and is never logged or returned (SPEC §9). An empty
+        `tmdbAccessToken` clears the override, so the configured or shipped token is used again.
+      tags: [settings]
+      x-permission: settings.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MetadataSettingsRequest'
+      responses:
+        '200':
+          description: The token is saved, or the override is cleared.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetadataSettings'
+        '400':
+          description: >-
+            The value can't be a TMDB read-access token (`bad_request`), e.g. it contains spaces or it's the short v3
+            API key; `errors.tmdbAccessToken` says why.
           content:
             application/problem+json:
               schema:
@@ -1458,6 +1519,28 @@ components:
         restartRequired:
           type: boolean
           description: True when the recorded mode differs from the one the server is running in.
+
+    MetadataSettingsRequest:
+      type: object
+      required: [tmdbAccessToken]
+      additionalProperties: false
+      properties:
+        tmdbAccessToken:
+          type: string
+          maxLength: 1000
+          description: A TMDB API Read Access Token, or an empty string to clear the override.
+
+    MetadataSettings:
+      type: object
+      required: [tmdbAccessTokenSource]
+      additionalProperties: false
+      properties:
+        tmdbAccessTokenSource:
+          type: string
+          enum: [shipped, configuration, settings]
+          description: >-
+            Where the TMDB token in use comes from: the one shipped with MediaMan, the server configuration
+            (`MediaMan:Metadata:Tmdb:AccessToken`), or the override set in Settings.
 
     Problem:
       type: object
