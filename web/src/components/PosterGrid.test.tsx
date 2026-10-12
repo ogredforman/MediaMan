@@ -14,6 +14,7 @@ const movie = (n: number, poster?: string): TitleSummary => ({
   name: `Movie ${String(n)}`,
   year: 2000 + n,
   genres: [],
+  watched: false,
   ...(poster === undefined ? {} : { poster: { url: poster } }),
 });
 

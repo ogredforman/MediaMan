@@ -28,6 +28,10 @@ public sealed record SubtitleTrackDto(string Url, string Format, string FileName
 
 public sealed record WatchProgressReport(double? PositionSeconds, double? DurationSeconds);
 
+public sealed record WatchedRequest(bool? Watched);
+
+public sealed record TitleWatchedRequest(bool? Watched, int? SeasonNumber);
+
 public sealed record WatchProgressDto(Guid PlayableId, double PositionSeconds, double DurationSeconds, bool Watched, NextEpisodeDto? NextEpisode);
 
 public sealed record NextEpisodeDto(Guid PlayableId, int SeasonNumber, int EpisodeNumber, string Title);

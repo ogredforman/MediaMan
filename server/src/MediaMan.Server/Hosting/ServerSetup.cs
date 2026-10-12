@@ -57,6 +57,7 @@ public static class ServerSetup
         services.AddScoped<VersionPreferenceService>();
         services.AddScoped<PlaybackService>();
         services.AddScoped<ProgressService>();
+        services.AddScoped<WatchedService>();
         AddMetadata(services);
         AddScanning(services);
 
@@ -246,6 +247,7 @@ public static class ServerSetup
         app.MapVersionPreferenceEndpoints();
         app.MapArtworkEndpoints();
         app.MapPlaybackEndpoints();
+        app.MapWatchedEndpoints();
         return app;
     }
 }

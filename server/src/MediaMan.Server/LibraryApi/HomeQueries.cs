@@ -57,6 +57,8 @@ public sealed class HomeQueries(MediaManDbContext db, IClock clock, UrlSigner ur
             ? await db.WatchStates.AsNoTracking().Where(w => w.ProfileId == profile).ToListAsync(ct)
             : [];
         var watching = HomeRules.Watching(playables, watches);
+        var watchedPlayables = watches.Where(w => w.Watched).Select(w => w.PlayableId).ToHashSet();
+        var playablesByTitle = playables.ToLookup(p => p.TitleId);
         var continueWatching = watching.ContinueWatching.Take(HomeRules.RowSize).ToList();
         var nextUp = watching.NextUp.Take(HomeRules.RowSize).ToList();
         var recentlyAdded = HomeRules.RecentlyAdded(ranked);
@@ -94,7 +96,8 @@ public sealed class HomeQueries(MediaManDbContext db, IClock clock, UrlSigner ur
         TitleSummary Summary(Guid titleId)
         {
             var t = titles[titleId];
-            return new TitleSummary(t.Id, Wire.Name(t.Kind), t.Name, t.Year, t.Rating, t.Genres, TitleArt(t.Id, ArtworkType.Poster));
+            return new TitleSummary(t.Id, Wire.Name(t.Kind), t.Name, t.Year, t.Rating, t.Genres, TitleArt(t.Id, ArtworkType.Poster),
+                WatchRules.TitleWatched([.. playablesByTitle[titleId].Select(p => new PlayableWatch(p.Slot?.SeasonNumber, watchedPlayables.Contains(p.Id)))]));
         }
 
         HomeEpisode? EpisodeOf(Guid playableId) =>

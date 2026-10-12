@@ -90,4 +90,31 @@ public class WatchRulesNextEpisodeTests
     {
         WatchRules.NextEpisode(new EpisodeSlot(1, 2), [new(0, 5), new(1, 1)]).Should().BeNull();
     }
+
+    [Fact]
+    public void A_movie_is_watched_when_its_playable_is()
+    {
+        WatchRules.TitleWatched([new(null, true)]).Should().BeTrue();
+        WatchRules.TitleWatched([new(null, false)]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_show_is_watched_when_every_episode_outside_specials_is()
+    {
+        WatchRules.TitleWatched([new(0, false), new(1, true), new(2, true)]).Should().BeTrue();
+        WatchRules.TitleWatched([new(0, true), new(1, true), new(2, false)]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_show_with_only_specials_needs_them_all()
+    {
+        WatchRules.TitleWatched([new(0, true), new(0, true)]).Should().BeTrue();
+        WatchRules.TitleWatched([new(0, true), new(0, false)]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_title_without_playables_is_not_watched()
+    {
+        WatchRules.TitleWatched([]).Should().BeFalse();
+    }
 }

@@ -124,7 +124,7 @@ public static class LibraryEndpoints
             "This library doesn't exist. It may have been removed.", "Go back to the library list and pick it again.");
 
     private static async Task<Results<Ok<LibrarySearchResults>, ProblemHttpResult>> SearchAsync(
-        string? q, int? limit, LibraryQueries queries, CancellationToken ct)
+        string? q, int? limit, HttpContext http, LibraryQueries queries, CancellationToken ct)
     {
         if (q is null)
         {
@@ -144,11 +144,11 @@ public static class LibraryEndpoints
                 $"limit must be between 1 and {SearchRules.MaxLimit}.", $"Use a limit in that range, or leave it out for {SearchRules.DefaultLimit}.");
         }
 
-        return TypedResults.Ok(await queries.SearchTitlesAsync(q, limit ?? SearchRules.DefaultLimit, ct));
+        return TypedResults.Ok(await queries.SearchTitlesAsync(q, limit ?? SearchRules.DefaultLimit, http.Features.Get<CurrentUser>()?.ProfileId, ct));
     }
 
     private static async Task<Results<Ok<TitlePage>, ProblemHttpResult>> ListTitlesAsync(
-        string? kind, Guid? libraryId, int? limit, string? cursor, LibraryQueries queries, CancellationToken ct)
+        string? kind, Guid? libraryId, int? limit, string? cursor, HttpContext http, LibraryQueries queries, CancellationToken ct)
     {
         TitleKind? titleKind = null;
         if (kind is not null)
@@ -167,7 +167,7 @@ public static class LibraryEndpoints
             return problem;
         }
 
-        return TypedResults.Ok(await queries.ListTitlesAsync(titleKind, libraryId, page, ct));
+        return TypedResults.Ok(await queries.ListTitlesAsync(titleKind, libraryId, page, http.Features.Get<CurrentUser>()?.ProfileId, ct));
     }
 
     private static async Task<Results<Ok<TitleDetail>, ProblemHttpResult>> GetTitleAsync(

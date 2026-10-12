@@ -23,13 +23,12 @@ public sealed class ProgressApiTests : IAsyncLifetime
     private readonly FakeClock _clock = new();
     private readonly MediaManFactory _factory;
     private readonly string _media = Path.Combine(Path.GetTempPath(), "mediaman-tests", Guid.NewGuid().ToString("N"));
-    private readonly Guid _libraryId = Guid.CreateVersion7();
     private HttpClient _client = null!;
     private Guid _profileId;
     private Guid _movie;
     private Guid _movieTitle;
     private Guid _showTitle;
-    private readonly Dictionary<string, Guid> _episodes = [];
+    private IReadOnlyDictionary<string, Guid> _episodes = null!;
 
     public ProgressApiTests() =>
         _factory = new MediaManFactory { ConfigureServices = services => services.AddSingleton<IClock>(_clock) };
@@ -49,7 +48,8 @@ public sealed class ProgressApiTests : IAsyncLifetime
         }
 
         await using var scope = _factory.Services.CreateAsyncScope();
-        await SeedAsync(scope.ServiceProvider.GetRequiredService<MediaManDbContext>());
+        var seeded = await WatchLibrary.SeedAsync(scope.ServiceProvider.GetRequiredService<MediaManDbContext>(), _media, Ct);
+        (_movieTitle, _movie, _showTitle, _episodes) = (seeded.MovieTitle, seeded.Movie, seeded.ShowTitle, seeded.Episodes);
     }
 
     public async ValueTask DisposeAsync()
@@ -236,74 +236,5 @@ public sealed class ProgressApiTests : IAsyncLifetime
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
         problem.RootElement.GetProperty("code").GetString().Should().Be(code);
         problem.RootElement.GetProperty("action").GetString().Should().NotBeNullOrWhiteSpace();
-    }
-
-    /// <summary>A movie, and a show with a special, S01E01–E03 (E03's file missing) and S02E01, keyed "season x episode".</summary>
-    private async Task SeedAsync(MediaManDbContext db)
-    {
-        db.Libraries.Add(new Core.Domain.Library
-        {
-            Id = _libraryId,
-            Name = "Media",
-            Kind = LibraryKind.External,
-            ContentType = ContentType.Mixed,
-            RootPaths = [_media],
-        });
-
-        var movie = new Title { Id = Guid.CreateVersion7(), Kind = TitleKind.Movie, Name = "Alien", Year = 1979 };
-        var moviePlayable = Playable.ForMovie(Guid.CreateVersion7(), movie.Id);
-        db.Titles.Add(movie);
-        db.Playables.Add(moviePlayable);
-        AddFile(db, moviePlayable.Id, "Alien.mkv", MediaFileStatus.Matched);
-        _movie = moviePlayable.Id;
-        _movieTitle = movie.Id;
-
-        var show = new Title { Id = Guid.CreateVersion7(), Kind = TitleKind.Show, Name = "The Office", Year = 2005 };
-        db.Titles.Add(show);
-        _showTitle = show.Id;
-        var seasons = new Dictionary<int, Season>();
-        foreach (var (season, number, name, status) in new (int, int, string?, MediaFileStatus)[]
-        {
-            (0, 1, "Special", MediaFileStatus.Matched),
-            (1, 1, "Pilot", MediaFileStatus.Matched),
-            (1, 2, "Diversity Day", MediaFileStatus.Matched),
-            (1, 3, "Health Care", MediaFileStatus.Missing),
-            (2, 1, "The Dundies", MediaFileStatus.Matched),
-        })
-        {
-            if (!seasons.TryGetValue(season, out var s))
-            {
-                s = new Season { Id = Guid.CreateVersion7(), TitleId = show.Id, Number = season };
-                seasons[season] = s;
-                db.Seasons.Add(s);
-            }
-
-            var episode = new Episode { Id = Guid.CreateVersion7(), SeasonId = s.Id, Number = number, Name = name };
-            var playable = Playable.ForEpisode(Guid.CreateVersion7(), episode.Id);
-            db.Episodes.Add(episode);
-            db.Playables.Add(playable);
-            AddFile(db, playable.Id, $"{season}x{number}.mkv", status);
-            _episodes[$"{season}x{number}"] = playable.Id;
-        }
-
-        await db.SaveChangesAsync(Ct);
-    }
-
-    private void AddFile(MediaManDbContext db, Guid playableId, string name, MediaFileStatus status)
-    {
-        var path = Path.Combine(_media, name);
-        File.WriteAllText(path, name);
-        var file = new MediaFile
-        {
-            Id = Guid.CreateVersion7(),
-            LibraryId = _libraryId,
-            Path = path,
-            SizeBytes = name.Length,
-            Mtime = DateTimeOffset.UnixEpoch,
-            Status = status,
-            MissingSince = status == MediaFileStatus.Missing ? DateTimeOffset.UnixEpoch : null,
-        };
-        db.MediaFiles.Add(file);
-        db.FileLinks.Add(new FileLink { MediaFileId = file.Id, PlayableId = playableId, Part = 1 });
     }
 }

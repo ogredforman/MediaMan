@@ -473,6 +473,26 @@ export const getReportWatchProgressMockHandler = (overrideResponse?: WatchProgre
       })
   }, options)
 }
+
+export const getSetPlayableWatchedMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.put('*/playables/:playableId/watched', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
+
+export const getSetTitleWatchedMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.put('*/titles/:titleId/watched', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
+      })
+  }, options)
+}
 export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
   getCompleteSetupMockHandler(),
@@ -505,5 +525,7 @@ export const getMediaManAPIMock = () => [
   getCreatePlaybackSessionMockHandler(),
   getStreamMediaFileMockHandler(),
   getGetSubtitleMockHandler(),
-  getReportWatchProgressMockHandler()
+  getReportWatchProgressMockHandler(),
+  getSetPlayableWatchedMockHandler(),
+  getSetTitleWatchedMockHandler()
 ]

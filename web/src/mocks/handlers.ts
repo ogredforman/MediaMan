@@ -41,9 +41,9 @@ export { mockLibrary } from './libraries';
 
 // No poster URLs: mock mode makes no outbound requests, so these render as stand-in cards.
 export const mockTitles: TitleSummary[] = [
-  { id: '01920000-0000-7000-8000-000000000101', kind: 'movie', name: 'Arrival', year: 2016, genres: ['Drama'] },
-  { id: '01920000-0000-7000-8000-000000000102', kind: 'movie', name: 'Dune', year: 2021, genres: ['Science Fiction'] },
-  { id: '01920000-0000-7000-8000-000000000201', kind: 'show', name: 'The Office', year: 2005, genres: ['Comedy'] },
+  { id: '01920000-0000-7000-8000-000000000101', kind: 'movie', name: 'Arrival', year: 2016, genres: ['Drama'], watched: false },
+  { id: '01920000-0000-7000-8000-000000000102', kind: 'movie', name: 'Dune', year: 2021, genres: ['Science Fiction'], watched: false },
+  { id: '01920000-0000-7000-8000-000000000201', kind: 'show', name: 'The Office', year: 2005, genres: ['Comedy'], watched: false },
 ];
 
 const [arrival, dune, office] = mockTitles as [TitleSummary, TitleSummary, TitleSummary];
