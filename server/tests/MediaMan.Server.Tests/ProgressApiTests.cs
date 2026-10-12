@@ -98,6 +98,17 @@ public sealed class ProgressApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_watched_episode_played_again_still_names_the_next_episode()
+    {
+        await ReportAsync(_episodes["1x1"], 1290, 1300);
+        (await WatchStateAsync(_episodes["1x1"])).Watched.Should().BeTrue();
+
+        // A rewatch from the start, then the credits again (smoke finding 2: Up next on a rewatch).
+        (await ReportAsync(_episodes["1x1"], 5, 1300)).NextEpisode!.PlayableId.Should().Be(_episodes["1x2"]);
+        (await ReportAsync(_episodes["1x1"], 1250, 1300)).NextEpisode!.PlayableId.Should().Be(_episodes["1x2"]);
+    }
+
+    [Fact]
     public async Task A_next_episode_whose_file_is_gone_from_disk_is_skipped()
     {
         File.Delete(Path.Combine(_media, "1x2.mkv"));

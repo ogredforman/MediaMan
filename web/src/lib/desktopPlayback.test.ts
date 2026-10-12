@@ -26,7 +26,7 @@ const defaults = (s: PlaybackSession) => playOptions(s).subtitles.filter((t) => 
 /** A server answering sessions in order (the last one repeats) and recording progress reports; `server.next` is the next episode it names. */
 function fakeApi(...sessions: (PlaybackSession | Error)[]) {
   const reports: [string, WatchProgressReport][] = [];
-  const server: { next: NextEpisode | undefined } = { next: undefined };
+  const server: { next: NextEpisode | undefined; watched: boolean } = { next: undefined, watched: false };
   const created: string[] = [];
   const api: PlaybackApi = {
     createSession: (playableId) => {
@@ -36,7 +36,7 @@ function fakeApi(...sessions: (PlaybackSession | Error)[]) {
     },
     reportProgress: (playableId, report) => {
       reports.push([playableId, report]);
-      return Promise.resolve({ playableId, ...report, watched: false, ...(server.next ? { nextEpisode: server.next } : {}) });
+      return Promise.resolve({ playableId, ...report, watched: server.watched, ...(server.next ? { nextEpisode: server.next } : {}) });
     },
   };
   return { api, reports, created, server };
@@ -257,6 +257,29 @@ describe('createDesktopPlayback', () => {
       expect(player.upNexts).toHaveLength(1);
       expect(player.stopCalls).toBe(1);
       expect(created).toEqual(['e1']);
+    });
+
+    it('offers again when the viewer plays the watched episode again after cancelling', async () => {
+      const { player, playback, launchId, server } = await playEpisode(nextEpisode);
+      server.watched = true;
+      player.emit({ launchId, type: 'credits' });
+      await flush();
+      player.emit({ launchId, type: 'upNext', choice: 'cancel' });
+      player.emit({ launchId, type: 'endReached' });
+      player.emit({ launchId, type: 'ended', reason: 'eof' });
+      await flush();
+
+      await playback.play('e1');
+      const again = player.lastLaunchId();
+      player.emit({ launchId: again, type: 'progress', positionSeconds: 1290, durationSeconds: 1380, paused: false });
+      player.emit({ launchId: again, type: 'credits' });
+      await flush();
+
+      expect(again).not.toBe(launchId);
+      expect(player.upNexts).toEqual([
+        { launchId, offer: { title: nextEpisode.title, seconds: 10 } },
+        { launchId: again, offer: { title: nextEpisode.title, seconds: 10 } },
+      ]);
     });
 
     it('closes MPV at the end of a movie or the last episode, and shows nothing at its credits', async () => {

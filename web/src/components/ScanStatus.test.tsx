@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { getListLibrariesMockHandler, getStartLibraryScanMockHandler } from '../api/mediaman.msw';
 import type { ScanSummary } from '../api/mediaman.schemas';
-import { createEventStream, mockLibrary, mockTitles } from '../mocks/handlers';
+import { createEventStream, mockHome, mockLibrary, mockTitles } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { renderApp } from '../test/renderApp';
 
@@ -61,6 +61,26 @@ describe('ScanStatus', () => {
     expect(await within(list).findByText('Media: scanned, 2 linked, 1 need attention')).toBeInTheDocument();
     expect(within(list).getByRole('button', { name: 'Scan Media' })).toBeEnabled();
     expect(await screen.findByText(mockTitles[0]?.name ?? '', { selector: 'p' })).toBeInTheDocument();
+  });
+
+  it('refreshes Home when the first scan finishes, so it no longer says the library is empty', async () => {
+    const stream = createEventStream();
+    let homeRequests = 0;
+    server.use(
+      stream.handler,
+      http.get('*/home', () => {
+        homeRequests += 1;
+        return HttpResponse.json(homeRequests > 1 ? mockHome : { rows: [] });
+      }),
+    );
+    renderApp('/');
+    await expect.poll(() => stream.connections).toBe(1);
+    await expect.poll(() => homeRequests).toBeGreaterThan(0);
+    expect(screen.queryByRole('heading', { name: mockHome.hero?.title.name })).not.toBeInTheDocument();
+
+    stream.send('scan.progress', { libraryId: mockLibrary.id, scan: { state: 'idle', lastScan: succeeded } });
+
+    expect(await screen.findByRole('heading', { name: mockHome.hero?.title.name })).toBeInTheDocument();
   });
 
   it('starts a scan and shows it queued', async () => {
