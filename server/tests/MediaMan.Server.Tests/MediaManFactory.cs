@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace MediaMan.Server.Tests;
@@ -51,6 +52,12 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
     /// <summary>Runs <see cref="ScanScheduler"/> as a hosted service; off by default, so scans start only when a test asks.</summary>
     public bool RunScanScheduler { get; init; }
 
+    /// <summary>
+    /// Keeps the server's media probe (real ffprobe, or the dev configuration's choice). Off by default: the probe is
+    /// removed, so scanning is unavailable unless a test registers a fake, and no test runs ffprobe or real TMDB by accident.
+    /// </summary>
+    public bool KeepMediaProbe { get; init; }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment(environment);
@@ -68,6 +75,11 @@ public sealed class MediaManFactory(string environment = "Testing", IReadOnlyDic
             if (!RunScanScheduler)
             {
                 s.Remove(s.Single(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(ScanScheduler)));
+            }
+
+            if (!KeepMediaProbe)
+            {
+                s.RemoveAll<IMediaProbe>();
             }
 
             // Argon2id at its production cost makes every sign-in slow; tests only need it to work.
