@@ -4,7 +4,7 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
 import type { NextEpisode, PlaybackSession, SubtitleTrack, WatchProgress, WatchProgressReport } from '../api/mediaman.schemas';
-import { desktopBridge, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
+import { desktopBridge, type DesktopMpvChoice, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
 import { apiUrl } from './http';
 
 export type PlaybackFailure =
@@ -52,7 +52,7 @@ export interface DesktopPlayback {
   subscribe: (listener: () => void) => () => void;
   /** Plays from `startSeconds`; without it, where the server's session resumes. Start over passes `0`. */
   play: (playableId: string, startSeconds?: number) => Promise<void>;
-  chooseMpv: () => Promise<string | null>;
+  chooseMpv: () => Promise<DesktopMpvChoice>;
   /** Settles once every progress report sent so far has been answered, so a refetch sees the last position. */
   reported: () => Promise<void>;
 }

@@ -74,6 +74,21 @@ describe('Settings sections', () => {
       expect(screen.queryByRole('button', { name: 'Choose MPV…' })).not.toBeInTheDocument();
     });
 
+    it("keeps the MPV in use and says why when the picked file isn't MPV", async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      player.refuseNextPick("C:/Windows/notepad.exe isn't MPV, so MediaMan won't run it. Choose the MPV player (mpv.exe) instead.");
+      renderApp('/settings/playback');
+
+      expect(await screen.findByText('The default: mpv from your PATH')).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Choose MPV…' }));
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent("That file wasn't used: C:/Windows/notepad.exe isn't MPV, so MediaMan won't run it.");
+      expect(alert).toHaveTextContent('Press Choose MPV to pick MPV, or keep the MPV above.');
+      expect(screen.getByText('The default: mpv from your PATH')).toBeInTheDocument();
+    });
+
     it('shows the MPV in use, picks another and goes back to the default', async () => {
       const user = userEvent.setup();
       const player = installDesktop();

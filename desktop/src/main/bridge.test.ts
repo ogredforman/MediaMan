@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FakePlayer } from '../fakes/fakePlayer.js';
-import { bridgeChannels, bridgeEvents, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type IpcMainLike } from './bridge.js';
+import { bridgeChannels, bridgeEvents, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type IpcMainLike, type MpvChoice } from './bridge.js';
 import { PlayerHost } from './playerHost.js';
 import type { MpvSetting } from './desktopSettings.js';
 import type { StoredTokens } from './tokenStore.js';
@@ -30,7 +30,7 @@ function setUp(serverUrl: string | undefined) {
   const ipc: IpcMainLike = { handle: (channel, listener) => handlers.set(channel, listener) };
   const stored = new Map<string, StoredTokens>();
   const player = new FakePlayer();
-  let chosen: string | null = '/picked/mpv';
+  let chosen: MpvChoice = { outcome: 'picked', path: '/picked/mpv' };
   let mpv: MpvSetting = { path: '/picked/mpv', source: 'picked' };
   registerBridge(ipc, {
     uiOrigin,
@@ -54,7 +54,7 @@ function setUp(serverUrl: string | undefined) {
   const call = (channel: string, event: BridgeEvent, ...args: unknown[]) =>
     Promise.resolve().then(() => handlers.get(channel)?.(event, ...args));
   const cancelPicker = () => {
-    chosen = null;
+    chosen = { outcome: 'cancelled' };
   };
   return { call, stored, player, cancelPicker };
 }
@@ -165,12 +165,12 @@ describe('registerBridge', () => {
     expect(player.upNexts).toEqual([offer]);
   });
 
-  it('answers the picked MPV, or null when the picker is cancelled', async () => {
+  it('answers the picked MPV, or cancelled when the picker is cancelled', async () => {
     const { call, cancelPicker } = setUp(undefined);
 
-    await expect(call(bridgeChannels.playerChooseMpv, fromUi)).resolves.toBe('/picked/mpv');
+    await expect(call(bridgeChannels.playerChooseMpv, fromUi)).resolves.toEqual({ outcome: 'picked', path: '/picked/mpv' });
     cancelPicker();
-    await expect(call(bridgeChannels.playerChooseMpv, fromUi)).resolves.toBeNull();
+    await expect(call(bridgeChannels.playerChooseMpv, fromUi)).resolves.toEqual({ outcome: 'cancelled' });
   });
 
   it('answers the MPV in use and goes back to the default', async () => {
