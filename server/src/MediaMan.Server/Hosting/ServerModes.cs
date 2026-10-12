@@ -48,6 +48,15 @@ public sealed class ServerModes
     /// <summary>The mode this process listens in.</summary>
     public ServerMode Active { get; }
 
+    /// <summary>The mode recorded now, which may differ from <see cref="RecordedAtStartup"/>; null if none is.</summary>
+    public static async Task<ServerMode?> RecordedAsync(MediaManDbContext db, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        var value = await db.Settings.AsNoTracking()
+            .Where(s => s.Key == SettingKey).Select(s => s.Value).SingleOrDefaultAsync(cancellationToken);
+        return Wire.TryParse<ServerMode>(value, out var mode) ? mode : null;
+    }
+
     /// <summary>Records <paramref name="mode"/> in the tracked context; the caller saves.</summary>
     public static async Task RecordAsync(MediaManDbContext db, ServerMode mode, CancellationToken cancellationToken)
     {

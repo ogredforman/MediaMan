@@ -61,6 +61,7 @@ import type {
   LibraryPage,
   LibrarySearchResults,
   MediaFileMatch,
+  MetadataSettings,
   PlaybackSession,
   Profile,
   ProfileList,
@@ -75,7 +76,13 @@ export const getGetHealthResponseMock = (overrideResponse: Partial<Extract<Healt
 
 export const getCompleteSetupResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
+export const getGetServerModeResponseMock = (overrideResponse: Partial<Extract<ServerModeState, object>> = {}): ServerModeState => ({mode: faker.helpers.arrayElement(Object.values(ServerMode)), restartRequired: faker.datatype.boolean(), ...overrideResponse})
+
 export const getSetServerModeResponseMock = (overrideResponse: Partial<Extract<ServerModeState, object>> = {}): ServerModeState => ({mode: faker.helpers.arrayElement(Object.values(ServerMode)), restartRequired: faker.datatype.boolean(), ...overrideResponse})
+
+export const getGetMetadataSettingsResponseMock = (overrideResponse: Partial<Extract<MetadataSettings, object>> = {}): MetadataSettings => ({tmdbAccessTokenSource: faker.helpers.arrayElement(['shipped','configuration','settings'] as const), ...overrideResponse})
+
+export const getSetMetadataSettingsResponseMock = (overrideResponse: Partial<Extract<MetadataSettings, object>> = {}): MetadataSettings => ({tmdbAccessTokenSource: faker.helpers.arrayElement(['shipped','configuration','settings'] as const), ...overrideResponse})
 
 export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 

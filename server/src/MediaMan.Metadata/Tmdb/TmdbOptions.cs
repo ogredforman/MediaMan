@@ -13,8 +13,16 @@ public sealed class TmdbOptions
     /// <summary>A TMDB v4 read-access token that overrides the shipped one; empty uses <see cref="ShippedAccessToken"/>.</summary>
     public string? AccessToken { get; init; }
 
+    /// <summary>
+    /// Read on every request: a token set at runtime (Settings → Metadata) that wins over <see cref="AccessToken"/>.
+    /// Null or blank falls through.
+    /// </summary>
+    public Func<string?>? AccessTokenOverride { get; init; }
+
     public string EffectiveAccessToken =>
-        string.IsNullOrWhiteSpace(AccessToken) ? ShippedAccessToken : AccessToken.Trim();
+        AccessTokenOverride?.Invoke() is { } runtime && !string.IsNullOrWhiteSpace(runtime) ? runtime.Trim()
+        : string.IsNullOrWhiteSpace(AccessToken) ? ShippedAccessToken
+        : AccessToken.Trim();
 
     public Uri BaseUrl { get; init; } = new("https://api.themoviedb.org/3/");
 

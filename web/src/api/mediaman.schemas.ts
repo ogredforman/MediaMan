@@ -138,6 +138,31 @@ export interface ServerModeState {
   restartRequired: boolean;
 }
 
+export interface MetadataSettingsRequest {
+  /**
+     * A TMDB API Read Access Token, or an empty string to clear the override.
+     * @maxLength 1000
+     */
+  tmdbAccessToken: string;
+}
+
+/**
+ * Where the TMDB token in use comes from: the one shipped with MediaMan, the server configuration (`MediaMan:Metadata:Tmdb:AccessToken`), or the override set in Settings.
+ */
+export type MetadataSettingsTmdbAccessTokenSource = typeof MetadataSettingsTmdbAccessTokenSource[keyof typeof MetadataSettingsTmdbAccessTokenSource];
+
+
+export const MetadataSettingsTmdbAccessTokenSource = {
+  shipped: 'shipped',
+  configuration: 'configuration',
+  settings: 'settings',
+} as const;
+
+export interface MetadataSettings {
+  /** Where the TMDB token in use comes from: the one shipped with MediaMan, the server configuration (`MediaMan:Metadata:Tmdb:AccessToken`), or the override set in Settings. */
+  tmdbAccessTokenSource: MetadataSettingsTmdbAccessTokenSource;
+}
+
 /**
  * Validation errors keyed by field name.
  */

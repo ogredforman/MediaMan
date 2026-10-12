@@ -19,8 +19,15 @@ public static class SetupEndpoints
     public static IEndpointRouteBuilder MapSetupEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/setup", CompleteAsync).RequiresPermission(PermissionMetadata.None).AllowedBeforeSetup();
+        app.MapGet("/server/mode", GetModeAsync).RequiresPermission(Permissions.ServerControl);
         app.MapPut("/server/mode", SetModeAsync).RequiresPermission(Permissions.ServerControl);
         return app;
+    }
+
+    private static async Task<Ok<ServerModeState>> GetModeAsync(MediaManDbContext db, ServerModes modes, CancellationToken ct)
+    {
+        var mode = await ServerModes.RecordedAsync(db, ct) ?? modes.Active;
+        return TypedResults.Ok(new ServerModeState(Wire.Name(mode), mode != modes.Active));
     }
 
     private static async Task<Results<Ok<AuthTokens>, ValidationProblem, ProblemHttpResult>> CompleteAsync(

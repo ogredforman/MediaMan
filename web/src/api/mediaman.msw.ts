@@ -54,6 +54,8 @@ import {
   getGetHealthResponseMock,
   getGetHomeResponseMock,
   getGetLibraryResponseMock,
+  getGetMetadataSettingsResponseMock,
+  getGetServerModeResponseMock,
   getGetSubtitleResponseMock,
   getGetTitleResponseMock,
   getListAttentionFilesResponseMock,
@@ -67,6 +69,7 @@ import {
   getSearchCatalogResponseMock,
   getSearchLibraryResponseMock,
   getSelectSessionProfileResponseMock,
+  getSetMetadataSettingsResponseMock,
   getSetServerModeResponseMock,
   getStartLibraryScanResponseMock,
   getStreamMediaFileResponseMock,
@@ -85,6 +88,7 @@ import type {
   LibraryPage,
   LibrarySearchResults,
   MediaFileMatch,
+  MetadataSettings,
   PlaybackSession,
   Profile,
   ProfileList,
@@ -94,7 +98,7 @@ import type {
   WatchProgress
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getSetServerModeResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getGetHomeResponseMock, getSearchLibraryResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getGetServerModeResponseMock, getSetServerModeResponseMock, getGetMetadataSettingsResponseMock, getSetMetadataSettingsResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getGetHomeResponseMock, getSearchLibraryResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -121,6 +125,18 @@ export const getCompleteSetupMockHandler = (overrideResponse?: AuthTokens | ((in
   }, options)
 }
 
+export const getGetServerModeMockHandler = (overrideResponse?: ServerModeState | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<ServerModeState> | ServerModeState), options?: RequestHandlerOptions) => {
+  return http.get('*/server/mode', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetServerModeResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getSetServerModeMockHandler = (overrideResponse?: ServerModeState | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<ServerModeState> | ServerModeState), options?: RequestHandlerOptions) => {
   return http.put('*/server/mode', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
 
@@ -128,6 +144,30 @@ export const getSetServerModeMockHandler = (overrideResponse?: ServerModeState |
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getSetServerModeResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getGetMetadataSettingsMockHandler = (overrideResponse?: MetadataSettings | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<MetadataSettings> | MetadataSettings), options?: RequestHandlerOptions) => {
+  return http.get('*/settings/metadata', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetMetadataSettingsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getSetMetadataSettingsMockHandler = (overrideResponse?: MetadataSettings | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<MetadataSettings> | MetadataSettings), options?: RequestHandlerOptions) => {
+  return http.put('*/settings/metadata', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getSetMetadataSettingsResponseMock(),
       { status: 200
       })
   }, options)
@@ -496,7 +536,10 @@ export const getSetTitleWatchedMockHandler = (overrideResponse?: void | ((info: 
 export const getMediaManAPIMock = () => [
   getGetHealthMockHandler(),
   getCompleteSetupMockHandler(),
+  getGetServerModeMockHandler(),
   getSetServerModeMockHandler(),
+  getGetMetadataSettingsMockHandler(),
+  getSetMetadataSettingsMockHandler(),
   getLoginMockHandler(),
   getRefreshTokensMockHandler(),
   getLogoutMockHandler(),
