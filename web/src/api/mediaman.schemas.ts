@@ -654,6 +654,12 @@ export interface TitleSummary {
   poster?: ArtworkRef;
 }
 
+export interface LibrarySearchResults {
+  /** The query as received, so a client can drop answers to queries it has moved past. */
+  query: string;
+  titles: TitleSummary[];
+}
+
 export interface TitlePage {
   items: TitleSummary[];
   pageInfo: PageInfo;
@@ -1089,6 +1095,20 @@ year?: number;
  * Only movies or only shows; both when absent.
  */
 kind?: TitleKind;
+};
+
+export type SearchLibraryParams = {
+/**
+ * What the user typed.
+ * @maxLength 200
+ */
+q: string;
+/**
+ * Maximum number of titles to return.
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
 };
 
 export type ListTitlesParams = {

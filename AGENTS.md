@@ -28,6 +28,7 @@ Electron desktop app that plays through MPV with a custom Lua OSC (`desktop/`). 
 These are created in Stage 0 task 0.1 (web and desktop join them in 0.5 and 0.6). Until then, they don't exist.
 
 - `npm test`: all tests (server, web, desktop). Must pass before a task is finished.
+- `npm run test:perf`: the explicit performance checks (search p95 on a 20,000-file library), run on their own because timing next to the rest of `npm test` measures CPU contention.
 - `npm run lint`: static checks (ESLint + `dotnet format --verify-no-changes`)
 - `npm run build`: production build of all parts
 - `dotnet test server/MediaMan.sln`: server tests only

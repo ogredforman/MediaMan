@@ -722,6 +722,46 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /search:
+    get:
+      operationId: searchLibrary
+      summary: Instant search across the library's movies and shows, best matches first (SPEC §8 browsing, §11 Search).
+      description: |
+        Only titles with a matched file count, as in `listTitles`. Matching ignores case, accents and punctuation, so
+        "amelie" finds "Amélie" and "spider man" finds "Spider-Man". An exact name ranks first, then names that start
+        with the query, then names where every query word starts a word, then names that contain the query; ties sort
+        by name, then year. A blank query returns no titles.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: What the user typed.
+          schema:
+            type: string
+            maxLength: 200
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of titles to return.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: The matching titles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LibrarySearchResults'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /titles:
     get:
       operationId: listTitles
@@ -1912,6 +1952,19 @@ components:
             type: string
         poster:
           $ref: '#/components/schemas/ArtworkRef'
+
+    LibrarySearchResults:
+      type: object
+      required: [query, titles]
+      additionalProperties: false
+      properties:
+        query:
+          type: string
+          description: The query as received, so a client can drop answers to queries it has moved past.
+        titles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TitleSummary'
 
     TitlePage:
       type: object

@@ -98,6 +98,52 @@ public sealed class LibraryApiTests : IAsyncLifetime
         films.Items.Select(t => t.Name).Should().Equal("alien", "Brick", "Casablanca", "Dune");
     }
 
+    [Theory]
+    [InlineData("a", new[] { "alien", "Casablanca" })] // a name start ranks above a substring; Orphan has no files
+    [InlineData("THE OFFICE", new[] { "The Office" })]
+    [InlineData("off", new[] { "The Office" })]
+    [InlineData("gone", new string[0])] // only a Missing file
+    [InlineData("zzz", new string[0])]
+    public async Task Search_ranks_titles_with_a_matched_file(string q, string[] expected)
+    {
+        var results = await GetAsync<LibrarySearchResults>($"/search?q={Uri.EscapeDataString(q)}");
+
+        results.Query.Should().Be(q);
+        results.Titles.Select(t => t.Name).Should().Equal(expected);
+    }
+
+    [Fact]
+    public async Task Search_is_limited_and_carries_summaries_with_posters()
+    {
+        var results = await GetAsync<LibrarySearchResults>("/search?q=a&limit=1");
+
+        var alien = results.Titles.Should().ContainSingle().Subject;
+        alien.Id.Should().Be(_seed.AlienId);
+        alien.Genres.Should().Equal("Horror", "Science Fiction");
+        await AssertServesArtworkAsync(alien.Poster!.Url, "https://img.example/alien-poster.jpg");
+    }
+
+    [Fact]
+    public async Task Blank_search_returns_no_titles()
+    {
+        var results = await GetAsync<LibrarySearchResults>("/search?q=%20%20");
+
+        results.Query.Should().Be("  ");
+        results.Titles.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Search_longer_than_200_characters_is_a_400_problem_with_an_action()
+    {
+        using var response = await _client.GetAsync(new Uri("/search?q=" + new string('a', 201), UriKind.Relative), Ct);
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        await ContractDocument.Instance.AssertConformsAsync(response, Ct);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+        body.RootElement.GetProperty("code").GetString().Should().Be("search.invalid");
+        body.RootElement.GetProperty("action").GetString().Should().NotBeNullOrWhiteSpace();
+    }
+
     [Fact]
     public async Task Movie_detail_lists_versions_best_first_with_missing_files_last()
     {
@@ -182,6 +228,10 @@ public sealed class LibraryApiTests : IAsyncLifetime
     [InlineData("/titles?limit=0", "pagination.invalid")]
     [InlineData("/libraries?limit=201", "pagination.invalid")]
     [InlineData("/titles?kind=Movie", "titles.invalid_kind")]
+    [InlineData("/search", "search.invalid")]
+    [InlineData("/search?q=a&limit=0", "search.invalid")]
+    [InlineData("/search?q=a&limit=51", "search.invalid")]
+    [InlineData("/search?q=a&limit=abc", "bad_request")] // a binding failure, the server-wide problem
     public async Task Invalid_list_requests_are_400_problems(string url, string code)
     {
         using var response = await _client.GetAsync(new Uri(url, UriKind.Relative), Ct);

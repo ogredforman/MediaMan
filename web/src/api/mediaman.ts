@@ -69,6 +69,7 @@ import type {
   Library,
   LibraryCreateRequest,
   LibraryPage,
+  LibrarySearchResults,
   LibraryUpdateRequest,
   ListAttentionFilesParams,
   ListLibrariesParams,
@@ -84,6 +85,7 @@ import type {
   ProfileList,
   RefreshRequest,
   SearchCatalogParams,
+  SearchLibraryParams,
   SelectProfileRequest,
   ServerModeRequest,
   ServerModeState,
@@ -2163,6 +2165,118 @@ export function useGetHome<TData = Awaited<ReturnType<typeof getHome>>, TError =
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetHomeQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSearchLibraryUrl = (params: SearchLibraryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/search?${stringifiedParams}` : `/search`
+}
+
+/**
+ * Only titles with a matched file count, as in `listTitles`. Matching ignores case, accents and punctuation, so
+ * "amelie" finds "Amélie" and "spider man" finds "Spider-Man". An exact name ranks first, then names that start
+ * with the query, then names where every query word starts a word, then names that contain the query; ties sort
+ * by name, then year. A blank query returns no titles.
+ * @summary Instant search across the library's movies and shows, best matches first (SPEC §8 browsing, §11 Search).
+ */
+export const searchLibrary = async (params: SearchLibraryParams, options?: Parameters<typeof apiFetch>[1]): Promise<LibrarySearchResults> => {
+
+  return apiFetch<LibrarySearchResults>(getSearchLibraryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSearchLibraryQueryKey = (params?: SearchLibraryParams,) => {
+    return [
+    `/search`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getSearchLibraryQueryOptions = <TData = Awaited<ReturnType<typeof searchLibrary>>, TError = ErrorType<ProblemResponse>>(params: SearchLibraryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchLibrary>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSearchLibraryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof searchLibrary>>> = ({ signal }) => searchLibrary(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof searchLibrary>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type SearchLibraryQueryResult = NonNullable<Awaited<ReturnType<typeof searchLibrary>>>
+export type SearchLibraryQueryError = ErrorType<ProblemResponse>
+
+
+export function useSearchLibrary<TData = Awaited<ReturnType<typeof searchLibrary>>, TError = ErrorType<ProblemResponse>>(
+ params: SearchLibraryParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchLibrary>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchLibrary>>,
+          TError,
+          Awaited<ReturnType<typeof searchLibrary>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchLibrary<TData = Awaited<ReturnType<typeof searchLibrary>>, TError = ErrorType<ProblemResponse>>(
+ params: SearchLibraryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchLibrary>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof searchLibrary>>,
+          TError,
+          Awaited<ReturnType<typeof searchLibrary>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useSearchLibrary<TData = Awaited<ReturnType<typeof searchLibrary>>, TError = ErrorType<ProblemResponse>>(
+ params: SearchLibraryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchLibrary>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Instant search across the library's movies and shows, best matches first (SPEC §8 browsing, §11 Search).
+ */
+
+export function useSearchLibrary<TData = Awaited<ReturnType<typeof searchLibrary>>, TError = ErrorType<ProblemResponse>>(
+ params: SearchLibraryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof searchLibrary>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getSearchLibraryQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

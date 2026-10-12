@@ -79,6 +79,8 @@ public sealed record TitleSummary(
 
 public sealed record TitlePage(IReadOnlyList<TitleSummary> Items, PageInfo PageInfo);
 
+public sealed record LibrarySearchResults(string Query, IReadOnlyList<TitleSummary> Titles);
+
 public sealed record TitleDetail(
     Guid Id,
     string Kind,
