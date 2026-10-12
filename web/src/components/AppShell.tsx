@@ -1,5 +1,5 @@
-import { Link, useRouterState } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
+import { Link, useNavigate, useRouterState, useSearch } from '@tanstack/react-router';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useGetHealth, useListProfiles, useLogout } from '../api/mediaman';
 import { clearTokens } from '../lib/session';
 import { useSignedIn } from '../lib/useSession';
@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </ul>
         </nav>
+        <SearchField />
         <ScanStatus />
         <SwitchProfile />
         <SignOutButton />
@@ -94,4 +95,58 @@ function ServerStatus() {
     );
   }
   return <p role="status">Server {health.data.version}</p>;
+}
+
+/** Is the user typing somewhere `/` means a slash rather than "go to search"? */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+}
+
+/**
+ * The shell's search field (SPEC §11 Search); `/` focuses it from anywhere. The URL holds the query: the first
+ * keystroke elsewhere opens `/search?q=` as a new history entry, and later ones replace it, so Back leaves search.
+ * While focused the field keeps its own text, since the URL catches up a render later and fast typing would be lost;
+ * otherwise it follows the URL (Back, Forward, leaving search).
+ */
+function SearchField() {
+  const navigate = useNavigate();
+  const input = useRef<HTMLInputElement>(null);
+  const onSearch = useRouterState({ select: (state) => state.location.pathname === '/search' });
+  const q = useSearch({ strict: false, select: (search) => search.q });
+  const query = onSearch ? (q ?? '') : '';
+  const [text, setText] = useState(query);
+
+  useEffect(() => {
+    if (document.activeElement !== input.current) setText(query);
+  }, [query]);
+
+  useEffect(() => {
+    const focusOnSlash = (event: KeyboardEvent) => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || isTypingTarget(event.target)) return;
+      event.preventDefault();
+      input.current?.focus();
+    };
+    document.addEventListener('keydown', focusOnSlash);
+    return () => { document.removeEventListener('keydown', focusOnSlash); };
+  }, []);
+
+  return (
+    <search className="flex-1">
+      <input
+        ref={input}
+        type="search"
+        aria-label="Search the library"
+        aria-keyshortcuts="/"
+        placeholder="Search movies and shows  ( / )"
+        value={text}
+        onChange={(event) => {
+          setText(event.target.value);
+          void navigate({ to: '/search', search: { q: event.target.value }, replace: onSearch || text !== '' });
+        }}
+        onBlur={() => { setText(query); }}
+        className="w-full max-w-sm rounded-card bg-bg px-3 py-1.5 text-fg placeholder:text-fg-muted transition-shadow duration-(--motion-fast) focus-visible:outline-2 focus-visible:outline-highlight"
+      />
+    </search>
+  );
 }

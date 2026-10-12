@@ -6,6 +6,7 @@ import {
   getListTitlesMockHandler,
   getLoginMockHandler,
   getRefreshTokensMockHandler,
+  getSearchLibraryMockHandler,
   getMediaManAPIMock,
 } from '../api/mediaman.msw';
 import { mockAttention } from './attention';
@@ -286,6 +287,15 @@ const playableNotFound = {
   action: 'Go back to the title and try again.',
 };
 
+/** Case-, accent- and punctuation-insensitive name search over `mockTitles`, sorted by name; a blank query finds nothing. */
+export function mockSearch(query: string): TitleSummary[] {
+  const fold = (text: string) =>
+    text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  const q = fold(query);
+  if (q === '') return [];
+  return mockTitles.filter((t) => fold(t.name).includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** The session profile's preferred versions over `mockTitleDetails`; `reset` after each test. */
 export const mockVersions = createMockVersions(mockTitleDetails);
 
@@ -310,6 +320,10 @@ export const handlers = [
   getListTitlesMockHandler(({ request }) => {
     const kind = new URL(request.url).searchParams.get('kind');
     return { items: mockTitles.filter((t) => kind === null || t.kind === kind), pageInfo: {} };
+  }),
+  getSearchLibraryMockHandler(({ request }) => {
+    const query = new URL(request.url).searchParams.get('q') ?? '';
+    return { query, titles: mockSearch(query) };
   }),
   http.get('*/titles/:titleId', ({ params }) => {
     const detail = mockTitleDetails[String(params.titleId)];

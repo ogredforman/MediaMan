@@ -10,7 +10,7 @@ const labels: Record<TitleKind, { heading: string; plural: string }> = {
   show: { heading: 'Shows', plural: 'shows' },
 };
 
-function PosterCard({ title }: { title: TitleSummary }) {
+export function PosterCard({ title }: { title: TitleSummary }) {
   return (
     <Link to="/titles/$titleId" params={{ titleId: title.id }} className="group block rounded-card">
       <div className="aspect-[2/3] overflow-hidden rounded-card bg-surface shadow-soft ring-highlight transition-shadow duration-(--motion-fast) group-hover:ring-2">
