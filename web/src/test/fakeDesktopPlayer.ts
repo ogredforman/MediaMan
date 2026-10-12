@@ -1,6 +1,6 @@
 // A stand-in for the desktop bridge's `player` (desktop/src/preload/index.cts): records launches and lets tests
 // send MPV's events. Never starts MPV.
-import type { DesktopMpvSetting, DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
+import type { DesktopMpvChoice, DesktopMpvSetting, DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
 
 export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   readonly plays: { launchId: string; options: DesktopPlayOptions }[];
@@ -12,6 +12,8 @@ export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   failNextPlay(message: string): void;
   /** What the MPV picker answers; null is a cancel. */
   pickMpv(path: string | null): void;
+  /** The next Choose MPV refuses the file with `message`, as the desktop does for a file that isn't MPV. */
+  refuseNextPick(message: string): void;
   /** What `mpvSetting` answers until a pick or Use default changes it. */
   setMpvSetting(setting: DesktopMpvSetting): void;
   emit(event: DesktopPlayerEvent): void;
@@ -22,6 +24,7 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
   const listeners = new Set<(event: DesktopPlayerEvent) => void>();
   let failure: string | undefined;
   let picked: string | null = null;
+  let refusal: string | undefined;
   let mpv: DesktopMpvSetting = { path: 'mpv', source: 'default' };
   const fake: FakeDesktopPlayer = {
     plays: [],
@@ -44,9 +47,15 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
       fake.upNexts.push({ launchId, offer });
       return Promise.resolve();
     },
-    chooseMpv() {
-      if (picked !== null) mpv = { path: picked, source: 'picked' };
-      return Promise.resolve(picked);
+    chooseMpv(): Promise<DesktopMpvChoice> {
+      if (refusal !== undefined) {
+        const message = refusal;
+        refusal = undefined;
+        return Promise.resolve({ outcome: 'refused', message });
+      }
+      if (picked === null) return Promise.resolve({ outcome: 'cancelled' });
+      mpv = { path: picked, source: 'picked' };
+      return Promise.resolve({ outcome: 'picked', path: picked });
     },
     mpvSetting: () => Promise.resolve(mpv),
     useDefaultMpv() {
@@ -69,6 +78,9 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     },
     pickMpv(path) {
       picked = path;
+    },
+    refuseNextPick(message) {
+      refusal = message;
     },
     setMpvSetting(setting) {
       mpv = setting;

@@ -34,14 +34,17 @@ export interface IpcMainLike {
   handle(channel: string, listener: (event: BridgeEvent, ...args: unknown[]) => unknown): void;
 }
 
+/** What `chooseMpv` did: saved a pick, was cancelled, or refused a file that isn't MPV (never run, never saved). */
+export type MpvChoice = { outcome: 'picked'; path: string } | { outcome: 'cancelled' } | { outcome: 'refused'; message: string };
+
 export interface BridgeOptions {
   uiOrigin: string;
   /** The server the desktop app started or connected to; undefined when the UI reaches the API on its own origin. */
   serverUrl: () => string | undefined;
   tokens: Pick<TokenStore, 'get' | 'set' | 'clear'>;
   player: Pick<PlayerHost, 'play' | 'stop' | 'upNext'>;
-  /** Shows the native picker for the MPV executable and saves the choice; null when cancelled. */
-  chooseMpv: () => Promise<string | null>;
+  /** Shows the native picker for the MPV executable and saves the choice if it is MPV. */
+  chooseMpv: () => Promise<MpvChoice>;
   /** The MPV the next Play uses and where it comes from. */
   mpvSetting: () => Promise<MpvSetting>;
   /** Forgets the picked MPV; resolves to the setting now in use. */

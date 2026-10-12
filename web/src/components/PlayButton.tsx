@@ -93,11 +93,14 @@ function PlayError({ title, detail, action }: { title: string; detail?: string |
   );
 }
 
+/** Why Open MPV settings didn't change the MPV: the save failed, or the picked file isn't MPV. */
+type PickError = { kind: 'failed' } | { kind: 'refused'; message: string };
+
 /** Plays in MPV through the desktop app; the state is the app's, so only the Playable that started it shows it. */
 function DesktopPlayButton({ playback, playableId, target }: { playback: DesktopPlayback; playableId: string; target: PlayTarget }) {
   const state = useDesktopPlayback(playback);
   const [picked, setPicked] = useState<string | null>(null);
-  const [pickFailed, setPickFailed] = useState(false);
+  const [pickError, setPickError] = useState<PickError | null>(null);
   const mine = state.status !== 'idle' && state.playableId === playableId;
   return (
     <PlayControl
@@ -105,7 +108,7 @@ function DesktopPlayButton({ playback, playableId, target }: { playback: Desktop
       disabled={mine && state.status === 'starting'}
       onPlay={(startSeconds) => {
         setPicked(null);
-        setPickFailed(false);
+        setPickError(null);
         void playback.play(playableId, startSeconds);
       }}
     >
@@ -128,15 +131,24 @@ function DesktopPlayButton({ playback, playableId, target }: { playback: Desktop
         <PlaybackFailureAlert
           failure={state.failure}
           onOpenMpvSettings={() => {
-            setPickFailed(false);
-            playback.chooseMpv().then(setPicked, () => {
-              setPickFailed(true);
-            });
+            setPickError(null);
+            playback.chooseMpv().then(
+              (choice) => {
+                if (choice.outcome === 'picked') setPicked(choice.path);
+                else if (choice.outcome === 'refused') setPickError({ kind: 'refused', message: choice.message });
+              },
+              () => {
+                setPickError({ kind: 'failed' });
+              },
+            );
           }}
         />
       )}
-      {mine && state.status === 'failed' && pickFailed && (
+      {mine && state.status === 'failed' && pickError?.kind === 'failed' && (
         <PlayError title="Couldn't save the MPV choice." action="Press Open MPV settings to try again." />
+      )}
+      {mine && state.status === 'failed' && pickError?.kind === 'refused' && (
+        <PlayError title="MediaMan didn't use that file." detail={pickError.message} action="Press Open MPV settings to choose MPV." />
       )}
     </PlayControl>
   );

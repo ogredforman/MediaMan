@@ -175,7 +175,7 @@ describe('createDesktopPlayback', () => {
       playableId: 'p1',
       failure: { kind: 'mpv', message: "MPV couldn't be started: mpv was not found." },
     });
-    await expect(playback.chooseMpv()).resolves.toBe('/opt/mpv');
+    await expect(playback.chooseMpv()).resolves.toEqual({ outcome: 'picked', path: '/opt/mpv' });
   });
 
   it('fails with session when the server gives no session, without starting MPV', async () => {

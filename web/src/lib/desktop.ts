@@ -42,6 +42,9 @@ export interface DesktopMpvSetting {
   source: 'picked' | 'environment' | 'default';
 }
 
+/** What Choose MPV did; a refused file isn't MPV and was neither run nor saved. Mirrors the desktop's `MpvChoice`. */
+export type DesktopMpvChoice = { outcome: 'picked'; path: string } | { outcome: 'cancelled' } | { outcome: 'refused'; message: string };
+
 export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
 
 /** MPV, one launch at a time, run by the desktop app's main process. */
@@ -50,8 +53,8 @@ export interface DesktopPlayerBridge {
   stop(): Promise<void>;
   /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
   upNext(launchId: string, offer: DesktopUpNextOffer): Promise<void>;
-  /** The native picker for the MPV executable; the saved path, or null when cancelled. */
-  chooseMpv(): Promise<string | null>;
+  /** The native picker for the MPV executable; saves the pick only when it is MPV. */
+  chooseMpv(): Promise<DesktopMpvChoice>;
   /** The MPV the next Play uses and where it comes from. */
   mpvSetting(): Promise<DesktopMpvSetting>;
   /** Forgets the picked MPV; resolves to the setting now in use. */

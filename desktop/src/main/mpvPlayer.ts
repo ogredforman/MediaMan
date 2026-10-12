@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { checkMpvExecutable, type CheckMpvExecutable } from './mpvCheck.js';
 import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
 import { upNextAt, type Chapter } from './upNext.js';
 
@@ -33,6 +34,8 @@ export interface MpvPlayerOptions {
   connectRetryMs?: number;
   stopGraceMs?: number;
   spawn?: SpawnMpv;
+  /** Decides the path is MPV without running it, before every launch; defaults to `checkMpvExecutable`. */
+  checkExecutable?: CheckMpvExecutable;
   connect?: ConnectMpv;
   /** Builds the IPC endpoint for one launch; defaults to `ipcPathFor` on this platform. */
   ipcPath?: (id: string) => string;
@@ -132,6 +135,7 @@ export class MpvPlayer implements IPlayer {
   private readonly connectRetryMs: number;
   private readonly stopGraceMs: number;
   private readonly spawnMpv: SpawnMpv;
+  private readonly checkExecutable: CheckMpvExecutable;
   private readonly connectMpv: ConnectMpv;
   private readonly ipcPath: (id: string) => string;
   private readonly log: (line: string) => void;
@@ -149,6 +153,7 @@ export class MpvPlayer implements IPlayer {
     this.connectRetryMs = options.connectRetryMs ?? 100;
     this.stopGraceMs = options.stopGraceMs ?? 3_000;
     this.spawnMpv = options.spawn ?? spawnChild;
+    this.checkExecutable = options.checkExecutable ?? ((file) => checkMpvExecutable(file));
     this.connectMpv = options.connect ?? connectSocket;
     this.ipcPath = options.ipcPath ?? ((id) => ipcPathFor(process.platform, os.tmpdir(), id));
     this.log =
@@ -186,6 +191,9 @@ export class MpvPlayer implements IPlayer {
 
   async play(opts: PlayOptions): Promise<void> {
     await this.stop();
+    // Never start a program that isn't MPV, picked or from MEDIAMAN_MPV_PATH (SPEC §5).
+    const check = await this.checkExecutable(this.options.mpvPath);
+    if (!check.ok) throw new PlayerStartError(check.message);
 
     this.launches++;
     const ipcPath = this.ipcPath(`${String(process.pid)}-${String(this.launches)}`);

@@ -35,8 +35,8 @@ function MpvSettings({ player }: { player: DesktopPlayerBridge }) {
   const setting = useQuery({ queryKey: mpvSettingKey, queryFn: () => player.mpvSetting() });
   const choose = useMutation({
     mutationFn: () => player.chooseMpv(),
-    onSuccess: (picked) => {
-      if (picked !== null) void queryClient.invalidateQueries({ queryKey: mpvSettingKey });
+    onSuccess: (choice) => {
+      if (choice.outcome === 'picked') void queryClient.invalidateQueries({ queryKey: mpvSettingKey });
     },
   });
   const resetMpv = useMutation({
@@ -85,6 +85,12 @@ function MpvSettings({ player }: { player: DesktopPlayerBridge }) {
         </button>
       </div>
       {choose.isError && <p role="alert">Couldn't save the MPV choice. Press Choose MPV to try again.</p>}
+      {choose.data?.outcome === 'refused' && (
+        <div role="alert" className="flex flex-col gap-1 text-sm">
+          <p>That file wasn't used: {choose.data.message}</p>
+          <p className="text-fg-muted">Press Choose MPV to pick MPV, or keep the MPV above.</p>
+        </div>
+      )}
       {resetMpv.isError && <p role="alert">Couldn't go back to the default MPV. Press Use default to try again.</p>}
       <p className="text-xs text-fg-muted">The next Play uses this MPV.</p>
     </div>

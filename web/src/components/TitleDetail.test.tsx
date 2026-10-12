@@ -335,6 +335,22 @@ describe('TitleDetail', () => {
       expect(player.plays).toHaveLength(1);
     });
 
+    it("says why a picked file that isn't MPV was not used", async () => {
+      const user = userEvent.setup();
+      const player = installDesktop();
+      player.failNextPlay("MPV couldn't be started: 'mpv' was not found.");
+      player.refuseNextPick("C:/Windows/notepad.exe isn't MPV, so MediaMan won't run it. Choose the MPV player (mpv.exe) instead.");
+      renderApp(`/titles/${arrival}`);
+
+      await user.click(await screen.findByRole('button', { name: 'Play' }));
+      await user.click(await screen.findByRole('button', { name: 'Open MPV settings' }));
+
+      const refused = await screen.findByText("MediaMan didn't use that file.");
+      expect(refused.closest('[role=alert]')).toHaveTextContent("C:/Windows/notepad.exe isn't MPV, so MediaMan won't run it.");
+      expect(refused.closest('[role=alert]')).toHaveTextContent('Press Open MPV settings to choose MPV.');
+      expect(screen.queryByText(/MPV is set to/)).not.toBeInTheDocument();
+    });
+
     it('shows an error after the stream fails on a fresh session too', async () => {
       const user = userEvent.setup();
       const player = installDesktop();

@@ -1,8 +1,9 @@
 // Electron main process: one window showing the shared web UI (SPEC §10.1). In Local mode it starts the server first.
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
-import { registerBridge } from './bridge.js';
+import { registerBridge, type MpvChoice } from './bridge.js';
 import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './desktopSettings.js';
+import { checkMpvExecutable } from './mpvCheck.js';
 import { mpvAssetsIn, MpvPlayer } from './mpvPlayer.js';
 import { PlayerHost } from './playerHost.js';
 import { resolveServerCommand, resolveServerPort, ServerProcess, type IServerProcess } from './serverProcess.js';
@@ -41,8 +42,11 @@ function createMainWindow(): void {
   });
 }
 
-/** "Open MPV settings" (SPEC §7.4 step 6): the native picker for the MPV executable, saved for the next Play. */
-async function chooseMpv(settings: DesktopSettings): Promise<string | null> {
+/**
+ * "Open MPV settings" (SPEC §7.4 step 6): the native picker for the MPV executable, saved for the next Play once
+ * `checkMpvExecutable` says it is MPV. The picked file is never run here.
+ */
+async function chooseMpv(settings: DesktopSettings): Promise<MpvChoice> {
   const options: Electron.OpenDialogOptions = {
     title: 'Choose the MPV player',
     buttonLabel: 'Use this MPV',
@@ -52,10 +56,12 @@ async function chooseMpv(settings: DesktopSettings): Promise<string | null> {
   const parent = BrowserWindow.getFocusedWindow();
   const result = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
   const picked = result.filePaths[0];
-  if (result.canceled || picked === undefined) return null;
+  if (result.canceled || picked === undefined) return { outcome: 'cancelled' };
   const mpvPath = executableOf(picked, process.platform);
+  const check = await checkMpvExecutable(mpvPath);
+  if (!check.ok) return { outcome: 'refused', message: check.message };
   await settings.setMpvPath(mpvPath);
-  return mpvPath;
+  return { outcome: 'picked', path: mpvPath };
 }
 
 void app.whenReady().then(async () => {

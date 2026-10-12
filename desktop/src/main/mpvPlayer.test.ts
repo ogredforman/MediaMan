@@ -22,8 +22,11 @@ class FakeMpv {
   private pendingExit: [number | null, Error | undefined] | undefined;
   private dataListener: ((chunk: string) => void) | undefined;
   closed = false;
+  /** Set to make the MPV check refuse the path with this message. */
+  refuseCheck: string | undefined;
 
-  readonly options: Pick<MpvPlayerOptions, 'spawn' | 'connect' | 'ipcPath' | 'log'> = {
+  readonly options: Pick<MpvPlayerOptions, 'spawn' | 'checkExecutable' | 'connect' | 'ipcPath' | 'log'> = {
+    checkExecutable: () => Promise.resolve(this.refuseCheck === undefined ? { ok: true } : { ok: false, message: this.refuseCheck }),
     spawn: (command, args) => {
       this.spawned.push({ command, args });
       this.exitListener = undefined;
@@ -358,6 +361,18 @@ describe('MpvPlayer', () => {
     await expect(play).rejects.toThrow(
       "MPV couldn't be started (spawn /opt/mpv/mpv ENOENT). Check that MPV is installed and that the MPV path (/opt/mpv/mpv) points at it.",
     );
+    expect(ended).toEqual([]);
+  });
+
+  it('never spawns a path the MPV check refuses', async () => {
+    const { mpv, player, ended } = setUp({ mpvPath: 'C:/Windows/notepad.exe' });
+    mpv.refuseCheck = "C:/Windows/notepad.exe isn't MPV, so MediaMan won't run it.";
+
+    const play = player.play(contractPlay);
+
+    await expect(play).rejects.toBeInstanceOf(PlayerStartError);
+    await expect(play).rejects.toThrow("C:/Windows/notepad.exe isn't MPV, so MediaMan won't run it.");
+    expect(mpv.spawned).toEqual([]);
     expect(ended).toEqual([]);
   });
 
