@@ -1,5 +1,6 @@
 // The main-process side of the preload bridge (src/preload/index.cts): the current server, its tokens and the player.
 // Only the web UI's origin may call it, and it only ever acts on the current server.
+import type { MpvSetting } from './desktopSettings.js';
 import type { PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
 import type { PlayerEvent, PlayerHost, PlayResult } from './playerHost.js';
 import { parseStoredTokens, type StoredTokens, type TokenStore } from './tokenStore.js';
@@ -14,6 +15,8 @@ export const bridgeChannels = {
   playerStop: 'mediaman:player-stop',
   playerUpNext: 'mediaman:player-up-next',
   playerChooseMpv: 'mediaman:player-choose-mpv',
+  playerMpvSetting: 'mediaman:player-mpv-setting',
+  playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
 } as const;
 
 /** Channels the main process sends on; the preload repeats these too. */
@@ -39,6 +42,10 @@ export interface BridgeOptions {
   player: Pick<PlayerHost, 'play' | 'stop' | 'upNext'>;
   /** Shows the native picker for the MPV executable and saves the choice; null when cancelled. */
   chooseMpv: () => Promise<string | null>;
+  /** The MPV the next Play uses and where it comes from. */
+  mpvSetting: () => Promise<MpvSetting>;
+  /** Forgets the picked MPV; resolves to the setting now in use. */
+  useDefaultMpv: () => Promise<MpvSetting>;
 }
 
 export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
@@ -87,6 +94,8 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
     }),
   );
   ipc.handle(bridgeChannels.playerChooseMpv, guard(() => options.chooseMpv()));
+  ipc.handle(bridgeChannels.playerMpvSetting, guard(() => options.mpvSetting()));
+  ipc.handle(bridgeChannels.playerUseDefaultMpv, guard(() => options.useDefaultMpv()));
 }
 
 /** The renderer's play request, checked: every URL must be on `serverOrigin`, so MPV never opens anything else. */

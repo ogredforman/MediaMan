@@ -313,6 +313,25 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /account:
+    get:
+      operationId: getAccount
+      summary: The signed-in account and the permissions its role grants (SPEC §7.11, §11 Settings).
+      description: |
+        Clients use `permissions` to hide what the user can't use; the server still enforces every permission on
+        every operation (SPEC §5). The Superadmin holds every permission.
+      tags: [auth]
+      x-permission: authenticated
+      responses:
+        '200':
+          description: The signed-in account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /profiles:
     get:
       operationId: listProfiles
@@ -1436,6 +1455,42 @@ components:
         refreshToken:
           type: string
           minLength: 1
+
+    Permission:
+      type: string
+      description: A permission from SPEC §8. Roles hold these; every operation declares the one it needs.
+      enum:
+        - library.view
+        - library.manage
+        - metadata.edit
+        - downloads.request
+        - downloads.create
+        - downloads.approve
+        - downloads.manage
+        - indexers.manage
+        - users.manage
+        - roles.manage
+        - settings.manage
+        - server.control
+
+    Account:
+      type: object
+      required: [id, username, isSuperadmin, permissions]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        isSuperadmin:
+          type: boolean
+          description: True for the install's owner, who holds every permission (SPEC §7.11).
+        permissions:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Permission'
 
     AuthTokens:
       type: object

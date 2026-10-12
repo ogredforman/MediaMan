@@ -12,6 +12,8 @@ const channels = {
   playerStop: 'mediaman:player-stop',
   playerUpNext: 'mediaman:player-up-next',
   playerChooseMpv: 'mediaman:player-choose-mpv',
+  playerMpvSetting: 'mediaman:player-mpv-setting',
+  playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
   playerEvent: 'mediaman:player-event',
 } as const;
 
@@ -36,6 +38,10 @@ contextBridge.exposeInMainWorld('mediamanDesktop', {
     upNext: (launchId: string, offer: unknown): Promise<void> => ipcRenderer.invoke(channels.playerUpNext, launchId, offer) as Promise<void>,
     /** The native picker for the MPV executable; resolves to the saved path, or null when cancelled. */
     chooseMpv: (): Promise<string | null> => ipcRenderer.invoke(channels.playerChooseMpv) as Promise<string | null>,
+    /** The MPV the next Play uses and where it comes from (`picked`, `environment` or `default`). */
+    mpvSetting: (): Promise<unknown> => ipcRenderer.invoke(channels.playerMpvSetting),
+    /** Forgets the picked MPV; resolves to the setting now in use. */
+    useDefaultMpv: (): Promise<unknown> => ipcRenderer.invoke(channels.playerUseDefaultMpv),
     onEvent: (callback: (event: unknown) => void): (() => void) => {
       const listener = (_: unknown, event: unknown) => {
         callback(event);

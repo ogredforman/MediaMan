@@ -66,6 +66,35 @@ export interface RefreshRequest {
   refreshToken: string;
 }
 
+/**
+ * A permission from SPEC §8. Roles hold these; every operation declares the one it needs.
+ */
+export type Permission = typeof Permission[keyof typeof Permission];
+
+
+export const Permission = {
+  libraryview: 'library.view',
+  librarymanage: 'library.manage',
+  metadataedit: 'metadata.edit',
+  downloadsrequest: 'downloads.request',
+  downloadscreate: 'downloads.create',
+  downloadsapprove: 'downloads.approve',
+  downloadsmanage: 'downloads.manage',
+  indexersmanage: 'indexers.manage',
+  usersmanage: 'users.manage',
+  rolesmanage: 'roles.manage',
+  settingsmanage: 'settings.manage',
+  servercontrol: 'server.control',
+} as const;
+
+export interface Account {
+  id: string;
+  username: string;
+  /** True for the install's owner, who holds every permission (SPEC §7.11). */
+  isSuperadmin: boolean;
+  permissions: Permission[];
+}
+
 export interface AuthTokens {
   /** A JWT for the `Authorization: Bearer` header, valid for 15 minutes. */
   accessToken: string;

@@ -22,7 +22,16 @@ export class DesktopSettings {
   }
 
   async setMpvPath(mpvPath: string): Promise<void> {
-    const next = { ...(await this.get()), mpvPath };
+    await this.write({ ...(await this.get()), mpvPath });
+  }
+
+  /** Forgets the picked MPV, so `MEDIAMAN_MPV_PATH` or `mpv` from PATH is used again. */
+  async clearMpvPath(): Promise<void> {
+    const { mpvPath: _cleared, ...rest } = await this.get();
+    await this.write(rest);
+  }
+
+  private async write(next: DesktopSettingsValues): Promise<void> {
     this.cache = next;
     const write = this.writes.then(() => this.save(next));
     this.writes = write.catch(() => undefined);
@@ -57,11 +66,22 @@ function parseSettings(value: unknown): DesktopSettingsValues {
   return typeof mpvPath === 'string' && mpvPath.trim() !== '' ? { mpvPath } : {};
 }
 
+/** The MPV in use and where it comes from: picked in settings, `MEDIAMAN_MPV_PATH`, or `mpv` from PATH. */
+export interface MpvSetting {
+  path: string;
+  source: 'picked' | 'environment' | 'default';
+}
+
+export function mpvSettingFrom(settings: DesktopSettingsValues, env: Readonly<Record<string, string | undefined>>): MpvSetting {
+  const picked = settings.mpvPath?.trim();
+  if (picked) return { path: picked, source: 'picked' };
+  const path = resolveMpvPath(env);
+  return { path, source: env.MEDIAMAN_MPV_PATH?.trim() ? 'environment' : 'default' };
+}
+
 /** The picked MPV, else `MEDIAMAN_MPV_PATH`, else `mpv` from PATH. */
 export function mpvPathFrom(settings: DesktopSettingsValues, env: Readonly<Record<string, string | undefined>>): string {
-  const picked = settings.mpvPath?.trim();
-  if (picked) return picked;
-  return resolveMpvPath(env);
+  return mpvSettingFrom(settings, env).path;
 }
 
 /** On macOS a picked `mpv.app` bundle means the executable inside it. */

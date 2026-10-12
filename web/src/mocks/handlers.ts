@@ -12,6 +12,7 @@ import {
 import { mockAttention } from './attention';
 import { mockLibraries } from './libraries';
 import { mockProfiles } from './profiles';
+import { mockSettings } from './settings';
 import { createMockVersions } from './versions';
 import { createMockWatched } from './watched';
 import type {
@@ -317,6 +318,7 @@ export const handlers = [
     return mockTokens('setup');
   }),
   ...mockProfiles.handlers,
+  ...mockSettings.handlers,
   ...mockLibraries.handlers,
   ...mockAttention.handlers,
   ...mockVersions.handlers,
