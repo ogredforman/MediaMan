@@ -9,6 +9,7 @@ import { formatPosition } from '../lib/mediaFormat';
 import { buttonClass } from './formClasses';
 import { PlayButton } from './PlayButton';
 import { EmptyLibrary } from './PosterGrid';
+import { WatchedBadge, WatchedButton } from './WatchedButton';
 
 const rowLabels: Record<Exclude<HomeRow['kind'], 'genre'>, string> = {
   continueWatching: 'Continue Watching',
@@ -107,11 +108,21 @@ function Progress({ item }: { item: HomeItem }) {
 }
 
 const cardClass =
-  'group block rounded-card outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight';
+  'block rounded-card outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight';
 const frameClass =
   'relative overflow-hidden rounded-card bg-surface shadow-soft ring-highlight transition-shadow duration-(--motion-fast) group-hover:ring-2';
 
-/** A card: a poster, or an episode's still in a row of episodes. It opens the title's detail page. */
+/** What a card's Mark watched marks: its movie or episode on Continue Watching and Next Up, else the whole title. */
+function watchedAction({ title, playableId, episode }: HomeItem) {
+  if (playableId === undefined) return { target: { titleId: title.id }, watched: title.watched, name: title.name };
+  const name = episode ? `${title.name} ${episodeLabel(episode)}` : title.name;
+  return { target: { playableId }, watched: false, name };
+}
+
+/**
+ * A card: a poster, or an episode's still in a row of episodes. It opens the title's detail page; Mark watched sits
+ * over the art and follows the card in the tab order.
+ */
 function HomeCard({
   item,
   wide,
@@ -128,32 +139,36 @@ function HomeCard({
   const { title, episode } = item;
   const art = wide ? episode?.still : title.poster;
   return (
-    <Link
-      to="/titles/$titleId"
-      params={{ titleId: title.id }}
-      tabIndex={tabIndex}
-      onFocus={onFocus}
-      onKeyDown={onKeyDown}
-      data-card=""
-      className={`${cardClass} ${wide ? 'w-72' : 'w-40'}`}
-    >
-      <div className={`${frameClass} ${wide ? 'aspect-video' : 'aspect-[2/3]'}`}>
-        {art ? (
-          <img src={artworkSrc(art)} alt="" loading="lazy" className="h-full w-full object-cover" />
+    <div className={`group relative ${wide ? 'w-72' : 'w-40'}`}>
+      <Link
+        to="/titles/$titleId"
+        params={{ titleId: title.id }}
+        tabIndex={tabIndex}
+        onFocus={onFocus}
+        onKeyDown={onKeyDown}
+        data-card=""
+        className={cardClass}
+      >
+        <div className={`${frameClass} ${wide ? 'aspect-video' : 'aspect-[2/3]'}`}>
+          {art ? (
+            <img src={artworkSrc(art)} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : (
+            <div aria-hidden="true" className="flex h-full items-center justify-center p-4 text-center text-highlight">
+              {title.name}
+            </div>
+          )}
+          {item.playableId === undefined && title.watched && <WatchedBadge />}
+          <Progress item={item} />
+        </div>
+        <p className="mt-2 truncate font-medium">{title.name}</p>
+        {episode ? (
+          <p className="truncate text-sm text-fg-muted">{episodeLabel(episode)}</p>
         ) : (
-          <div aria-hidden="true" className="flex h-full items-center justify-center p-4 text-center text-highlight">
-            {title.name}
-          </div>
+          title.year !== undefined && <p className="text-sm text-fg-muted">{title.year}</p>
         )}
-        <Progress item={item} />
-      </div>
-      <p className="mt-2 truncate font-medium">{title.name}</p>
-      {episode ? (
-        <p className="truncate text-sm text-fg-muted">{episodeLabel(episode)}</p>
-      ) : (
-        title.year !== undefined && <p className="text-sm text-fg-muted">{title.year}</p>
-      )}
-    </Link>
+      </Link>
+      <WatchedButton overlay tabIndex={tabIndex} {...watchedAction(item)} />
+    </div>
   );
 }
 

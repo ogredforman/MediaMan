@@ -13,6 +13,7 @@ import { mockAttention } from './attention';
 import { mockLibraries } from './libraries';
 import { mockProfiles } from './profiles';
 import { createMockVersions } from './versions';
+import { createMockWatched } from './watched';
 import type {
   AuthTokens,
   CreatePlaybackSessionRequest,
@@ -268,9 +269,9 @@ export function createEventStream() {
 
 export const mockEvents = createEventStream();
 
-/** The resume position the mock watch state gives a session, as the server does. */
+/** The resume position the mock watch state (with any watched marks) gives a session, as the server does. */
 function resumeOf(playableId: string): Pick<PlaybackSession, 'resumeSeconds'> {
-  for (const detail of Object.values(mockTitleDetails)) {
+  for (const detail of Object.values(mockTitleDetails).map((d) => mockWatched.applyDetail(d))) {
     const movie = detail.playable?.id === playableId ? detail.playable : undefined;
     const episode = (detail.seasons ?? []).flatMap((s) => s.episodes).find((e) => e.playableId === playableId);
     const resumeSeconds = (movie ?? episode)?.resumeSeconds;
@@ -299,6 +300,9 @@ export function mockSearch(query: string): TitleSummary[] {
 /** The session profile's preferred versions over `mockTitleDetails`; `reset` after each test. */
 export const mockVersions = createMockVersions(mockTitleDetails);
 
+/** The session profile's watched marks over `mockTitleDetails`; `reset` after each test. */
+export const mockWatched = createMockWatched(mockTitleDetails);
+
 // Deterministic overrides first (MSW uses the first matching handler), then the generated defaults.
 export const handlers = [
   getGetHealthMockHandler(mockHealth),
@@ -316,19 +320,23 @@ export const handlers = [
   ...mockLibraries.handlers,
   ...mockAttention.handlers,
   ...mockVersions.handlers,
-  getGetHomeMockHandler(mockHome),
+  ...mockWatched.handlers,
+  getGetHomeMockHandler(() => mockWatched.applyHome(mockHome)),
   getListTitlesMockHandler(({ request }) => {
     const kind = new URL(request.url).searchParams.get('kind');
-    return { items: mockTitles.filter((t) => kind === null || t.kind === kind), pageInfo: {} };
+    return {
+      items: mockTitles.filter((t) => kind === null || t.kind === kind).map(mockWatched.applySummary),
+      pageInfo: {},
+    };
   }),
   getSearchLibraryMockHandler(({ request }) => {
     const query = new URL(request.url).searchParams.get('q') ?? '';
-    return { query, titles: mockSearch(query) };
+    return { query, titles: mockSearch(query).map(mockWatched.applySummary) };
   }),
   http.get('*/titles/:titleId', ({ params }) => {
     const detail = mockTitleDetails[String(params.titleId)];
     return detail
-      ? HttpResponse.json(mockVersions.apply(detail))
+      ? HttpResponse.json(mockVersions.apply(mockWatched.applyDetail(detail)))
       : HttpResponse.json(
           {
             title: 'Title not found.',

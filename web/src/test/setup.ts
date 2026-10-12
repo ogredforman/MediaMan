@@ -5,7 +5,7 @@ import { server } from '../mocks/node';
 import { mockAttention } from '../mocks/attention';
 import { mockLibraries } from '../mocks/libraries';
 import { mockProfiles } from '../mocks/profiles';
-import { mockVersions } from '../mocks/handlers';
+import { mockVersions, mockWatched } from '../mocks/handlers';
 
 // The whole-app renders are slow under a full parallel run; findBy* waits up to 5 s instead of 1 s.
 configure({ asyncUtilTimeout: 5000 });
@@ -24,6 +24,7 @@ afterEach(() => {
   mockLibraries.reset();
   mockAttention.reset();
   mockVersions.reset();
+  mockWatched.reset();
 });
 afterAll(() => {
   server.close();

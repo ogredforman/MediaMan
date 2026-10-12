@@ -15,6 +15,7 @@ import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
 import type { FixMatchFile } from '../lib/fixMatch';
 import { FixMatchDialog } from './FixMatchDialog';
 import { PlayButton } from './PlayButton';
+import { WatchedButton } from './WatchedButton';
 import { buttonClass } from './formClasses';
 
 const statusLabels: Partial<Record<MediaVersion['status'], string>> = {
@@ -31,6 +32,20 @@ function seasonLabel(season: Season): string {
 /** Regular seasons in order, then specials. */
 function orderSeasons(seasons: Season[]): Season[] {
   return [...seasons].sort((a, b) => (a.number === 0 ? 1 : b.number === 0 ? -1 : a.number - b.number));
+}
+
+/** Episodes a file holds: the ones Mark watched can apply to. */
+function withFiles(episodes: Episode[]): Episode[] {
+  return episodes.filter((e) => e.playableId !== undefined && e.versions.length > 0);
+}
+
+function hasFiles(episodes: Episode[]): boolean {
+  return withFiles(episodes).length > 0;
+}
+
+/** A season counts as watched when every episode with a file is, as the server counts a show. */
+function seasonWatched(episodes: Episode[]): boolean {
+  return withFiles(episodes).every((e) => e.watched);
 }
 
 function Chip({ children }: { children: string }) {
@@ -205,11 +220,16 @@ function EpisodeList({ season, choice }: { season: Season; choice: VersionChoice
                   choice={choice}
                 />
               )}
-              {episode.playableId !== undefined && isPlayable(episode.versions) && (
-                <PlayButton
-                  playableId={episode.playableId}
-                  target={{ name, resumeSeconds: episode.resumeSeconds, watched: episode.watched }}
-                />
+              {episode.playableId !== undefined && episode.versions.length > 0 && (
+                <div className="flex flex-wrap items-start gap-3">
+                  {isPlayable(episode.versions) && (
+                    <PlayButton
+                      playableId={episode.playableId}
+                      target={{ name, resumeSeconds: episode.resumeSeconds, watched: episode.watched }}
+                    />
+                  )}
+                  <WatchedButton target={{ playableId: episode.playableId }} watched={episode.watched} name={name} />
+                </div>
               )}
             </div>
           </li>
@@ -220,7 +240,7 @@ function EpisodeList({ season, choice }: { season: Season; choice: VersionChoice
 }
 
 /** Season tabs (WAI-ARIA tabs: arrow keys, Home and End move between seasons). */
-function SeasonTabs({ seasons, choice }: { seasons: Season[]; choice: VersionChoice }) {
+function SeasonTabs({ titleId, seasons, choice }: { titleId: string; seasons: Season[]; choice: VersionChoice }) {
   const ordered = orderSeasons(seasons);
   const [selectedId, setSelectedId] = useState(ordered[0]?.id);
   const tabs = useRef(new Map<string, HTMLButtonElement>());
@@ -281,6 +301,15 @@ function SeasonTabs({ seasons, choice }: { seasons: Season[]; choice: VersionCho
       </div>
       <div role="tabpanel" id={`${baseId}-panel`} aria-labelledby={`${baseId}-tab-${selected.id}`} tabIndex={0}>
         {selected.overview !== undefined && <p className="mb-6 max-w-3xl text-fg-muted">{selected.overview}</p>}
+        {hasFiles(selected.episodes) && (
+          <div className="mb-6">
+            <WatchedButton
+              target={{ titleId, seasonNumber: selected.number }}
+              watched={seasonWatched(selected.episodes)}
+              name={seasonLabel(selected)}
+            />
+          </div>
+        )}
         <EpisodeList season={selected} choice={choice} />
       </div>
     </div>
@@ -392,6 +421,9 @@ function Hero({ title }: { title: Title }) {
                 playableId={title.playable.id}
                 target={{ resumeSeconds: title.playable.resumeSeconds, watched: title.playable.watched }}
               />
+            )}
+            {title.playable && title.playable.versions.length > 0 && (
+              <WatchedButton target={{ playableId: title.playable.id }} watched={title.playable.watched} name={title.name} />
             )}
             <FixMatchButton title={title} />
           </div>
@@ -523,7 +555,7 @@ export function TitleDetail({ titleId }: { titleId: string }) {
               Episodes
             </h2>
             <VersionChoiceBar title={data} choice={choice} />
-            <SeasonTabs seasons={data.seasons ?? []} choice={choice} />
+            <SeasonTabs titleId={data.id} seasons={data.seasons ?? []} choice={choice} />
           </section>
         )}
       </div>
