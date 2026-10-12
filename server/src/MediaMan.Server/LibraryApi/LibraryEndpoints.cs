@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace MediaMan.Server.LibraryApi;
 
-/// <summary>Library management and browsing (libraries, the title grid, title detail), scanning and the attention list (SPEC §7.2, §8).</summary>
+/// <summary>Library management and browsing (libraries, the title grid, search, title detail), scanning and the attention list (SPEC §7.2, §8).</summary>
 public static class LibraryEndpoints
 {
     public static IEndpointRouteBuilder MapLibraryEndpoints(this IEndpointRouteBuilder app)
@@ -21,6 +21,7 @@ public static class LibraryEndpoints
         app.MapDelete("/libraries/{libraryId}", DeleteLibraryAsync).RequiresPermission(Permissions.ServerControl);
         app.MapPost("/libraries/{libraryId}/scan", StartScanAsync).RequiresPermission(Permissions.LibraryManage);
         app.MapGet("/libraries/{libraryId}/attention", ListAttentionAsync).RequiresPermission(Permissions.LibraryManage);
+        app.MapGet("/search", SearchAsync).RequiresPermission(Permissions.LibraryView);
         app.MapGet("/titles", ListTitlesAsync).RequiresPermission(Permissions.LibraryView);
         app.MapGet("/titles/{titleId}", GetTitleAsync).RequiresPermission(Permissions.LibraryView);
         return app;
@@ -121,6 +122,30 @@ public static class LibraryEndpoints
     private static ProblemHttpResult LibraryNotFound() =>
         Problems.Result(StatusCodes.Status404NotFound, "library.not_found", "Library not found.",
             "This library doesn't exist. It may have been removed.", "Go back to the library list and pick it again.");
+
+    private static async Task<Results<Ok<LibrarySearchResults>, ProblemHttpResult>> SearchAsync(
+        string? q, int? limit, LibraryQueries queries, CancellationToken ct)
+    {
+        if (q is null)
+        {
+            return Problems.Result(StatusCodes.Status400BadRequest, "search.invalid", "No search term.",
+                "The search needs a q parameter with what to look for.", "Add ?q= with part of a title's name.");
+        }
+
+        if (q.Length > SearchRules.MaxQueryLength)
+        {
+            return Problems.Result(StatusCodes.Status400BadRequest, "search.invalid", "Search term too long.",
+                $"Searches are limited to {SearchRules.MaxQueryLength} characters.", "Shorten the search and try again.");
+        }
+
+        if (limit is < 1 or > SearchRules.MaxLimit)
+        {
+            return Problems.Result(StatusCodes.Status400BadRequest, "search.invalid", "Invalid limit.",
+                $"limit must be between 1 and {SearchRules.MaxLimit}.", $"Use a limit in that range, or leave it out for {SearchRules.DefaultLimit}.");
+        }
+
+        return TypedResults.Ok(await queries.SearchTitlesAsync(q, limit ?? SearchRules.DefaultLimit, ct));
+    }
 
     private static async Task<Results<Ok<TitlePage>, ProblemHttpResult>> ListTitlesAsync(
         string? kind, Guid? libraryId, int? limit, string? cursor, LibraryQueries queries, CancellationToken ct)

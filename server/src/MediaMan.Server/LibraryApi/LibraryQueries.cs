@@ -17,6 +17,9 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
     // Every NeedsAttention file should have a reason; this covers rows written before reasons were recorded.
     private const string UnknownReason = "unknown";
 
+    // Search candidates checked for availability per query; enough that one round usually fills the page.
+    private const int SearchChunk = 100;
+
     public async Task<LibraryPage> ListLibrariesAsync(PageRequest page, CancellationToken ct)
     {
         var rows = await db.Libraries.AsNoTracking()
@@ -97,26 +100,7 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
     /// <summary>Titles with at least one Matched file (optionally in <paramref name="libraryId"/>), sorted by name.</summary>
     public async Task<TitlePage> ListTitlesAsync(TitleKind? kind, Guid? libraryId, PageRequest page, CancellationToken ct)
     {
-        var files = db.MediaFiles.Where(f => f.Status == MediaFileStatus.Matched);
-        if (libraryId is { } library)
-        {
-            files = files.Where(f => f.LibraryId == library);
-        }
-
-        var playables =
-            from link in db.FileLinks
-            join file in files on link.MediaFileId equals file.Id
-            join playable in db.Playables on link.PlayableId equals playable.Id
-            select playable;
-        var movieIds = playables.Where(p => p.TitleId != null).Select(p => p.TitleId!.Value);
-        var showIds =
-            from playable in playables
-            join episode in db.Episodes on playable.EpisodeId equals (Guid?)episode.Id
-            join season in db.Seasons on episode.SeasonId equals season.Id
-            select season.TitleId;
-        var available = movieIds.Concat(showIds);
-
-        var titles = db.Titles.AsNoTracking().Where(t => available.Contains(t.Id));
+        var titles = AvailableTitles(libraryId);
         if (kind is { } k)
         {
             titles = titles.Where(t => t.Kind == k);
@@ -131,17 +115,77 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .ToListAsync(ct);
 
         var (items, info) = Paging.Page(rows, page);
-        var ids = items.Select(t => t.Id).ToList();
+        return new TitlePage(await SummariesAsync(items, ct), info);
+    }
+
+    /// <summary>
+    /// Available titles whose name matches the query by <see cref="SearchRules.Rank"/>, best first, then by name and year.
+    /// Names are matched in memory so accents and punctuation fold the same way everywhere; SQLite's LIKE folds ASCII only.
+    /// </summary>
+    public async Task<LibrarySearchResults> SearchTitlesAsync(string q, int limit, CancellationToken ct)
+    {
+        var query = SearchRules.Query.Of(q);
+        if (query.IsBlank)
+        {
+            return new LibrarySearchResults(q, []);
+        }
+
+        // Rank every name first (a scan of Titles alone), then check availability only for the best candidates, a chunk at
+        // a time: checking it for every title on every keystroke was the slow part at 20,000 files.
+        var names = await db.Titles.AsNoTracking().Select(t => new { t.Id, t.Name, t.Year }).ToListAsync(ct);
+        var ranked = names
+            .Select(t => (t.Id, t.Name, t.Year, Rank: SearchRules.Rank(query, t.Name)))
+            .Where(t => t.Rank is not null)
+            .OrderBy(t => t.Rank)
+            .ThenBy(t => t.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(t => t.Year)
+            .ThenBy(t => t.Id)
+            .Select(t => t.Id)
+            .ToList();
+
+        var picked = new List<Guid>(limit);
+        foreach (var chunk in ranked.Chunk(SearchChunk))
+        {
+            var available = (await AvailableTitles(libraryId: null).Where(t => chunk.Contains(t.Id)).Select(t => t.Id).ToListAsync(ct)).ToHashSet();
+            picked.AddRange(chunk.Where(available.Contains).Take(limit - picked.Count));
+            if (picked.Count == limit)
+            {
+                break;
+            }
+        }
+
+        var rows = await db.Titles.AsNoTracking().Where(t => picked.Contains(t.Id)).ToListAsync(ct);
+        var byId = rows.ToDictionary(t => t.Id);
+        return new LibrarySearchResults(q, await SummariesAsync([.. picked.Select(id => byId[id])], ct));
+    }
+
+    private async Task<IReadOnlyList<TitleSummary>> SummariesAsync(IReadOnlyList<Title> titles, CancellationToken ct)
+    {
+        var ids = titles.Select(t => t.Id).ToList();
         var posters = await db.Artwork.AsNoTracking()
             .Where(a => a.TitleId != null && ids.Contains(a.TitleId.Value) && a.Type == ArtworkType.Poster)
             .OrderBy(a => a.Id)
             .ToListAsync(ct);
         var posterByTitle = posters.GroupBy(a => a.TitleId!.Value).ToDictionary(g => g.Key, g => g.First());
 
-        return new TitlePage(
-            [.. items.Select(t => new TitleSummary(
-                t.Id, Wire.Name(t.Kind), t.Name, t.Year, t.Rating, t.Genres, Ref(posterByTitle.GetValueOrDefault(t.Id))))],
-            info);
+        return [.. titles.Select(t => new TitleSummary(
+            t.Id, Wire.Name(t.Kind), t.Name, t.Year, t.Rating, t.Genres, Ref(posterByTitle.GetValueOrDefault(t.Id))))];
+    }
+
+    // Titles with at least one matched file (in the library, when given): what browsing and search show.
+    private IQueryable<Title> AvailableTitles(Guid? libraryId)
+    {
+        var files = db.MediaFiles.Where(f => f.Status == MediaFileStatus.Matched);
+        if (libraryId is { } library)
+        {
+            files = files.Where(f => f.LibraryId == library);
+        }
+
+        // Per-title EXISTS walks the TitleId/PlayableId indexes; an IN over every matched file's title was ~10x slower at 20,000 files.
+        var linked = db.Playables.Where(p => db.FileLinks.Any(l => l.PlayableId == p.Id && files.Any(f => f.Id == l.MediaFileId)));
+        return db.Titles.AsNoTracking().Where(t =>
+            linked.Any(p => p.TitleId == t.Id)
+            || db.Seasons.Any(s => s.TitleId == t.Id && db.Episodes.Any(e => e.SeasonId == s.Id && linked.Any(p => p.EpisodeId == e.Id))));
     }
 
     /// <summary>The title's detail, or null when it doesn't exist.</summary>
