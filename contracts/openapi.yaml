@@ -1151,6 +1151,95 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /playables/{playableId}/watched:
+    put:
+      operationId: setPlayableWatched
+      summary: Marks a movie or an episode watched or unwatched for the session's profile (SPEC §8 browsing).
+      description: |
+        Marking watched sets `watched` and drops any resume position, as if the profile had just finished it, so it
+        counts for Next Up. Marking unwatched clears the profile's progress on it: it starts fresh and leaves Continue
+        Watching and Next Up. Other profiles keep their own state.
+      tags: [playback]
+      x-permission: library.view
+      parameters:
+        - $ref: '#/components/parameters/PlayableId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WatchedRequest'
+      responses:
+        '204':
+          description: The watched state is saved.
+        '400':
+          description: '`watched` is missing (`watched.invalid`).'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The Playable doesn't exist (`playable.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The session hasn't picked a profile yet (`profile.required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /titles/{titleId}/watched:
+    parameters:
+      - name: titleId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      operationId: setTitleWatched
+      summary: Marks a whole movie or show, or one season of a show, watched or unwatched for the session's profile (SPEC §8 browsing).
+      description: |
+        Applies `setPlayableWatched` to every Playable of the title, or of one season when `seasonNumber` is given.
+        Episodes marked watched together count as watched in season and episode order, so Next Up offers the episode
+        after the last one marked.
+      tags: [playback]
+      x-permission: library.view
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TitleWatchedRequest'
+      responses:
+        '204':
+          description: The watched state is saved.
+        '400':
+          description: '`watched` is missing or `seasonNumber` is negative (`watched.invalid`).'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The title doesn't exist (`title.not_found`), or it has no season with that number (`season.not_found`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The session hasn't picked a profile yet (`profile.required`).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1931,7 +2020,7 @@ components:
 
     TitleSummary:
       type: object
-      required: [id, kind, name, genres]
+      required: [id, kind, name, genres, watched]
       additionalProperties: false
       properties:
         id:
@@ -1952,6 +2041,11 @@ components:
             type: string
         poster:
           $ref: '#/components/schemas/ArtworkRef'
+        watched:
+          type: boolean
+          description: |
+            The session's profile watched it: a movie's Playable, or every episode with a file outside specials (all of
+            them when a show has only specials). False without a picked profile.
 
     LibrarySearchResults:
       type: object
@@ -2377,6 +2471,28 @@ components:
         forced:
           type: boolean
           description: The name marks it as forced (only foreign-language parts are subtitled).
+
+    WatchedRequest:
+      type: object
+      required: [watched]
+      additionalProperties: false
+      properties:
+        watched:
+          type: boolean
+          description: True marks it watched; false clears the profile's progress on it.
+
+    TitleWatchedRequest:
+      type: object
+      required: [watched]
+      additionalProperties: false
+      properties:
+        watched:
+          type: boolean
+          description: As in `WatchedRequest`.
+        seasonNumber:
+          type: integer
+          minimum: 0
+          description: Only this season of a show; 0 holds specials. Absent for the whole title.
 
     WatchProgressReport:
       type: object

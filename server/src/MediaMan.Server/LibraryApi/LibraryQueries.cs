@@ -98,7 +98,7 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             c.TitleRef.ToString(), c.Score, c.Kind is { } k ? Wire.Name(k) : null, c.Name, c.Year, c.PosterUrl))]);
 
     /// <summary>Titles with at least one Matched file (optionally in <paramref name="libraryId"/>), sorted by name.</summary>
-    public async Task<TitlePage> ListTitlesAsync(TitleKind? kind, Guid? libraryId, PageRequest page, CancellationToken ct)
+    public async Task<TitlePage> ListTitlesAsync(TitleKind? kind, Guid? libraryId, PageRequest page, Guid? profileId, CancellationToken ct)
     {
         var titles = AvailableTitles(libraryId);
         if (kind is { } k)
@@ -115,14 +115,14 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .ToListAsync(ct);
 
         var (items, info) = Paging.Page(rows, page);
-        return new TitlePage(await SummariesAsync(items, ct), info);
+        return new TitlePage(await SummariesAsync(items, profileId, ct), info);
     }
 
     /// <summary>
     /// Available titles whose name matches the query by <see cref="SearchRules.Rank"/>, best first, then by name and year.
     /// Names are matched in memory so accents and punctuation fold the same way everywhere; SQLite's LIKE folds ASCII only.
     /// </summary>
-    public async Task<LibrarySearchResults> SearchTitlesAsync(string q, int limit, CancellationToken ct)
+    public async Task<LibrarySearchResults> SearchTitlesAsync(string q, int limit, Guid? profileId, CancellationToken ct)
     {
         var query = SearchRules.Query.Of(q);
         if (query.IsBlank)
@@ -156,10 +156,10 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
 
         var rows = await db.Titles.AsNoTracking().Where(t => picked.Contains(t.Id)).ToListAsync(ct);
         var byId = rows.ToDictionary(t => t.Id);
-        return new LibrarySearchResults(q, await SummariesAsync([.. picked.Select(id => byId[id])], ct));
+        return new LibrarySearchResults(q, await SummariesAsync([.. picked.Select(id => byId[id])], profileId, ct));
     }
 
-    private async Task<IReadOnlyList<TitleSummary>> SummariesAsync(IReadOnlyList<Title> titles, CancellationToken ct)
+    private async Task<IReadOnlyList<TitleSummary>> SummariesAsync(IReadOnlyList<Title> titles, Guid? profileId, CancellationToken ct)
     {
         var ids = titles.Select(t => t.Id).ToList();
         var posters = await db.Artwork.AsNoTracking()
@@ -167,9 +167,50 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .OrderBy(a => a.Id)
             .ToListAsync(ct);
         var posterByTitle = posters.GroupBy(a => a.TitleId!.Value).ToDictionary(g => g.Key, g => g.First());
+        var watched = await WatchedTitlesAsync(ids, profileId, ct);
 
         return [.. titles.Select(t => new TitleSummary(
-            t.Id, Wire.Name(t.Kind), t.Name, t.Year, t.Rating, t.Genres, Ref(posterByTitle.GetValueOrDefault(t.Id))))];
+            t.Id, Wire.Name(t.Kind), t.Name, t.Year, t.Rating, t.Genres, Ref(posterByTitle.GetValueOrDefault(t.Id)), watched.Contains(t.Id)))];
+    }
+
+    /// <summary>
+    /// The titles among <paramref name="titleIds"/> the profile watched, by <see cref="WatchRules.TitleWatched"/> over
+    /// their Playables with a matched file. Empty without a picked profile.
+    /// </summary>
+    private async Task<HashSet<Guid>> WatchedTitlesAsync(List<Guid> titleIds, Guid? profileId, CancellationToken ct)
+    {
+        if (profileId is not { } profile || titleIds.Count == 0)
+        {
+            return [];
+        }
+
+        var watched = (await db.WatchStates.AsNoTracking()
+            .Where(w => w.ProfileId == profile && w.Watched)
+            .Select(w => w.PlayableId)
+            .ToListAsync(ct)).ToHashSet();
+        if (watched.Count == 0)
+        {
+            return [];
+        }
+
+        var matched = db.Playables.AsNoTracking().Where(p => db.FileLinks.Any(l =>
+            l.PlayableId == p.Id && db.MediaFiles.Any(f => f.Id == l.MediaFileId && f.Status == MediaFileStatus.Matched)));
+        var movies = await matched
+            .Where(p => p.TitleId != null && titleIds.Contains(p.TitleId.Value))
+            .Select(p => new { p.Id, TitleId = p.TitleId!.Value, SeasonNumber = (int?)null })
+            .ToListAsync(ct);
+        var episodes = await (
+            from playable in matched
+            join episode in db.Episodes on playable.EpisodeId equals (Guid?)episode.Id
+            join season in db.Seasons on episode.SeasonId equals season.Id
+            where titleIds.Contains(season.TitleId)
+            select new { playable.Id, season.TitleId, SeasonNumber = (int?)season.Number })
+            .ToListAsync(ct);
+
+        return [.. movies.Concat(episodes)
+            .GroupBy(p => p.TitleId)
+            .Where(g => WatchRules.TitleWatched([.. g.Select(p => new PlayableWatch(p.SeasonNumber, watched.Contains(p.Id)))]))
+            .Select(g => g.Key)];
     }
 
     // Titles with at least one matched file (in the library, when given): what browsing and search show.

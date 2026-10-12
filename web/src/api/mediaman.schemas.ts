@@ -652,6 +652,11 @@ export interface TitleSummary {
   rating?: number;
   genres: string[];
   poster?: ArtworkRef;
+  /**
+     * The session's profile watched it: a movie's Playable, or every episode with a file outside specials (all of
+     * them when a show has only specials). False without a picked profile.
+     */
+  watched: boolean;
 }
 
 export interface LibrarySearchResults {
@@ -977,6 +982,21 @@ export interface PlaybackSession {
   audioLanguages: string[];
   /** The profile's subtitle languages, as tags in preference order like `audioLanguages`. */
   subtitleLanguages: string[];
+}
+
+export interface WatchedRequest {
+  /** True marks it watched; false clears the profile's progress on it. */
+  watched: boolean;
+}
+
+export interface TitleWatchedRequest {
+  /** As in `WatchedRequest`. */
+  watched: boolean;
+  /**
+     * Only this season of a show; 0 holds specials. Absent for the whole title.
+     * @minimum 0
+     */
+  seasonNumber?: number;
 }
 
 /**

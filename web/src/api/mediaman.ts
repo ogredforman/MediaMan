@@ -93,9 +93,11 @@ import type {
   StreamMediaFileParams,
   TitleDetail,
   TitlePage,
+  TitleWatchedRequest,
   UpdateProfileRequest,
   WatchProgress,
-  WatchProgressReport
+  WatchProgressReport,
+  WatchedRequest
 } from './mediaman.schemas';
 
 import { apiFetch } from '../lib/http';
@@ -3219,5 +3221,189 @@ export const useReportWatchProgress = <TError = ErrorType<Problem | ProblemRespo
         TContext
       > => {
       return useMutation(getReportWatchProgressMutationOptions(options), queryClient);
+    }
+
+export const getSetPlayableWatchedUrl = (playableId: string,) => {
+
+
+
+
+  return `/playables/${playableId}/watched`
+}
+
+/**
+ * Marking watched sets `watched` and drops any resume position, as if the profile had just finished it, so it
+ * counts for Next Up. Marking unwatched clears the profile's progress on it: it starts fresh and leaves Continue
+ * Watching and Next Up. Other profiles keep their own state.
+ * @summary Marks a movie or an episode watched or unwatched for the session's profile (SPEC §8 browsing).
+ */
+export const setPlayableWatched = async (playableId: string,
+    watchedRequest: WatchedRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getSetPlayableWatchedUrl(playableId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(watchedRequest)
+  }
+);}
+
+
+
+
+
+export const getSetPlayableWatchedMutationKey = () => ['setPlayableWatched'] as const;
+
+export const getSetPlayableWatchedMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPlayableWatched>>, TError,SetPlayableWatchedMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPlayableWatched>>, TError,SetPlayableWatchedMutationVariables, TContext> => {
+
+const mutationKey = getSetPlayableWatchedMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPlayableWatched>>, SetPlayableWatchedMutationVariables> = (props) => {
+          const {playableId,data} = props ?? {};
+
+          return  setPlayableWatched(playableId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPlayableWatchedMutationResult = NonNullable<Awaited<ReturnType<typeof setPlayableWatched>>>
+    export type SetPlayableWatchedMutationBody = WatchedRequest
+    export type SetPlayableWatchedMutationError = ErrorType<Problem | ProblemResponse>
+    export type SetPlayableWatchedMutationVariables = {playableId: string;data: WatchedRequest}
+
+    /**
+ * @summary Marks a movie or an episode watched or unwatched for the session's profile (SPEC §8 browsing).
+ */
+export const useSetPlayableWatched = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPlayableWatched>>, TError,SetPlayableWatchedMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setPlayableWatched>>,
+        TError,
+        SetPlayableWatchedMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetPlayableWatchedMutationOptions(options), queryClient);
+    }
+
+export const getSetTitleWatchedUrl = (titleId: string,) => {
+
+
+
+
+  return `/titles/${titleId}/watched`
+}
+
+/**
+ * Applies `setPlayableWatched` to every Playable of the title, or of one season when `seasonNumber` is given.
+ * Episodes marked watched together count as watched in season and episode order, so Next Up offers the episode
+ * after the last one marked.
+ * @summary Marks a whole movie or show, or one season of a show, watched or unwatched for the session's profile (SPEC §8 browsing).
+ */
+export const setTitleWatched = async (titleId: string,
+    titleWatchedRequest: TitleWatchedRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getSetTitleWatchedUrl(titleId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(titleWatchedRequest)
+  }
+);}
+
+
+
+
+
+export const getSetTitleWatchedMutationKey = () => ['setTitleWatched'] as const;
+
+export const getSetTitleWatchedMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTitleWatched>>, TError,SetTitleWatchedMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setTitleWatched>>, TError,SetTitleWatchedMutationVariables, TContext> => {
+
+const mutationKey = getSetTitleWatchedMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setTitleWatched>>, SetTitleWatchedMutationVariables> = (props) => {
+          const {titleId,data} = props ?? {};
+
+          return  setTitleWatched(titleId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetTitleWatchedMutationResult = NonNullable<Awaited<ReturnType<typeof setTitleWatched>>>
+    export type SetTitleWatchedMutationBody = TitleWatchedRequest
+    export type SetTitleWatchedMutationError = ErrorType<Problem | ProblemResponse>
+    export type SetTitleWatchedMutationVariables = {titleId: string;data: TitleWatchedRequest}
+
+    /**
+ * @summary Marks a whole movie or show, or one season of a show, watched or unwatched for the session's profile (SPEC §8 browsing).
+ */
+export const useSetTitleWatched = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTitleWatched>>, TError,SetTitleWatchedMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setTitleWatched>>,
+        TError,
+        SetTitleWatchedMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetTitleWatchedMutationOptions(options), queryClient);
     }
 

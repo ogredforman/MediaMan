@@ -3,6 +3,9 @@ namespace MediaMan.Playback.Progress;
 /// <summary>A profile's progress on a Playable as the rules record it.</summary>
 public readonly record struct RecordedProgress(double PositionSeconds, double DurationSeconds, bool Watched);
 
+/// <summary>One Playable of a title for <see cref="WatchRules.TitleWatched"/>: its season (null for a movie) and whether it was watched.</summary>
+public readonly record struct PlayableWatch(int? SeasonNumber, bool Watched);
+
 /// <summary>An episode by its place in a show: season and episode number.</summary>
 public readonly record struct EpisodeSlot(int SeasonNumber, int EpisodeNumber);
 
@@ -74,5 +77,17 @@ public static class WatchRules
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Whether a title counts as watched: every Playable outside specials is watched, or every special when the title
+    /// has nothing else. A title without Playables isn't.
+    /// </summary>
+    public static bool TitleWatched(IReadOnlyCollection<PlayableWatch> playables)
+    {
+        var counted = playables.Any(p => p.SeasonNumber != SpecialsSeason)
+            ? playables.Where(p => p.SeasonNumber != SpecialsSeason)
+            : playables;
+        return playables.Count > 0 && counted.All(p => p.Watched);
     }
 }

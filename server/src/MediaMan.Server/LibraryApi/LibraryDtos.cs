@@ -75,7 +75,8 @@ public sealed record TitleSummary(
     int? Year,
     double? Rating,
     IReadOnlyList<string> Genres,
-    ArtworkRef? Poster);
+    ArtworkRef? Poster,
+    bool Watched);
 
 public sealed record TitlePage(IReadOnlyList<TitleSummary> Items, PageInfo PageInfo);
 
