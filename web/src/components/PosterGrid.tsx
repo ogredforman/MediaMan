@@ -4,27 +4,37 @@ import { getListTitlesQueryKey, listTitles, useListLibraries } from '../api/medi
 import type { TitleKind, TitlePage, TitleSummary } from '../api/mediaman.schemas';
 import { artworkSrc, type ApiError } from '../lib/http';
 import { ScanLibraryButton } from './ScanStatus';
+import { WatchedBadge, WatchedButton } from './WatchedButton';
 
 const labels: Record<TitleKind, { heading: string; plural: string }> = {
   movie: { heading: 'Movies', plural: 'movies' },
   show: { heading: 'Shows', plural: 'shows' },
 };
 
+/** A poster that opens the title, with its watched marker and a Mark watched action over the poster. */
 export function PosterCard({ title }: { title: TitleSummary }) {
   return (
-    <Link to="/titles/$titleId" params={{ titleId: title.id }} className="group block rounded-card">
-      <div className="aspect-[2/3] overflow-hidden rounded-card bg-surface shadow-soft ring-highlight transition-shadow duration-(--motion-fast) group-hover:ring-2">
-        {title.poster ? (
-          <img src={artworkSrc(title.poster)} alt="" loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <div aria-hidden="true" className="flex h-full items-center justify-center p-4 text-center text-highlight">
-            {title.name}
-          </div>
-        )}
-      </div>
-      <p className="mt-2 truncate font-medium">{title.name}</p>
-      {title.year !== undefined && <p className="text-sm text-fg-muted">{title.year}</p>}
-    </Link>
+    <div className="group relative">
+      <Link
+        to="/titles/$titleId"
+        params={{ titleId: title.id }}
+        className="block rounded-card outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight"
+      >
+        <div className="relative aspect-[2/3] overflow-hidden rounded-card bg-surface shadow-soft ring-highlight transition-shadow duration-(--motion-fast) group-hover:ring-2">
+          {title.poster ? (
+            <img src={artworkSrc(title.poster)} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : (
+            <div aria-hidden="true" className="flex h-full items-center justify-center p-4 text-center text-highlight">
+              {title.name}
+            </div>
+          )}
+          {title.watched && <WatchedBadge />}
+        </div>
+        <p className="mt-2 truncate font-medium">{title.name}</p>
+        {title.year !== undefined && <p className="text-sm text-fg-muted">{title.year}</p>}
+      </Link>
+      <WatchedButton overlay target={{ titleId: title.id }} watched={title.watched} name={title.name} />
+    </div>
   );
 }
 
