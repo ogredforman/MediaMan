@@ -8,7 +8,7 @@
 --
 -- Up next (SPEC §7.4 step 5): the main process sends `script-message mediaman-up-next <seconds> <title>`; the card
 -- counts down and answers `script-message mediaman-up-next-choice play` when it runs out or on Play now (Enter), or
--- `... cancel` on Cancel (Esc) or a seek.
+-- `... cancel` on Cancel (Esc) or a seek that lands before where the card appeared.
 
 local assdraw = require 'mp.assdraw'
 local options = require 'mp.options'
@@ -538,7 +538,8 @@ end
 mp.register_script_message('mediaman-up-next', function(seconds, title)
   if state.up_next then return end
   local total = math.max(1, math.min(60, math.floor(tonumber(seconds) or 10)))
-  local up = { title = title or '', seconds = total, deadline = mp.get_time() + total }
+  -- `from`: where the card appeared; a seek landing before it means the viewer went back to keep watching.
+  local up = { title = title or '', seconds = total, deadline = mp.get_time() + total, from = mp.get_property_number('time-pos') }
   up.timer = mp.add_periodic_timer(0.25, function()
     if mp.get_time() >= up.deadline then finish_up_next('play') else request_render() end
   end)
@@ -606,9 +607,14 @@ mp.observe_property('track-list', 'native', function(_, v)
 end)
 
 mp.observe_property('osd-dimensions', 'native', request_render)
-mp.register_event('seek', function()
-  -- Seeking means the viewer wants to keep watching this one.
-  finish_up_next('cancel')
-  poke()
+mp.register_event('seek', poke)
+-- Only a seek that has landed before the card cancels it: a click on the seek bar seeks twice (on press, then exactly
+-- on release) and a drag many times, so the card can arrive between two seeks into the credits and must survive them.
+-- While the bar is held the keyframe seeks may land early, so only the exact seek on release (or a key seek) decides.
+mp.register_event('playback-restart', function()
+  local up = state.up_next
+  if not up or not up.from or state.dragging then return end
+  local pos = mp.get_property_number('time-pos')
+  if pos and pos < up.from - 1 then finish_up_next('cancel') end
 end)
 mp.register_event('file-loaded', poke)

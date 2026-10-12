@@ -1,19 +1,10 @@
-import { useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSetPlayableWatched, useSetTitleWatched } from '../api/mediaman';
+import { invalidateBrowseQueries } from './browseQueries';
 import type { ApiError } from './http';
 
 /** What a Mark watched action applies to: one movie or episode, or a whole title or one of a show's seasons. */
 export type WatchedTarget = { playableId: string } | { titleId: string; seasonNumber?: number | undefined };
-
-// Prefixes of the generated query keys: /titles (grids and every detail), /home and /search (not /catalog/search).
-const refreshedKeys = ['/titles', '/home', '/search'];
-
-/** After marking: the grids, every title detail, Home and search results may show a different watched state. */
-export function invalidateAfterWatched(queryClient: QueryClient) {
-  return queryClient.invalidateQueries({
-    predicate: ({ queryKey: [first] }) => typeof first === 'string' && refreshedKeys.some((key) => first.startsWith(key)),
-  });
-}
 
 export interface MarkWatched {
   mark: (target: WatchedTarget, watched: boolean) => void;
@@ -24,7 +15,7 @@ export interface MarkWatched {
 /** `PUT /playables/{id}/watched` or `PUT /titles/{id}/watched`, then refreshes what shows watched state. */
 export function useMarkWatched(): MarkWatched {
   const queryClient = useQueryClient();
-  const mutation = { onSuccess: () => invalidateAfterWatched(queryClient) };
+  const mutation = { onSuccess: () => invalidateBrowseQueries(queryClient) };
   const playable = useSetPlayableWatched({ mutation });
   const title = useSetTitleWatched({ mutation });
 

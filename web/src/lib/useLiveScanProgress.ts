@@ -1,7 +1,8 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { getListLibrariesQueryKey, getListTitlesQueryKey } from '../api/mediaman';
+import { getListLibrariesQueryKey } from '../api/mediaman';
 import type { Library, LibraryPage, ScanProgressEvent } from '../api/mediaman.schemas';
+import { invalidateBrowseQueries } from './browseQueries';
 import { connectEvents } from './events';
 
 function isScanProgress(value: unknown): value is ScanProgressEvent {
@@ -10,7 +11,7 @@ function isScanProgress(value: unknown): value is ScanProgressEvent {
   return typeof v.libraryId === 'string' && typeof v.scan === 'object' && v.scan !== null;
 }
 
-/** Puts a library's new scan state into every cached library list; a finished scan refreshes the titles. */
+/** Puts a library's new scan state into every cached library list; a finished scan refreshes what shows the library. */
 export function applyLibraryUpdate(queryClient: QueryClient, libraryId: string, scan: Library['scan']): void {
   const known = queryClient
     .getQueriesData<LibraryPage>({ queryKey: getListLibrariesQueryKey() })
@@ -25,7 +26,7 @@ export function applyLibraryUpdate(queryClient: QueryClient, libraryId: string, 
     };
   });
   if (!known) void queryClient.invalidateQueries({ queryKey: getListLibrariesQueryKey() });
-  if (scan.state === 'idle') void queryClient.invalidateQueries({ queryKey: getListTitlesQueryKey() });
+  if (scan.state === 'idle') void invalidateBrowseQueries(queryClient);
 }
 
 /** Follows `GET /events` while mounted and applies `scan.progress` to the query cache (SPEC §11: live progress). */
@@ -39,7 +40,7 @@ export function useLiveScanProgress(): void {
       // A scan may have finished while disconnected, so refresh what its events would have updated.
       onOpen: () => {
         void queryClient.invalidateQueries({ queryKey: getListLibrariesQueryKey() });
-        void queryClient.invalidateQueries({ queryKey: getListTitlesQueryKey() });
+        void invalidateBrowseQueries(queryClient);
       },
       onEvent: (event) => {
         if (event.type === 'scan.progress' && isScanProgress(event.data)) {
