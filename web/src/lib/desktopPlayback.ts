@@ -1,6 +1,7 @@
 // Play on desktop (SPEC §7.4): a playback session from the server, MPV through the desktop bridge, every progress
 // event reported back, and "Up next" from the credits (or the end of the file) when the server names a next episode. It lives outside React so leaving the page doesn't stop the reports.
-import { useSyncExternalStore } from 'react';
+import { useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
 import type { NextEpisode, PlaybackSession, SubtitleTrack, WatchProgress, WatchProgressReport } from '../api/mediaman.schemas';
 import { desktopBridge, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
@@ -240,4 +241,19 @@ const noop = () => () => undefined;
 
 export function useDesktopPlayback(playback: DesktopPlayback | null): DesktopPlaybackState {
   return useSyncExternalStore(playback?.subscribe ?? noop, playback?.getState ?? (() => idle));
+}
+
+/** Refetches `queryKey` when a desktop launch stops playing, so Resume and Watched show the progress just recorded. */
+export function useRefetchAfterPlayback(queryKey: QueryKey) {
+  const playback = desktopPlayback();
+  const state = useDesktopPlayback(playback);
+  const queryClient = useQueryClient();
+  const playing = state.status === 'playing' ? state.playableId : undefined;
+  const last = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const was = last.current;
+    last.current = playing;
+    if (!playback || was === undefined || was === playing) return;
+    void playback.reported().then(() => queryClient.invalidateQueries({ queryKey }));
+  }, [playback, playing, queryClient, queryKey]);
 }

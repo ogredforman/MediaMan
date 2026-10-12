@@ -28,7 +28,7 @@ function PosterCard({ title }: { title: TitleSummary }) {
   );
 }
 
-function EmptyLibrary({ plural }: { plural: string }) {
+export function EmptyLibrary({ plural }: { plural: string }) {
   const libraries = useListLibraries();
   if (libraries.isPending) return null;
   if (libraries.isError) {

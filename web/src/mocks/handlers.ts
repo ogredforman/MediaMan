@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import {
   getCompleteSetupMockHandler,
+  getGetHomeMockHandler,
   getGetHealthMockHandler,
   getListTitlesMockHandler,
   getLoginMockHandler,
@@ -14,6 +15,7 @@ import { createMockVersions } from './versions';
 import type {
   AuthTokens,
   CreatePlaybackSessionRequest,
+  Home,
   PlaybackSession,
   TitleDetail,
   TitleSummary,
@@ -188,6 +190,38 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
 };
 
 /**
+ * Home for the mock profile, in step with `mockTitleDetails`: The Office as the hero, resuming its Pilot where the
+ * detail page does, then Continue Watching, Next Up and Recently Added.
+ */
+export const mockHome: Home = {
+  hero: {
+    title: office,
+    overview: 'A mockumentary on a group of typical office workers.',
+    playableId: episodePlayableId(1),
+    episode: { seasonNumber: 1, number: 1, name: 'Pilot' },
+    resumeSeconds: 615,
+  },
+  rows: [
+    {
+      kind: 'continueWatching',
+      items: [
+        {
+          title: office,
+          playableId: episodePlayableId(1),
+          episode: { seasonNumber: 1, number: 1, name: 'Pilot' },
+          progress: { positionSeconds: 615, durationSeconds: 1380 },
+        },
+      ],
+    },
+    {
+      kind: 'nextUp',
+      items: [{ title: office, playableId: episodePlayableId(4), episode: { seasonNumber: 2, number: 1, name: 'The Dundies' } }],
+    },
+    { kind: 'recentlyAdded', items: [office, dune, arrival].map((title) => ({ title })) },
+  ],
+};
+
+/**
  * A `GET /events` handler whose streams stay open until the client disconnects, plus `send` to push an event to
  * every open stream. Tests make their own with `server.use(stream.handler)`.
  */
@@ -272,6 +306,7 @@ export const handlers = [
   ...mockLibraries.handlers,
   ...mockAttention.handlers,
   ...mockVersions.handlers,
+  getGetHomeMockHandler(mockHome),
   getListTitlesMockHandler(({ request }) => {
     const kind = new URL(request.url).searchParams.get('kind');
     return { items: mockTitles.filter((t) => kind === null || t.kind === kind), pageInfo: {} };
