@@ -15,4 +15,9 @@
     <None Include="..\..\..\contracts\openapi.yaml" Link="contracts\openapi.yaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The dev configuration exists only in Debug builds of the server, so its tests do too. -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="DevConfigurationTests.cs" />
+  </ItemGroup>
+
 </Project>
