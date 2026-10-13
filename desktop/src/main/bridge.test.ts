@@ -165,6 +165,19 @@ describe('registerBridge', () => {
     expect(player.upNexts).toEqual([offer]);
   });
 
+  it('shows a notice on the current launch and refuses an empty or oversized one', async () => {
+    const { call, player } = setUp(serverOrigin);
+    const { event } = uiWindow();
+    await call(bridgeChannels.playerPlay, event, 'launch-1', playRequest);
+
+    await call(bridgeChannels.playerNotice, event, 'launch-1', "Can't reach the MediaMan server.");
+    await expect(call(bridgeChannels.playerNotice, event, 'launch-1', ' ')).rejects.toThrow(/notice/);
+    await expect(call(bridgeChannels.playerNotice, event, 'launch-1', 'x'.repeat(501))).rejects.toThrow(/notice/);
+    await expect(call(bridgeChannels.playerNotice, event, 7, 'Hi')).rejects.toThrow(/notice/);
+
+    expect(player.notices).toEqual(["Can't reach the MediaMan server."]);
+  });
+
   it('answers the picked MPV, or cancelled when the picker is cancelled', async () => {
     const { call, cancelPicker } = setUp(undefined);
 

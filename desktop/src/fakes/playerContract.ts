@@ -19,8 +19,10 @@ export interface PlayerHarness {
   chooseUpNext(choice: UpNextChoice): Promise<void>;
   /** The viewer picks Previous or Next episode. */
   chooseEpisode(choice: EpisodeChoice): Promise<void>;
+  /** The notices the player was shown, in order. */
+  notices(): string[];
   failNextStart(): void;
-  /** How many times playback actually started. */
+  /** How many times a player window was opened. */
   launches(): number;
 }
 
@@ -125,12 +127,41 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       expect(ended).toEqual([]);
     });
 
-    it('ends the current playback with quit when another one starts', async () => {
+    it('replaces the current playback in the same window, ending it before the new one reports', async () => {
       await harness.player.play(contractPlay);
+      await harness.progress({ positionSeconds: 1300, durationSeconds: 1380, paused: false });
+      const events: string[] = [];
+      harness.player.onProgress((p) => events.push(`progress:${String(p.positionSeconds)}`));
+      harness.player.onEnded((reason) => events.push(`ended:${reason}`));
+
       await harness.player.play({ ...contractPlay, title: 'Aliens (1986)' });
+      await harness.progress({ positionSeconds: 4, durationSeconds: 1500, paused: false });
 
       expect(ended).toEqual([['quit', undefined]]);
-      expect(harness.launches()).toBe(2);
+      // The old file's late events (MpvPlayer's fake MPV sends a stray position) never reach the new one.
+      const after = events.filter((e) => e !== 'progress:1300');
+      expect(after.slice(0, 2)).toEqual(['ended:quit', 'progress:4']);
+      expect(new Set(after.slice(1))).toEqual(new Set(['progress:4']));
+      expect(harness.launches()).toBe(1);
+    });
+
+    it('starts fresh on a replaced playback: its credits are reported again', async () => {
+      await harness.player.play(contractPlay);
+      await harness.reachCredits();
+      await harness.player.play({ ...contractPlay, title: 'Aliens (1986)' });
+      await harness.reachCredits();
+
+      expect(marks).toEqual(['credits', 'credits']);
+    });
+
+    it('shows a notice over the current playback, and none when nothing plays', async () => {
+      harness.player.showNotice('Before');
+      await harness.player.play(contractPlay);
+      harness.player.showNotice("Can't reach the MediaMan server.");
+      await harness.player.stop();
+      harness.player.showNotice('After');
+
+      expect(harness.notices()).toEqual(["Can't reach the MediaMan server."]);
     });
 
     it('plays again after a playback ended', async () => {

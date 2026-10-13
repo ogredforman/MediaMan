@@ -6,7 +6,8 @@ import { PlayerHost, type PlayerEvent } from './playerHost.js';
 
 const opts: PlayOptions = { url: 'http://127.0.0.1:8420/media-files/1/stream?sig=x', startSeconds: 0, subtitles: [], title: 'Alien (1979)' };
 
-function setUp(mpvPath = 'mpv') {
+function setUp(initialPath = 'mpv') {
+  let mpvPath = initialPath;
   const players: FakePlayer[] = [];
   const paths: string[] = [];
   const events: PlayerEvent[] = [];
@@ -22,7 +23,10 @@ function setUp(mpvPath = 'mpv') {
   const send = (event: PlayerEvent) => {
     events.push(event);
   };
-  return { host, players, paths, events, send };
+  const pick = (path: string) => {
+    mpvPath = path;
+  };
+  return { host, players, paths, events, send, pick };
 }
 
 describe('PlayerHost', () => {
@@ -41,18 +45,49 @@ describe('PlayerHost', () => {
     ]);
   });
 
-  it('stops the current launch before the next one, so its quit carries the old id', async () => {
+  it('plays the next launch in the same MPV window, so the old quit carries the old id and later events the new one', async () => {
     const { host, players, events, send } = setUp();
 
     await host.play('a', opts, send);
-    await host.play('b', opts, send);
-    players[1]?.emitEnded('eof');
+    await host.play('b', { ...opts, title: 'Aliens (1986)' }, send);
+    players[0]?.emitProgress({ positionSeconds: 4, durationSeconds: 100, paused: false });
+    players[0]?.emitEnded('eof');
 
-    expect(players[0]?.stopCalls).toBeGreaterThan(0);
+    expect(players).toHaveLength(1);
+    expect(players[0]?.launches).toBe(1);
+    expect(players[0]?.plays.map((p) => p.title)).toEqual(['Alien (1979)', 'Aliens (1986)']);
     expect(events).toEqual([
       { launchId: 'a', type: 'ended', reason: 'quit' },
+      { launchId: 'b', type: 'progress', positionSeconds: 4, durationSeconds: 100, paused: false },
       { launchId: 'b', type: 'ended', reason: 'eof' },
     ]);
+  });
+
+  it('opens a new window after the last launch ended, with the next launch id', async () => {
+    const { host, players, events, send } = setUp();
+
+    await host.play('a', opts, send);
+    players[0]?.emitEnded('error', 'loading failed');
+    await host.play('b', opts, send);
+    players[0]?.emitEnded('quit');
+
+    expect(players[0]?.launches).toBe(2);
+    expect(events).toEqual([
+      { launchId: 'a', type: 'ended', reason: 'error', detail: 'loading failed' },
+      { launchId: 'b', type: 'ended', reason: 'quit' },
+    ]);
+  });
+
+  it('stops the current MPV and starts the newly picked one when the MPV path changed', async () => {
+    const { host, players, paths, events, send, pick } = setUp('/opt/mpv');
+
+    await host.play('a', opts, send);
+    pick('/usr/bin/mpv');
+    await host.play('b', opts, send);
+
+    expect(paths).toEqual(['/opt/mpv', '/usr/bin/mpv']);
+    expect(players.map((p) => p.playing)).toEqual([false, true]);
+    expect(events).toEqual([{ launchId: 'a', type: 'ended', reason: 'quit' }]);
   });
 
   it('runs overlapping plays one after the other, leaving only the newest playing', async () => {
@@ -60,7 +95,8 @@ describe('PlayerHost', () => {
 
     await Promise.all([host.play('a', opts, send), host.play('b', opts, send)]);
 
-    expect(players.map((p) => p.playing)).toEqual([false, true]);
+    expect(players).toHaveLength(1);
+    expect(players[0]?.plays).toHaveLength(2);
     expect(events).toEqual([{ launchId: 'a', type: 'ended', reason: 'quit' }]);
   });
 
@@ -81,7 +117,7 @@ describe('PlayerHost', () => {
     await expect(host.play('b', opts, send)).resolves.toEqual({ ok: true });
   });
 
-  it('forwards the credits, the end of the file, the Up next and episode choices, and shows Up next only on the current launch', async () => {
+  it('forwards the credits, the end of the file, the Up next and episode choices, and shows Up next and notices only on the current launch', async () => {
     const { host, players, events, send } = setUp();
     await host.play('a', opts, send);
     const offer = { title: 'Show S01E02 · Two', seconds: 10 };
@@ -90,10 +126,13 @@ describe('PlayerHost', () => {
     players[0]?.emitEndReached();
     host.upNext('old', offer);
     host.upNext('a', offer);
+    host.notice('old', 'Old');
+    host.notice('a', "Can't reach the MediaMan server.");
     players[0]?.emitUpNextChoice('play');
     players[0]?.emitEpisodeChoice('previous');
 
     expect(players[0]?.upNexts).toEqual([offer]);
+    expect(players[0]?.notices).toEqual(["Can't reach the MediaMan server."]);
     expect(events).toEqual([
       { launchId: 'a', type: 'credits' },
       { launchId: 'a', type: 'endReached' },

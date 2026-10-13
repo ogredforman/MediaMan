@@ -6,7 +6,11 @@ export class FakePlayer implements IPlayer {
   readonly plays: PlayOptions[] = [];
   /** Every "Up next" countdown shown while something played. */
   readonly upNexts: UpNextOffer[] = [];
+  /** Every notice shown while something played. */
+  readonly notices: string[] = [];
   stopCalls = 0;
+  /** Plays that opened a new window; a play while something plays replaces it in the same window. */
+  launches = 0;
   playing = false;
   private readonly progressListeners: ((p: PlayerProgress) => void)[] = [];
   private readonly endedListeners: ((reason: PlayerEndReason, detail?: string) => void)[] = [];
@@ -49,7 +53,18 @@ export class FakePlayer implements IPlayer {
     if (this.playing) this.upNexts.push(offer);
   }
 
+  showNotice(text: string): void {
+    if (this.playing) this.notices.push(text);
+  }
+
   async play(opts: PlayOptions): Promise<void> {
+    if (this.playing) {
+      // Replaced in the same window: the old file ends first, as MpvPlayer's loadfile does.
+      this.emitEnded('quit');
+      this.plays.push(opts);
+      this.playing = true;
+      return;
+    }
     await this.stop();
     const failure = this.nextFailure;
     if (failure) {
@@ -57,6 +72,7 @@ export class FakePlayer implements IPlayer {
       throw failure;
     }
     this.plays.push(opts);
+    this.launches++;
     this.playing = true;
   }
 

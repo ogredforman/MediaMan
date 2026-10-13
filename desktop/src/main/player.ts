@@ -50,6 +50,10 @@ export interface UpNextOffer {
 export type UpNextChoice = 'play' | 'cancel';
 
 export interface IPlayer {
+  /**
+   * Plays `opts`. While a file is still open (playing, or holding its last frame) it is replaced in the same window;
+   * the old file's last progress and `ended('quit')` always come before any event from the new one.
+   */
   play(opts: PlayOptions): Promise<void>;
   onProgress(cb: (p: PlayerProgress) => void): void;
   onEnded(cb: (reason: PlayerEndReason, detail?: string) => void): void;
@@ -61,5 +65,7 @@ export interface IPlayer {
   onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void;
   /** Shows the "Up next" countdown over the current playback; does nothing when nothing plays. */
   showUpNext(offer: UpNextOffer): void;
+  /** Shows a message on screen over the current playback, such as a lost server; does nothing when nothing plays. */
+  showNotice(text: string): void;
   stop(): Promise<void>;
 }

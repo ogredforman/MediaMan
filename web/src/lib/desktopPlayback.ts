@@ -1,12 +1,13 @@
 // Play on desktop (SPEC §7.4): a playback session from the server, MPV through the desktop bridge, every progress
 // event reported back, "Up next" from the credits (or the end of the file) when the server names a next episode, and
-// the OSC's Previous and Next episode buttons. It lives outside React so leaving the page doesn't stop the reports.
+// the OSC's Previous and Next episode buttons, and a lost server shown in MPV. It lives outside React so leaving the page
+// doesn't stop the reports.
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
 import type { NextEpisode, PlaybackSession, SubtitleTrack, WatchProgress, WatchProgressReport } from '../api/mediaman.schemas';
 import { desktopBridge, type DesktopMpvChoice, type DesktopPlayerBridge, type DesktopPlayerEvent, type DesktopPlayOptions } from './desktop';
-import { apiUrl } from './http';
+import { ApiError, apiUrl } from './http';
 
 export type PlaybackFailure =
   /** MPV couldn't be started; the UI offers "Open MPV settings". */
@@ -48,6 +49,13 @@ interface Launch {
   nextEpisode?: NextEpisode | undefined;
 }
 
+/**
+ * Shown in MPV while progress reports can't reach the server, so a viewer in fullscreen MPV learns why the stream will
+ * stall once its cache runs out (SPEC §11). Reports go every 10 s, also while paused, so it stays up until they land.
+ */
+export const serverLostNotice =
+  "Can't reach the MediaMan server. Playback goes on from what's buffered; check that the server is running, then press Play in MediaMan.";
+
 /** How long "Up next" counts down before the next episode starts (SPEC §7.4 step 5). */
 export const upNextSeconds = 10;
 
@@ -82,7 +90,11 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
       .then((recorded) => {
         self.next = recorded.nextEpisode;
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if (current === self && error instanceof ApiError && error.problem.code === 'network.unreachable') {
+          player.notice(self.launchId, serverLostNotice).catch(() => undefined);
+        }
+      });
   };
 
   // MPV reports progress just before the credits and the end of the file, so waiting for the reports gives the

@@ -637,13 +637,14 @@ end
 
 local up_next_keys = { 'mediaman-up-next-enter', 'mediaman-up-next-kp-enter', 'mediaman-up-next-esc' }
 
+-- A nil choice dismisses the card without an answer, when another file replaces this one.
 finish_up_next = function(choice)
   local up = state.up_next
   if not up then return end
   up.timer:kill()
   state.up_next = nil
   for _, name in ipairs(up_next_keys) do mp.remove_key_binding(name) end
-  mp.commandv('script-message', 'mediaman-up-next-choice', choice)
+  if choice then mp.commandv('script-message', 'mediaman-up-next-choice', choice) end
   request_render()
 end
 
@@ -743,3 +744,10 @@ mp.register_event('playback-restart', function()
   if pos and pos < up.from - 1 then finish_up_next('cancel') end
 end)
 mp.register_event('file-loaded', poke)
+-- The desktop app loads the next episode into this window (loadfile): drop the last file's card and neighbours; the
+-- new file's arrive with its file-loaded.
+mp.register_event('start-file', function()
+  finish_up_next(nil)
+  state.episodes = nil
+  request_render()
+end)

@@ -14,6 +14,7 @@ export const bridgeChannels = {
   playerPlay: 'mediaman:player-play',
   playerStop: 'mediaman:player-stop',
   playerUpNext: 'mediaman:player-up-next',
+  playerNotice: 'mediaman:player-notice',
   playerChooseMpv: 'mediaman:player-choose-mpv',
   playerMpvSetting: 'mediaman:player-mpv-setting',
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
@@ -42,7 +43,7 @@ export interface BridgeOptions {
   /** The server the desktop app started or connected to; undefined when the UI reaches the API on its own origin. */
   serverUrl: () => string | undefined;
   tokens: Pick<TokenStore, 'get' | 'set' | 'clear'>;
-  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext'>;
+  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext' | 'notice'>;
   /** Shows the native picker for the MPV executable and saves the choice if it is MPV. */
   chooseMpv: () => Promise<MpvChoice>;
   /** The MPV the next Play uses and where it comes from. */
@@ -94,6 +95,13 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
       const offer = parseUpNextOffer(value);
       if (typeof launchId !== 'string' || !offer) throw new Error("This Up next request isn't valid.");
       options.player.upNext(launchId, offer);
+    }),
+  );
+  ipc.handle(
+    bridgeChannels.playerNotice,
+    guard((_, launchId: unknown, text: unknown) => {
+      if (typeof launchId !== 'string' || !isNoticeText(text)) throw new Error("This notice request isn't valid.");
+      options.player.notice(launchId, text);
     }),
   );
   ipc.handle(bridgeChannels.playerChooseMpv, guard(() => options.chooseMpv()));
@@ -173,6 +181,11 @@ export function parseUpNextOffer(value: unknown): UpNextOffer | undefined {
 }
 
 const maxUpNextTitle = 500;
+
+/** A message for MPV's OSD: one line of display text, nothing that could read as an MPV command or option. */
+function isNoticeText(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '' && value.length <= maxUpNextTitle;
+}
 
 function parseSubtitle(value: unknown, serverOrigin: string): SubtitleTrack | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
