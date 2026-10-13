@@ -1,7 +1,7 @@
 // The main-process side of the preload bridge (src/preload/index.cts): the current server, its tokens and the player.
 // Only the web UI's origin may call it, and it only ever acts on the current server.
 import type { MpvSetting } from './desktopSettings.js';
-import type { PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
+import type { EpisodeNeighbours, PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
 import type { PlayerEvent, PlayerHost, PlayResult } from './playerHost.js';
 import { parseStoredTokens, type StoredTokens, type TokenStore } from './tokenStore.js';
 
@@ -105,7 +105,7 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
 export function parsePlayOptions(value: unknown, serverOrigin: string): PlayOptions | undefined {
   if (typeof value !== 'object' || value === null) return undefined;
   const v = value as Record<string, unknown>;
-  const { url, startSeconds, title, subtitles, audioLanguages, subtitleLanguages } = v;
+  const { url, startSeconds, title, subtitles, audioLanguages, subtitleLanguages, episodes } = v;
   if (!isServerUrl(url, serverOrigin) || typeof title !== 'string') return undefined;
   if (typeof startSeconds !== 'number' || !Number.isFinite(startSeconds) || startSeconds < 0) return undefined;
   if (!Array.isArray(subtitles)) return undefined;
@@ -118,6 +118,8 @@ export function parsePlayOptions(value: unknown, serverOrigin: string): PlayOpti
   const audio = parseLanguageTags(audioLanguages);
   const subtitle = parseLanguageTags(subtitleLanguages);
   if (audio === null || subtitle === null) return undefined;
+  const neighbours = parseEpisodes(episodes);
+  if (neighbours === null) return undefined;
   return {
     url,
     startSeconds,
@@ -125,7 +127,22 @@ export function parsePlayOptions(value: unknown, serverOrigin: string): PlayOpti
     subtitles: tracks,
     ...(audio === undefined ? {} : { audioLanguages: audio }),
     ...(subtitle === undefined ? {} : { subtitleLanguages: subtitle }),
+    ...(neighbours === undefined ? {} : { episodes: neighbours }),
   };
+}
+
+/** An episode's neighbours: absent is fine (undefined), otherwise optional display titles like Up next's; else null. */
+function parseEpisodes(value: unknown): EpisodeNeighbours | null | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'object' || value === null) return null;
+  const neighbours: EpisodeNeighbours = {};
+  for (const key of ['previous', 'next'] as const) {
+    const title = (value as Record<string, unknown>)[key];
+    if (title === undefined) continue;
+    if (typeof title !== 'string' || title.trim() === '' || title.length > maxUpNextTitle) return null;
+    neighbours[key] = title;
+  }
+  return neighbours;
 }
 
 /**

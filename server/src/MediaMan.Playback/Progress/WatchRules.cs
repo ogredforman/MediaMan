@@ -80,6 +80,36 @@ public static class WatchRules
     }
 
     /// <summary>
+    /// The episode before <paramref name="current"/> among <paramref name="candidates"/>: the previous number in its
+    /// season, else the last episode of the latest earlier season that isn't specials. Null when there is none.
+    /// </summary>
+    public static EpisodeSlot? PreviousEpisode(EpisodeSlot current, IEnumerable<EpisodeSlot> candidates)
+    {
+        var ordered = candidates.Distinct()
+            .OrderByDescending(c => c.SeasonNumber)
+            .ThenByDescending(c => c.EpisodeNumber)
+            .ToList();
+
+        foreach (var c in ordered)
+        {
+            if (c.SeasonNumber == current.SeasonNumber && c.EpisodeNumber < current.EpisodeNumber)
+            {
+                return c;
+            }
+        }
+
+        foreach (var c in ordered)
+        {
+            if (c.SeasonNumber < current.SeasonNumber && c.SeasonNumber != SpecialsSeason)
+            {
+                return c;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Whether a title counts as watched: every Playable outside specials is watched, or every special when the title
     /// has nothing else. A title without Playables isn't.
     /// </summary>

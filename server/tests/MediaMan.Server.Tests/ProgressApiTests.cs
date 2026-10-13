@@ -109,6 +109,20 @@ public sealed class ProgressApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_session_names_the_previous_and_next_episodes_with_a_file()
+    {
+        var first = await SessionAsync(_episodes["1x1"]);
+        (first.PreviousEpisode, first.NextEpisode).Should().Be(((NextEpisodeDto?)null, new NextEpisodeDto(_episodes["1x2"], 1, 2, "The Office S01E02 · Diversity Day")));
+
+        // S01E03's only file is missing, so before S02E01 comes S01E02.
+        var last = await SessionAsync(_episodes["2x1"]);
+        (last.PreviousEpisode?.PlayableId, last.NextEpisode).Should().Be((_episodes["1x2"], (NextEpisodeDto?)null));
+
+        var movie = await SessionAsync(_movie);
+        (movie.PreviousEpisode, movie.NextEpisode).Should().Be(((NextEpisodeDto?)null, (NextEpisodeDto?)null));
+    }
+
+    [Fact]
     public async Task A_next_episode_whose_file_is_gone_from_disk_is_skipped()
     {
         File.Delete(Path.Combine(_media, "1x2.mkv"));
@@ -216,6 +230,13 @@ public sealed class ProgressApiTests : IAsyncLifetime
 
     private static Task<HttpResponseMessage> PutAsync(HttpClient client, Guid playableId, object body) =>
         client.PutAsJsonAsync($"/playables/{playableId}/progress", body, Ct);
+
+    private async Task<PlaybackSessionDto> SessionAsync(Guid playableId)
+    {
+        using var response = await _client.PostAsJsonAsync("/playback/sessions", new { playableId, capabilities = new { player = "mpv" } }, Ct);
+        response.IsSuccessStatusCode.Should().BeTrue(await response.Content.ReadAsStringAsync(Ct));
+        return (await response.Content.ReadFromJsonAsync<PlaybackSessionDto>(JsonSerializerOptions.Web, Ct))!;
+    }
 
     private async Task<WatchProgressDto> ReportAsync(Guid playableId, double position, double duration)
     {

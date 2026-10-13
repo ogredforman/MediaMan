@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractPlay, describePlayerContract, settle } from '../fakes/playerContract.js';
-import { ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, upNextMessages, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
+import { episodeMessages, ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, upNextMessages, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
 import type { PlayerEndReason, PlayerProgress } from './player.js';
 
 /** A stand-in MPV process: answers IPC the way MPV does, and tests decide what it sends and when it exits. */
@@ -156,6 +156,10 @@ describePlayerContract('MpvPlayer', () => {
       mpv.send({ event: 'client-message', args: [upNextMessages.choice, choice] });
       await settle();
     },
+    chooseEpisode: async (choice) => {
+      mpv.send({ event: 'client-message', args: [episodeMessages.choice, choice] });
+      await settle();
+    },
     failNextStart: () => {
       mpv.failSpawn = new Error('spawn mpv ENOENT');
     },
@@ -215,6 +219,30 @@ describe('MpvPlayer', () => {
       ['sub-add', 'http://s/fr.srt', 'auto', 'fr', 'fr'],
       ['sub-add', 'http://s/x.srt', 'auto', 'External', ''],
     ]);
+  });
+
+  it("names an episode's neighbours to the OSC once the file has loaded, and nothing for a movie", async () => {
+    const { mpv, player } = setUp();
+    await player.play({ ...contractPlay, episodes: { next: 'Show S01E02 · Two' } });
+    mpv.send({ event: 'file-loaded' });
+    await player.play(contractPlay);
+    mpv.send({ event: 'file-loaded' });
+
+    expect(mpv.commands.filter(([name, message]) => name === 'script-message' && message === episodeMessages.show)).toEqual([
+      ['script-message', 'mediaman-episodes', '', 'Show S01E02 · Two'],
+    ]);
+  });
+
+  it('ignores episode choices it does not know', async () => {
+    const { mpv, player } = setUp();
+    const choices: string[] = [];
+    player.onEpisodeChoice((choice) => choices.push(choice));
+    await player.play(contractPlay);
+
+    mpv.send({ event: 'client-message', args: [episodeMessages.choice, 'first'] });
+    mpv.send({ event: 'client-message', args: [episodeMessages.choice] });
+
+    expect(choices).toEqual([]);
   });
 
   it('reports progress every 10 s', async () => {

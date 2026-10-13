@@ -18,7 +18,17 @@ export interface PlayOptions {
   audioLanguages?: string[];
   /** The profile's subtitle language tags in preference order (`--slang`); MPV applies them to embedded tracks. */
   subtitleLanguages?: string[];
+  /** An episode's neighbours with a file, by display title; the OSC offers them as Previous and Next episode. */
+  episodes?: EpisodeNeighbours;
 }
+
+export interface EpisodeNeighbours {
+  previous?: string;
+  next?: string;
+}
+
+/** The viewer asked for the previous or the next episode from the OSC. */
+export type EpisodeChoice = 'previous' | 'next';
 
 export interface PlayerProgress {
   positionSeconds: number;
@@ -48,6 +58,7 @@ export interface IPlayer {
   /** Playback reached the end and the player holds the last frame; after a progress report. */
   onEndReached(cb: () => void): void;
   onUpNextChoice(cb: (choice: UpNextChoice) => void): void;
+  onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void;
   /** Shows the "Up next" countdown over the current playback; does nothing when nothing plays. */
   showUpNext(offer: UpNextOffer): void;
   stop(): Promise<void>;

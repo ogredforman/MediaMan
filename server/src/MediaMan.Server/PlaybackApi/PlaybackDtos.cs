@@ -22,7 +22,9 @@ public sealed record PlaybackSessionDto(
     double? DurationSeconds,
     IReadOnlyList<SubtitleTrackDto> Subtitles,
     IReadOnlyList<string> AudioLanguages,
-    IReadOnlyList<string> SubtitleLanguages);
+    IReadOnlyList<string> SubtitleLanguages,
+    NextEpisodeDto? PreviousEpisode = null,
+    NextEpisodeDto? NextEpisode = null);
 
 public sealed record SubtitleTrackDto(string Url, string Format, string FileName, string? Language, bool Forced);
 

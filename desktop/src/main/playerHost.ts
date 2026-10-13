@@ -1,13 +1,14 @@
 // Runs one MPV launch at a time for the web UI's Play button (SPEC §7.4 steps 3–4 and 6) and forwards its events,
 // tagged with the launch id the UI chose, so the UI can ignore events from a launch it has replaced.
-import type { IPlayer, PlayerEndReason, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
+import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
 
 export type PlayerEvent =
   | { launchId: string; type: 'progress'; positionSeconds: number; durationSeconds: number; paused: boolean }
   | { launchId: string; type: 'ended'; reason: PlayerEndReason; detail?: string }
   | { launchId: string; type: 'credits' }
   | { launchId: string; type: 'endReached' }
-  | { launchId: string; type: 'upNext'; choice: UpNextChoice };
+  | { launchId: string; type: 'upNext'; choice: UpNextChoice }
+  | { launchId: string; type: 'episode'; choice: EpisodeChoice };
 
 /** What `play` answers over IPC; a rejected IPC call would lose the error's kind. */
 export type PlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
@@ -62,6 +63,9 @@ export class PlayerHost {
     });
     player.onUpNextChoice((choice) => {
       send({ launchId, type: 'upNext', choice });
+    });
+    player.onEpisodeChoice((choice) => {
+      send({ launchId, type: 'episode', choice });
     });
     const launch = { launchId, player };
     this.current = launch;

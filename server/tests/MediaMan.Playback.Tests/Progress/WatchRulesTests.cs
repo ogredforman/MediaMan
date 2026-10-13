@@ -91,6 +91,25 @@ public class WatchRulesNextEpisodeTests
         WatchRules.NextEpisode(new EpisodeSlot(1, 2), [new(0, 5), new(1, 1)]).Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(1, 2, 1, 1)]
+    [InlineData(1, 4, 1, 2)] // E03 has no file, so it's skipped.
+    [InlineData(3, 1, 1, 4)] // Season 2 has no files; the last episode of season 1 comes before.
+    [InlineData(3, 2, 3, 1)]
+    [InlineData(0, 2, 0, 1)]
+    public void The_previous_number_in_the_season_else_the_last_of_an_earlier_regular_season(int season, int episode, int previousSeason, int previousEpisode)
+    {
+        WatchRules.PreviousEpisode(new EpisodeSlot(season, episode), _show).Should().Be(new EpisodeSlot(previousSeason, previousEpisode));
+    }
+
+    [Theory]
+    [InlineData(1, 1)] // Specials never come before a regular season.
+    [InlineData(0, 1)]
+    public void The_first_episode_has_no_previous(int season, int episode)
+    {
+        WatchRules.PreviousEpisode(new EpisodeSlot(season, episode), _show).Should().BeNull();
+    }
+
     [Fact]
     public void A_movie_is_watched_when_its_playable_is()
     {

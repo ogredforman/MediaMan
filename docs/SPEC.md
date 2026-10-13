@@ -618,7 +618,7 @@ soft shadows, subtle motion (150–250 ms). Every interactive element is reachab
 - **Get dialog:** quality chips across the top, a live-ranked result list (quality badges, size, seeders, indexer), dangerous-release flags, failed-source notice.
 - **Downloads:** active, seeding and completed lists; VPN status badge always visible; requests tab for approvers ([L], with multiple users).
 - **Needs attention:** cards with the file name, parsed guess and candidate posters; one-click confirm or search.
-- **Player (desktop):** MPV with the purple Lua OSC (title, progress bar with chapters, audio and subtitle menus, Up next).
+- **Player (desktop):** MPV with the purple Lua OSC on a dark gradient (title, progress bar with chapters, skip back 10 s and forward 30 s, previous and next episode, audio and subtitle menus, Up next).
 - **Player (browser):** custom HTML5 player matching the OSC look.
 - **Settings:** Libraries, Playback, Torrents and VPN, Indexers, Quality (tier table, saved profiles), Users and roles, Remote access (the switch and guided setup, trusted proxies, the ban list), About and licences.
 - **Remote access badge:** while remote access is on, admins see a "Remote access on" badge in the shell (7.12).

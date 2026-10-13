@@ -81,7 +81,7 @@ describe('PlayerHost', () => {
     await expect(host.play('b', opts, send)).resolves.toEqual({ ok: true });
   });
 
-  it('forwards the credits, the end of the file and the Up next choice, and shows Up next only on the current launch', async () => {
+  it('forwards the credits, the end of the file, the Up next and episode choices, and shows Up next only on the current launch', async () => {
     const { host, players, events, send } = setUp();
     await host.play('a', opts, send);
     const offer = { title: 'Show S01E02 · Two', seconds: 10 };
@@ -91,12 +91,14 @@ describe('PlayerHost', () => {
     host.upNext('old', offer);
     host.upNext('a', offer);
     players[0]?.emitUpNextChoice('play');
+    players[0]?.emitEpisodeChoice('previous');
 
     expect(players[0]?.upNexts).toEqual([offer]);
     expect(events).toEqual([
       { launchId: 'a', type: 'credits' },
       { launchId: 'a', type: 'endReached' },
       { launchId: 'a', type: 'upNext', choice: 'play' },
+      { launchId: 'a', type: 'episode', choice: 'previous' },
     ]);
   });
 

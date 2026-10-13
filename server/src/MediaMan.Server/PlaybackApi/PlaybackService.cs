@@ -54,6 +54,7 @@ public sealed class PlaybackService(MediaManDbContext db, VersionPreferenceServi
             .ToList();
         // A profile deleted since the session picked it plays without preferences rather than failing.
         var profile = await db.Profiles.AsNoTracking().SingleOrDefaultAsync(p => p.Id == profileId, ct);
+        var neighbours = playable.EpisodeId is { } episodeId ? await EpisodeNeighboursAsync(episodeId, ct) : default;
 
         return (new PlaybackSessionDto(
             playableId,
@@ -65,7 +66,62 @@ public sealed class PlaybackService(MediaManDbContext db, VersionPreferenceServi
             duration,
             subtitles,
             MatchTagsOf(profile?.AudioLangPrefs ?? []),
-            MatchTagsOf(profile?.SubtitleLangPrefs ?? [])), null);
+            MatchTagsOf(profile?.SubtitleLangPrefs ?? []),
+            neighbours.Previous,
+            neighbours.Next), null);
+    }
+
+    /// <summary>
+    /// The episodes before and after <paramref name="episodeId"/> by <see cref="WatchRules.PreviousEpisode"/> and
+    /// <see cref="WatchRules.NextEpisode"/>, among the show's episodes with a file on disk.
+    /// </summary>
+    public async Task<(NextEpisodeDto? Previous, NextEpisodeDto? Next)> EpisodeNeighboursAsync(Guid episodeId, CancellationToken ct)
+    {
+        var (current, candidates) = await EpisodeCandidatesAsync(episodeId, ct);
+        return (await NeighbourAsync(WatchRules.PreviousEpisode(current, candidates.Keys), candidates, ct),
+            await NeighbourAsync(WatchRules.NextEpisode(current, candidates.Keys), candidates, ct));
+    }
+
+    /// <summary>The episode after <paramref name="episodeId"/>, as <see cref="EpisodeNeighboursAsync"/> finds it.</summary>
+    public async Task<NextEpisodeDto?> NextEpisodeAsync(Guid episodeId, CancellationToken ct)
+    {
+        var (current, candidates) = await EpisodeCandidatesAsync(episodeId, ct);
+        return await NeighbourAsync(WatchRules.NextEpisode(current, candidates.Keys), candidates, ct);
+    }
+
+    /// <summary>The episode's slot, and the show's episodes with a file on disk by slot.</summary>
+    private async Task<(EpisodeSlot Current, Dictionary<EpisodeSlot, Guid> Candidates)> EpisodeCandidatesAsync(Guid episodeId, CancellationToken ct)
+    {
+        var current = await db.Episodes.AsNoTracking()
+            .Where(e => e.Id == episodeId)
+            .Join(db.Seasons.AsNoTracking(), e => e.SeasonId, s => s.Id, (e, s) => new { s.TitleId, Slot = new EpisodeSlot(s.Number, e.Number) })
+            .SingleAsync(ct);
+
+        // The show's episodes that hold a file not marked missing; the disk check below drops ones that are gone.
+        var linked = await db.Seasons.AsNoTracking()
+            .Where(s => s.TitleId == current.TitleId)
+            .Join(db.Episodes.AsNoTracking(), s => s.Id, e => e.SeasonId, (s, e) => new { s.Number, Episode = e })
+            .Join(db.Playables.AsNoTracking(), x => x.Episode.Id, p => p.EpisodeId, (x, p) => new { x.Number, EpisodeNumber = x.Episode.Number, PlayableId = p.Id })
+            .Join(db.FileLinks.AsNoTracking(), x => x.PlayableId, l => l.PlayableId, (x, l) => new { x.Number, x.EpisodeNumber, x.PlayableId, l.MediaFileId })
+            .Join(db.MediaFiles.AsNoTracking().Where(f => f.Status != MediaFileStatus.Missing), x => x.MediaFileId, f => f.Id,
+                (x, f) => new { x.Number, x.EpisodeNumber, x.PlayableId, f.Path })
+            .ToListAsync(ct);
+        var candidates = linked
+            .Where(x => File.Exists(x.Path))
+            .GroupBy(x => new EpisodeSlot(x.Number, x.EpisodeNumber))
+            .ToDictionary(g => g.Key, g => g.First().PlayableId);
+        return (current.Slot, candidates);
+    }
+
+    private async Task<NextEpisodeDto?> NeighbourAsync(EpisodeSlot? slot, Dictionary<EpisodeSlot, Guid> candidates, CancellationToken ct)
+    {
+        if (slot is not { } found)
+        {
+            return null;
+        }
+
+        var playable = await db.Playables.AsNoTracking().SingleAsync(p => p.Id == candidates[found], ct);
+        return new NextEpisodeDto(playable.Id, found.SeasonNumber, found.EpisodeNumber, await DisplayNameAsync(playable, ct));
     }
 
     /// <summary>The tags media may use for each preferred language, in preference order; unknown codes are skipped.</summary>

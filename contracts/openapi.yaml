@@ -2587,6 +2587,10 @@ components:
           description: The profile's subtitle languages, as tags in preference order like `audioLanguages`.
           items:
             type: string
+        previousEpisode:
+          $ref: '#/components/schemas/NextEpisode'
+        nextEpisode:
+          $ref: '#/components/schemas/NextEpisode'
 
     SubtitleTrack:
       type: object
@@ -2670,7 +2674,12 @@ components:
 
     NextEpisode:
       type: object
-      description: The episode after this one that has a file to play. Absent for a movie or the last episode.
+      description: |
+        An episode next to the one playing that has a file to play, absent for a movie. `nextEpisode` (on
+        `WatchProgress` and `PlaybackSession`) is the one after it, absent after the last episode;
+        `PlaybackSession.previousEpisode` is the one before it: the previous number in its season, else the last
+        episode of an earlier season that isn't specials, absent for the first episode. The player offers them as
+        Previous and Next episode, and the next one as Up next.
       required: [playableId, seasonNumber, episodeNumber, title]
       additionalProperties: false
       properties:
