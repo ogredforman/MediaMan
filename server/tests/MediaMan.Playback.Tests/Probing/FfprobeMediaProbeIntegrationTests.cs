@@ -89,7 +89,7 @@ public sealed class FfprobeMediaProbeIntegrationTests : IDisposable
 
         var run = () => probe.ProbeAsync(file, Ct);
 
-        await run.Should().ThrowAsync<InvalidOperationException>().WithMessage("*Install ffmpeg*MediaMan:Tools:FfprobePath*");
+        await run.Should().ThrowAsync<InvalidOperationException>().WithMessage("*bundled copy*install ffmpeg*MediaMan:Tools:FfprobePath*");
     }
 
     private static void RequireTools() =>

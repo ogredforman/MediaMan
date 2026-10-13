@@ -63,7 +63,8 @@ public sealed class TmdbSettings
 /// <summary>Where the external media tools live (SPEC §10.1). Bare names are looked up on PATH.</summary>
 public sealed class ToolsOptions
 {
-    public string FfprobePath { get; set; } = "ffprobe";
+    /// <summary>Overrides the bundled ffprobe; unset means the bundled copy, else <c>ffprobe</c> on PATH (<see cref="BundledTools"/>).</summary>
+    public string? FfprobePath { get; set; }
 }
 
 /// <summary>Where an external dependency comes from in the dev configuration.</summary>
