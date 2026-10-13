@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractPlay, describePlayerContract, settle } from '../fakes/playerContract.js';
-import { episodeMessages, ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, PlayerStartError, redactUrls, resolveMpvPath, upNextMessages, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
+import { episodeMessages, ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, noticeMs, PlayerStartError, redactUrls, resolveMpvPath, upNextMessages, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
 import type { PlayerEndReason, PlayerProgress } from './player.js';
 
 /** A stand-in MPV process: answers IPC the way MPV does, and tests decide what it sends and when it exits. */
@@ -103,6 +103,13 @@ class FakeMpv {
         this.send({ event: 'end-file', reason: 'quit' });
         this.exit(0);
       });
+    } else if (name === 'loadfile') {
+      // MPV ends the old file, after a last position from it, then starts the new one.
+      queueMicrotask(() => {
+        this.send({ event: 'property-change', id: 1, name: 'time-pos', data: 9999 });
+        this.send({ event: 'end-file', reason: 'stop' });
+        this.send({ event: 'start-file' });
+      });
     } else if (name === 'get_property') {
       queueMicrotask(() => {
         this.send({ data: this.position, error: 'success', request_id: message.request_id });
@@ -160,6 +167,7 @@ describePlayerContract('MpvPlayer', () => {
       mpv.send({ event: 'client-message', args: [episodeMessages.choice, choice] });
       await settle();
     },
+    notices: () => mpv.commands.filter(([name]) => name === 'show-text').map(([, text]) => String(text)),
     failNextStart: () => {
       mpv.failSpawn = new Error('spawn mpv ENOENT');
     },
@@ -231,6 +239,91 @@ describe('MpvPlayer', () => {
     expect(mpv.commands.filter(([name, message]) => name === 'script-message' && message === episodeMessages.show)).toEqual([
       ['script-message', 'mediaman-episodes', '', 'Show S01E02 · Two'],
     ]);
+  });
+
+  it('loads the next file into the running MPV with its launch options, unpaused, instead of spawning again', async () => {
+    const { mpv, player, progress, ended } = setUp();
+    await player.play(contractPlay);
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1370 });
+    mpv.send({ event: 'property-change', id: 3, name: 'pause', data: true });
+    const before = mpv.commands.length;
+
+    await player.play({
+      url: 'http://127.0.0.1:8420/media-files/0190-b/stream?sig=y',
+      startSeconds: 0,
+      subtitles: [{ url: 'http://s/en.srt', language: 'en' }],
+      title: 'Show S01E02 · Two',
+      audioLanguages: ['de', 'ger'],
+      episodes: { previous: 'Show S01E01 · One' },
+    });
+
+    expect(mpv.spawned).toHaveLength(1);
+    expect(mpv.commands.slice(before)).toEqual([
+      ['set_property', 'pause', false],
+      ['set_property', 'start', 'none'],
+      ['set_property', 'force-media-title', 'Show S01E02 · Two'],
+      ['set_property', 'alang', 'de,ger'],
+      ['set_property', 'slang', ''],
+      ['loadfile', 'http://127.0.0.1:8420/media-files/0190-b/stream?sig=y', 'replace'],
+    ]);
+    expect(progress.at(-1)).toEqual({ positionSeconds: 1370, durationSeconds: 0, paused: true });
+    expect(ended).toEqual([['quit', undefined]]);
+
+    await settle();
+    mpv.send({ event: 'file-loaded' });
+    expect(mpv.commands.slice(before + 6)).toEqual([
+      ['sub-add', 'http://s/en.srt', 'auto', 'en', 'en'],
+      ['script-message', 'mediaman-episodes', 'Show S01E01 · One', ''],
+    ]);
+  });
+
+  it('passes a resume point to the replaced file and keeps the new file going past the old one\'s end-file', async () => {
+    const { mpv, player, progress, ended } = setUp();
+    await player.play(contractPlay);
+    await player.play({ ...contractPlay, startSeconds: 95 });
+    await settle();
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 96 });
+
+    expect(mpv.commands).toContainEqual(['set_property', 'start', '95']);
+    expect(ended).toEqual([['quit', undefined]]);
+    expect(progress.map((p) => p.positionSeconds)).not.toContain(9999);
+    player.showUpNext({ title: 'Next', seconds: 10 });
+    expect(mpv.commands.at(-1)).toEqual(['script-message', upNextMessages.show, '10', 'Next']);
+  });
+
+  it('keeps the newest file when two replaces come before MPV starts either', async () => {
+    const { mpv, player, ended } = setUp();
+    await player.play(contractPlay);
+    void player.play({ ...contractPlay, title: 'Two' });
+    await player.play({ ...contractPlay, title: 'Three' });
+    await settle();
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 7 });
+    player.showNotice('Still here');
+
+    expect(ended).toEqual([['quit', undefined], ['quit', undefined]]);
+    expect(mpv.closed).toBe(false);
+    expect(mpv.commands.at(-1)).toEqual(['show-text', 'Still here', String(noticeMs)]);
+  });
+
+  it('spawns a new MPV once the current one has ended', async () => {
+    const { mpv, player } = setUp();
+    await player.play(contractPlay);
+    mpv.send({ event: 'end-file', reason: 'error', file_error: 'loading failed' });
+    mpv.exit(2);
+    await settle();
+
+    await player.play(contractPlay);
+
+    expect(mpv.spawned).toHaveLength(2);
+  });
+
+  it('shows a notice on the OSD, keeping dollar signs literal', async () => {
+    const { mpv, player } = setUp();
+    await player.play(contractPlay);
+
+    player.showNotice('Costs $5 ${path}');
+
+    expect(mpv.commands.at(-1)).toEqual(['show-text', 'Costs $$5 $${path}', String(noticeMs)]);
   });
 
   it('ignores episode choices it does not know', async () => {

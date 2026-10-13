@@ -197,8 +197,9 @@ User 1─* SavedQualityProfile
 5. At 90% or more, the Playable is marked watched. If the next episode exists, an "Up next" countdown (10 s, cancellable) starts it.
    The countdown shows over the final credits: the run of named credits chapters that ends the file. When a post-credits
    scene or preview follows the credits, or no chapter names them, it shows at the end of the file, where MPV holds the
-   last frame. Without a next episode, or after a cancel, MPV closes at the end of the file.
+   last frame. The next episode loads into the same MPV window. Without a next episode, or after a cancel, MPV closes at the end of the file.
 6. If MPV fails to start, the UI shows the error with "Open MPV settings". If the stream URL fails, the server is re-queried once before an error is shown.
+   While progress reports can't reach the server, MPV itself shows that on screen and what to do, not only the app window.
 
 ### 7.5 Play in a browser
 

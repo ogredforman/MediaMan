@@ -6,6 +6,8 @@ export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   readonly plays: { launchId: string; options: DesktopPlayOptions }[];
   /** Every "Up next" countdown asked for. */
   readonly upNexts: { launchId: string; offer: DesktopUpNextOffer }[];
+  /** Every notice shown in MPV. */
+  readonly notices: { launchId: string; text: string }[];
   /** The launch id of the latest play. */
   lastLaunchId(): string;
   /** Makes the next `play` answer that MPV couldn't start. */
@@ -29,6 +31,7 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
   const fake: FakeDesktopPlayer = {
     plays: [],
     upNexts: [],
+    notices: [],
     stopCalls: 0,
     play(launchId, options): Promise<DesktopPlayResult> {
       if (failure !== undefined) {
@@ -45,6 +48,10 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     },
     upNext(launchId, offer) {
       fake.upNexts.push({ launchId, offer });
+      return Promise.resolve();
+    },
+    notice(launchId, text) {
+      fake.notices.push({ launchId, text });
       return Promise.resolve();
     },
     chooseMpv(): Promise<DesktopMpvChoice> {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { NextEpisode, PlaybackSession, SubtitleTrack, WatchProgressReport } from '../api/mediaman.schemas';
 import { createFakeDesktopPlayer } from '../test/fakeDesktopPlayer';
-import { createDesktopPlayback, playOptions, type PlaybackApi } from './desktopPlayback';
+import { createDesktopPlayback, playOptions, serverLostNotice, type PlaybackApi } from './desktopPlayback';
 import { ApiError } from './http';
 
 const session: PlaybackSession = {
@@ -26,7 +26,7 @@ const defaults = (s: PlaybackSession) => playOptions(s).subtitles.filter((t) => 
 /** A server answering sessions in order (the last one repeats) and recording progress reports; `server.next` is the next episode it names. */
 function fakeApi(...sessions: (PlaybackSession | Error)[]) {
   const reports: [string, WatchProgressReport][] = [];
-  const server: { next: NextEpisode | undefined; watched: boolean } = { next: undefined, watched: false };
+  const server: { next: NextEpisode | undefined; watched: boolean; failure?: Error } = { next: undefined, watched: false };
   const created: string[] = [];
   const api: PlaybackApi = {
     createSession: (playableId) => {
@@ -36,6 +36,7 @@ function fakeApi(...sessions: (PlaybackSession | Error)[]) {
     },
     reportProgress: (playableId, report) => {
       reports.push([playableId, report]);
+      if (server.failure) return Promise.reject(server.failure);
       return Promise.resolve({ playableId, ...report, watched: server.watched, ...(server.next ? { nextEpisode: server.next } : {}) });
     },
   };
@@ -108,6 +109,28 @@ describe('createDesktopPlayback', () => {
 
     player.emit({ launchId, type: 'ended', reason: 'quit' });
     expect(playback.getState()).toEqual({ status: 'idle' });
+  });
+
+  it("shows the lost server in MPV while reports can't reach it, and nothing for other report errors", async () => {
+    const player = createFakeDesktopPlayer();
+    const { api, server } = fakeApi(session);
+    const playback = createDesktopPlayback(player, api);
+    await playback.play('p1');
+    const launchId = player.lastLaunchId();
+
+    server.failure = new ApiError({ title: 'Nope', status: 409, code: 'progress.invalid' });
+    player.emit({ launchId, type: 'progress', positionSeconds: 310, durationSeconds: 7000, paused: false });
+    await flush();
+    server.failure = new ApiError({ title: "Can't reach the MediaMan server.", status: 503, code: 'network.unreachable' });
+    player.emit({ launchId, type: 'progress', positionSeconds: 320, durationSeconds: 7000, paused: false });
+    player.emit({ launchId, type: 'progress', positionSeconds: 330, durationSeconds: 7000, paused: true });
+    await flush();
+
+    expect(player.notices).toEqual([
+      { launchId, text: serverLostNotice },
+      { launchId, text: serverLostNotice },
+    ]);
+    expect(playback.getState()).toEqual({ status: 'playing', playableId: 'p1', title: 'Alien (1979)' });
   });
 
   it('starts over at 0 though the session resumes, and settles once the reports are answered', async () => {

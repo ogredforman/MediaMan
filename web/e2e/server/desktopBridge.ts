@@ -52,6 +52,7 @@ export async function installDesktopStandIn(page: Page): Promise<void> {
         },
         stop: () => Promise.resolve(),
         upNext: () => Promise.resolve(),
+        notice: () => Promise.resolve(),
         chooseMpv: () => Promise.resolve(null),
         onEvent: () => () => undefined,
       },

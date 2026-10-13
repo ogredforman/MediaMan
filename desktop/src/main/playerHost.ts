@@ -1,5 +1,5 @@
-// Runs one MPV launch at a time for the web UI's Play button (SPEC §7.4 steps 3–4 and 6) and forwards its events,
-// tagged with the launch id the UI chose, so the UI can ignore events from a launch it has replaced.
+// Runs MPV for the web UI's Play button (SPEC §7.4 steps 3–6) and forwards its events, tagged with the launch id the
+// UI chose, so the UI can ignore events from a launch it has replaced. One MPV window plays launch after launch.
 import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
 
 export type PlayerEvent =
@@ -13,13 +13,20 @@ export type PlayerEvent =
 /** What `play` answers over IPC; a rejected IPC call would lose the error's kind. */
 export type PlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
 
+/** One player and the launches it plays, oldest first: events go to the first, and each `ended` moves on to the next. */
+interface Binding {
+  player: IPlayer;
+  mpvPath: string;
+  launches: { launchId: string; send: (event: PlayerEvent) => void }[];
+}
+
 export class PlayerHost {
-  private current: { launchId: string; player: IPlayer } | undefined;
+  private current: Binding | undefined;
   // Plays and stops run one at a time, so overlapping plays (a re-query racing a click) never leave an MPV behind.
   private queue: Promise<unknown> = Promise.resolve();
 
   /**
-   * @param createPlayer makes the player for one launch, so a newly picked MPV is used on the next Play.
+   * @param createPlayer makes a player for an MPV path, so a newly picked MPV is used on the next Play.
    * @param mpvPath the MPV executable to launch, read on every Play.
    */
   constructor(
@@ -27,61 +34,87 @@ export class PlayerHost {
     private readonly mpvPath: () => Promise<string>,
   ) {}
 
-  /** Stops what plays, then starts `opts`. Any failure to start is MPV's: the UI offers "Open MPV settings". */
+  /**
+   * Plays `opts`, in the MPV window already open when there is one and the MPV path hasn't changed. Any failure to
+   * start is MPV's: the UI offers "Open MPV settings".
+   */
   play(launchId: string, opts: PlayOptions, send: (event: PlayerEvent) => void): Promise<PlayResult> {
     return this.enqueue(() => this.start(launchId, opts, send));
   }
 
   /** Shows the "Up next" countdown, if `launchId` is still what plays. */
   upNext(launchId: string, offer: UpNextOffer): void {
-    if (this.current?.launchId === launchId) this.current.player.showUpNext(offer);
+    this.playing(launchId)?.showUpNext(offer);
+  }
+
+  /** Shows a message over the playback in MPV, if `launchId` is still what plays. */
+  notice(launchId: string, text: string): void {
+    this.playing(launchId)?.showNotice(text);
   }
 
   stop(): Promise<void> {
     return this.enqueue(() => this.stopCurrent());
   }
 
+  // Only one launch once the player is idle between calls: a replace ends the old file inside `play`.
+  private playing(launchId: string): IPlayer | undefined {
+    const launches = this.current?.launches;
+    return launches?.length === 1 && launches[0]?.launchId === launchId ? this.current?.player : undefined;
+  }
+
   private async start(launchId: string, opts: PlayOptions, send: (event: PlayerEvent) => void): Promise<PlayResult> {
-    await this.stopCurrent();
-    let player: IPlayer;
+    let binding: Binding;
     try {
-      player = this.createPlayer(await this.mpvPath());
+      const mpvPath = await this.mpvPath();
+      if (this.current && this.current.mpvPath !== mpvPath) await this.stopCurrent();
+      binding = this.current ?? this.bind(this.createPlayer(mpvPath), mpvPath);
     } catch (err) {
       return { ok: false, error: 'mpvStart', message: messageOf(err) };
     }
-    player.onProgress((p) => {
-      send({ launchId, type: 'progress', ...p });
-    });
-    player.onEnded((reason, detail) => {
-      send(detail === undefined ? { launchId, type: 'ended', reason } : { launchId, type: 'ended', reason, detail });
-    });
-    player.onCredits(() => {
-      send({ launchId, type: 'credits' });
-    });
-    player.onEndReached(() => {
-      send({ launchId, type: 'endReached' });
-    });
-    player.onUpNextChoice((choice) => {
-      send({ launchId, type: 'upNext', choice });
-    });
-    player.onEpisodeChoice((choice) => {
-      send({ launchId, type: 'episode', choice });
-    });
-    const launch = { launchId, player };
-    this.current = launch;
+    this.current = binding;
+    const launch = { launchId, send };
+    binding.launches.push(launch);
     try {
-      await player.play(opts);
+      await binding.player.play(opts);
       return { ok: true };
     } catch (err) {
-      if (this.current === launch) this.current = undefined;
+      binding.launches = binding.launches.filter((l) => l !== launch);
       return { ok: false, error: 'mpvStart', message: messageOf(err) };
     }
   }
 
+  private bind(player: IPlayer, mpvPath: string): Binding {
+    const binding: Binding = { player, mpvPath, launches: [] };
+    const forward = (event: DistributiveOmit<PlayerEvent, 'launchId'>) => {
+      const launch = binding.launches[0];
+      launch?.send({ ...event, launchId: launch.launchId });
+    };
+    player.onProgress((p) => {
+      forward({ type: 'progress', ...p });
+    });
+    player.onEnded((reason, detail) => {
+      forward(detail === undefined ? { type: 'ended', reason } : { type: 'ended', reason, detail });
+      binding.launches.shift();
+    });
+    player.onCredits(() => {
+      forward({ type: 'credits' });
+    });
+    player.onEndReached(() => {
+      forward({ type: 'endReached' });
+    });
+    player.onUpNextChoice((choice) => {
+      forward({ type: 'upNext', choice });
+    });
+    player.onEpisodeChoice((choice) => {
+      forward({ type: 'episode', choice });
+    });
+    return binding;
+  }
+
   private async stopCurrent(): Promise<void> {
-    const launch = this.current;
+    const binding = this.current;
     this.current = undefined;
-    await launch?.player.stop();
+    await binding?.player.stop();
   }
 
   private enqueue<T>(work: () => Promise<T>): Promise<T> {
@@ -90,6 +123,8 @@ export class PlayerHost {
     return run;
   }
 }
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

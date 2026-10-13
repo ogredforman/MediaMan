@@ -35,7 +35,8 @@ describePlayerContract('FakePlayer', () => {
     failNextStart: () => {
       player.failNextPlay();
     },
-    launches: () => player.plays.length,
+    notices: () => player.notices,
+    launches: () => player.launches,
   };
 });
 

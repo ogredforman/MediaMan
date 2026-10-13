@@ -56,6 +56,8 @@ export interface DesktopPlayerBridge {
   stop(): Promise<void>;
   /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
   upNext(launchId: string, offer: DesktopUpNextOffer): Promise<void>;
+  /** Shows a message over the playback in MPV (e.g. a lost server), if `launchId` is still what plays. */
+  notice(launchId: string, text: string): Promise<void>;
   /** The native picker for the MPV executable; saves the pick only when it is MPV. */
   chooseMpv(): Promise<DesktopMpvChoice>;
   /** The MPV the next Play uses and where it comes from. */

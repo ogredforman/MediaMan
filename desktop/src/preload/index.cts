@@ -11,6 +11,7 @@ const channels = {
   playerPlay: 'mediaman:player-play',
   playerStop: 'mediaman:player-stop',
   playerUpNext: 'mediaman:player-up-next',
+  playerNotice: 'mediaman:player-notice',
   playerChooseMpv: 'mediaman:player-choose-mpv',
   playerMpvSetting: 'mediaman:player-mpv-setting',
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
@@ -36,6 +37,8 @@ contextBridge.exposeInMainWorld('mediamanDesktop', {
     stop: (): Promise<void> => ipcRenderer.invoke(channels.playerStop) as Promise<void>,
     /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
     upNext: (launchId: string, offer: unknown): Promise<void> => ipcRenderer.invoke(channels.playerUpNext, launchId, offer) as Promise<void>,
+    /** Shows a message over the playback in MPV (e.g. a lost server), if `launchId` is still what plays. */
+    notice: (launchId: string, text: string): Promise<void> => ipcRenderer.invoke(channels.playerNotice, launchId, text) as Promise<void>,
     /** The native picker for the MPV executable: `{ outcome: 'picked', path }`, `'cancelled'`, or `'refused'` with a message when the file isn't MPV. */
     chooseMpv: (): Promise<unknown> => ipcRenderer.invoke(channels.playerChooseMpv),
     /** The MPV the next Play uses and where it comes from (`picked`, `environment` or `default`). */
