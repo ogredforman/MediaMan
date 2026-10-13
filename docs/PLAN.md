@@ -4,7 +4,7 @@
 > *scope per stage*, and *exit criteria*. Each stage ends in a runnable, usable state. Don't pull
 > later-stage work forward.
 
-**Current stage: Stage 2 — MVP core (real integrations, desktop playback)**
+**Current stage: Stage 2.5 — Early packaging (Windows)**
 
 Task IDs are `<stage>.<task>` (e.g. `1.5`). A stage inserted between two others gets a dotted ID
 (Stage `1.5`, tasks `1.5.1`, ...), and a task inserted after another gets a letter (`1.5.13b`).
@@ -146,6 +146,26 @@ the tasks below that shape them say what to leave room for.
 
 ---
 
+## Stage 2.5 — Early packaging (Windows)
+
+**Goal:** someone other than the owner installs the Stage 2 app on Windows from one installer, with no
+manual dependency installs and no environment variables, and keeps their data across every later update.
+Pulled forward from Stage 8 so the app gets real use by others before the torrent stages. Torrent pieces,
+ffmpeg (transcoding), Linux and auto-update stay in Stage 8.
+
+- [ ] **2.5.1** Publish the server as a self-contained single file for `win-x64` from a Release build (so no dev code ships, SPEC §8 setup [P]), with the jellyfin-ffprobe build alongside it. A packaged server finds its bundled ffprobe by default; the settings override still wins (SPEC §9 bundled tools, §10.1).
+- [ ] **2.5.2** Let the packaged desktop app find and start its bundled server and MPV without `MEDIAMAN_SERVER_PATH` or `MEDIAMAN_MPV_PATH`; the variables stay as dev overrides. Stop the server it started when the app quits. Add tests through `IServerProcess` and the existing fakes (SPEC §10.3).
+- [ ] **2.5.3** Data survives upgrades: the server copies the database aside before applying pending migrations and says what happened if a migration fails, without starting on a half-migrated database. Add a fixture database for each released version and a test that migrates every fixture to the current schema with its data intact; each release adds its fixture. Add the upgrade guarantee to SPEC §9 (SPEC §9 data portability and resilience).
+- [ ] **2.5.4** Build a Windows installer with electron-builder (NSIS): the desktop app, the single-file server, ffprobe, MPV with the Lua OSC, and the third-party licence notices with source offers (SPEC §9 licensing). Unsigned for now. Installing over an older version keeps the data directory.
+- [ ] **2.5.5** Version the app and publish the installer to GitHub Releases from CI when a version tag is pushed (SPEC §12).
+- [ ] **2.5.6** Write a short Windows install guide (download, the SmartScreen warning on an unsigned build, first-run setup, where data lives, backup by copying files, how to update). Run the Stage 2 part of `docs/SMOKE.md` from the installer on a clean Windows machine or VM, including an upgrade from the previous build, and fix or park what it finds.
+
+**Exit criteria:**
+- A clean Windows machine goes from downloading the installer to first playback of a library title in MPV by following the guide, with no manual dependency installs or environment variables.
+- Installing a newer build over an older one keeps the libraries, matches, watch progress and sign-in, and the migration fixture test passes in CI.
+
+---
+
 ## Stage 3 — MVP: torrents and the VPN gate
 
 **Goal:** a built-in torrent client that can only talk through the configured VPN path, with
@@ -254,12 +274,15 @@ not from this list. Candidates:
 
 ## Stage 8 — Packaging
 
-**Goal:** easy for someone who isn't the author to install and run.
+**Goal:** easy for someone who isn't the author to install and run, on every supported platform and with
+every MVP feature. The Windows installer, release pipeline and upgrade-safe data come from Stage 2.5; this
+stage completes them.
 
-- [ ] **8.1** Publish the server as a single file for win-x64, linux-x64 and linux-arm64, with jellyfin-ffmpeg/ffprobe per platform, plus the qBittorrent-nox sidecar if ADR 0004 chose it (SPEC §9 portability, §10.1).
-- [ ] **8.2** Build a Windows installer (electron-builder NSIS) that bundles the desktop app, the single-file server, ffmpeg/ffprobe, MPV, any torrent sidecar and the third-party licence notices (SPEC §9 licensing).
+- [ ] **8.1** Extend the single-file server publish to linux-x64 and linux-arm64, add jellyfin-ffmpeg per platform next to ffprobe, plus the qBittorrent-nox sidecar if ADR 0004 chose it (SPEC §9 portability, §10.1).
+- [ ] **8.2** Add ffmpeg, any torrent sidecar and their licence notices to the Windows installer from 2.5.4, and sign it (SPEC §9 licensing).
 - [ ] **8.3** Build a Linux AppImage with the same contents, and smoke-test it on a clean Linux machine.
-- [ ] **8.4** Write the README install and first-run guide, including VPN setup, where data lives and how to back it up by copying files (SPEC §9 data portability).
+- [ ] **8.4** Write the README install and first-run guide, growing the Stage 2.5 Windows guide with VPN setup and Linux (SPEC §9 data portability).
+- [ ] **8.5** Auto-update in the desktop app from GitHub Releases (electron-updater), keeping the upgrade guarantee from 2.5.3.
 
 **Exit criteria:** a fresh Windows machine goes from download to first playback of a library title, and to a first download through a configured VPN, by following the README with no manual dependency installs. The Linux AppImage does the same on a clean Linux machine.
 
