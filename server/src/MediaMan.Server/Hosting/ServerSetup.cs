@@ -172,15 +172,19 @@ public static class ServerSetup
     }
 
     /// <summary>
-    /// The scan pipeline. The media probe runs ffprobe as a separate process from <c>MediaMan:Tools:FfprobePath</c>
-    /// (SPEC §10.1). The pipeline is built through factories, which DI's build-time validation skips, so a host without a
+    /// The scan pipeline. The media probe runs ffprobe as a separate process from <c>MediaMan:Tools:FfprobePath</c>, else
+    /// the bundled copy beside the server (SPEC §9 bundled tools, §10.1). The pipeline is built through factories, which DI's build-time validation skips, so a host without a
     /// probe or metadata provider still starts; <see cref="ScanCoordinator.IsAvailable"/> gates use.
     /// </summary>
     private static void AddScanning(IServiceCollection services)
     {
         services.AddSingleton(sp => new FfprobeMediaProbe(new FfprobeOptions
         {
-            ExecutablePath = sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
+            ExecutablePath = BundledTools.ResolveFfprobe(
+                sp.GetRequiredService<IOptions<MediaManOptions>>().Value.Tools.FfprobePath,
+                AppContext.BaseDirectory,
+                File.Exists,
+                OperatingSystem.IsWindows()),
         }));
         services.AddSingleton<IMediaProbe>(sp => sp.GetRequiredService<FfprobeMediaProbe>());
         services.AddSingleton(new MatcherOptions());

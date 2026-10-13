@@ -41,7 +41,7 @@ public sealed class FfprobeMediaProbe(FfprobeOptions options) : IMediaProbe
         catch (Win32Exception e)
         {
             throw new InvalidOperationException(
-                $"ffprobe wasn't found at '{options.ExecutablePath}'. Install ffmpeg, or set MediaMan:Tools:FfprobePath to the ffprobe binary.",
+                $"ffprobe wasn't found at '{options.ExecutablePath}'. Reinstall MediaMan to restore its bundled copy, install ffmpeg, or set MediaMan:Tools:FfprobePath to the ffprobe binary.",
                 e);
         }
 

@@ -10,7 +10,8 @@
     "build": "dotnet build server/MediaMan.sln -c Release && npm run build -w web && npm run build -w desktop",
     "test": "dotnet test server/MediaMan.sln && npm test -w web && npm test -w desktop",
     "test:perf": "dotnet test --project server/tests/MediaMan.Server.Tests -- --explicit only",
-    "lint": "eslint . && dotnet format server/MediaMan.sln --verify-no-changes"
+    "lint": "eslint . && dotnet format server/MediaMan.sln --verify-no-changes",
+    "publish:server:win": "node scripts/publish-server.mjs"
   },
   "engines": {
     "node": ">=22"
