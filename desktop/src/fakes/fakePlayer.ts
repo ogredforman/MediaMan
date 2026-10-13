@@ -1,6 +1,6 @@
 // FakePlayer (SPEC §10.4): records play calls and lets tests emit progress and ended events; never starts MPV.
 import { PlayerStartError } from '../main/mpvPlayer.js';
-import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
+import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
 
 export class FakePlayer implements IPlayer {
   readonly plays: PlayOptions[] = [];
@@ -13,6 +13,7 @@ export class FakePlayer implements IPlayer {
   private readonly creditsListeners: (() => void)[] = [];
   private readonly endReachedListeners: (() => void)[] = [];
   private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
+  private readonly episodeListeners: ((choice: EpisodeChoice) => void)[] = [];
   private nextFailure: Error | undefined;
 
   /** Makes the next `play()` reject with `error`, as when MPV can't be started. */
@@ -38,6 +39,10 @@ export class FakePlayer implements IPlayer {
 
   onUpNextChoice(cb: (choice: UpNextChoice) => void): void {
     this.upNextListeners.push(cb);
+  }
+
+  onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void {
+    this.episodeListeners.push(cb);
   }
 
   showUpNext(offer: UpNextOffer): void {
@@ -83,6 +88,12 @@ export class FakePlayer implements IPlayer {
   emitUpNextChoice(choice: UpNextChoice): void {
     if (!this.playing) return;
     for (const listener of this.upNextListeners) listener(choice);
+  }
+
+  /** The viewer chose Previous or Next episode in the OSC. Ignored when nothing plays. */
+  emitEpisodeChoice(choice: EpisodeChoice): void {
+    if (!this.playing) return;
+    for (const listener of this.episodeListeners) listener(choice);
   }
 
   /** Ends the current playback. Ignored when nothing plays, so each play ends once. */

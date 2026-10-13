@@ -213,6 +213,13 @@ describe('parsePlayOptions', () => {
     expect(parsePlayOptions(most, serverOrigin)).toEqual(most);
   });
 
+  it("keeps an episode's neighbours", () => {
+    const episode = { ...playRequest, episodes: { previous: 'Show S01E01 · One', next: 'Show S01E03 · Three' } };
+    expect(parsePlayOptions(episode, serverOrigin)).toEqual(episode);
+    const first = { ...playRequest, episodes: { next: 'Show S01E02 · Two' } };
+    expect(parsePlayOptions(first, serverOrigin)).toEqual(first);
+  });
+
   it.each([
     ['a stream on another server', { ...playRequest, url: 'https://elsewhere.example/stream' }],
     ['a local file', { ...playRequest, url: 'file:///movie.mkv' }],
@@ -224,6 +231,9 @@ describe('parsePlayOptions', () => {
     ['a subtitle language carrying a comma', { ...playRequest, subtitleLanguages: ['de,--script=x'] }],
     ["a language tag that isn't a string", { ...playRequest, audioLanguages: [7] }],
     ['too many language tags', { ...playRequest, audioLanguages: Array.from({ length: 31 }, () => 'en') }],
+    ["episodes that aren't an object", { ...playRequest, episodes: 'next' }],
+    ['an empty episode title', { ...playRequest, episodes: { next: ' ' } }],
+    ["an episode title that isn't a string", { ...playRequest, episodes: { previous: 3 } }],
     ['no object', 'play'],
   ])('refuses %s', (_, value) => {
     expect(parsePlayOptions(value, serverOrigin)).toBeUndefined();

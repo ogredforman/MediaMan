@@ -1,5 +1,6 @@
 // Play on desktop (SPEC §7.4): a playback session from the server, MPV through the desktop bridge, every progress
-// event reported back, and "Up next" from the credits (or the end of the file) when the server names a next episode. It lives outside React so leaving the page doesn't stop the reports.
+// event reported back, "Up next" from the credits (or the end of the file) when the server names a next episode, and
+// the OSC's Previous and Next episode buttons. It lives outside React so leaving the page doesn't stop the reports.
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPlaybackSession, reportWatchProgress } from '../api/mediaman';
@@ -42,6 +43,9 @@ interface Launch {
   next?: NextEpisode | undefined;
   /** Up next is shown at most once per launch; after a cancel, MPV closes at the end of the file. */
   upNext: 'none' | 'offered' | 'cancelled';
+  /** The episodes before and after this one, from the session, for the OSC's Previous and Next episode. */
+  previousEpisode?: NextEpisode | undefined;
+  nextEpisode?: NextEpisode | undefined;
 }
 
 /** How long "Up next" counts down before the next episode starts (SPEC §7.4 step 5). */
@@ -113,6 +117,8 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
       return;
     }
     if (current !== self) return;
+    self.previousEpisode = session.previousEpisode;
+    self.nextEpisode = session.nextEpisode;
 
     const result = await player.play(self.launchId, playOptions(session, positionSeconds));
     if (!result.ok) launches.delete(self.launchId);
@@ -144,6 +150,11 @@ export function createDesktopPlayback(player: DesktopPlayerBridge, api: Playback
         if (event.choice === 'cancel') self.upNext = 'cancelled';
         else if (current === self && self.next) void launch(self.next.playableId, false);
         return;
+      case 'episode': {
+        const target = event.choice === 'previous' ? self.previousEpisode : self.nextEpisode;
+        if (current === self && target) void launch(target.playableId, false);
+        return;
+      }
       case 'ended':
         break;
     }
@@ -196,6 +207,14 @@ export function playOptions(session: PlaybackSession, positionSeconds?: number):
     })),
     audioLanguages: session.audioLanguages,
     subtitleLanguages: session.subtitleLanguages,
+    ...(session.previousEpisode || session.nextEpisode
+      ? {
+          episodes: {
+            ...(session.previousEpisode ? { previous: session.previousEpisode.title } : {}),
+            ...(session.nextEpisode ? { next: session.nextEpisode.title } : {}),
+          },
+        }
+      : {}),
   };
 }
 

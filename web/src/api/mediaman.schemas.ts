@@ -999,6 +999,23 @@ export interface SubtitleTrack {
 }
 
 /**
+ * An episode next to the one playing that has a file to play, absent for a movie. `nextEpisode` (on
+ * `WatchProgress` and `PlaybackSession`) is the one after it, absent after the last episode;
+ * `PlaybackSession.previousEpisode` is the one before it: the previous number in its season, else the last
+ * episode of an earlier season that isn't specials, absent for the first episode. The player offers them as
+ * Previous and Next episode, and the next one as Up next.
+ */
+export interface NextEpisode {
+  playableId: string;
+  /** @minimum 0 */
+  seasonNumber: number;
+  /** @minimum 0 */
+  episodeNumber: number;
+  /** A display title, like `PlaybackSession.title`, e.g. `The Office S01E03 · Health Care`. */
+  title: string;
+}
+
+/**
  * How the client plays a Playable.
  */
 export interface PlaybackSession {
@@ -1036,6 +1053,8 @@ export interface PlaybackSession {
   audioLanguages: string[];
   /** The profile's subtitle languages, as tags in preference order like `audioLanguages`. */
   subtitleLanguages: string[];
+  previousEpisode?: NextEpisode;
+  nextEpisode?: NextEpisode;
 }
 
 export interface WatchedRequest {
@@ -1067,19 +1086,6 @@ export interface WatchProgressReport {
      * @minimum 0
      */
   durationSeconds: number;
-}
-
-/**
- * The episode after this one that has a file to play. Absent for a movie or the last episode.
- */
-export interface NextEpisode {
-  playableId: string;
-  /** @minimum 0 */
-  seasonNumber: number;
-  /** @minimum 0 */
-  episodeNumber: number;
-  /** A display title, like `PlaybackSession.title`, e.g. `The Office S01E03 · Health Care`. */
-  title: string;
 }
 
 /**

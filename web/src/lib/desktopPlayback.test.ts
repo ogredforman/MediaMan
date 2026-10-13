@@ -58,6 +58,12 @@ describe('playOptions', () => {
     expect(playOptions(session, 1234).startSeconds).toBe(1234);
   });
 
+  it("names an episode's neighbours for the OSC, and none for a movie", () => {
+    const previousEpisode: NextEpisode = { playableId: 'e0', seasonNumber: 1, episodeNumber: 1, title: 'Show S01E01 · One' };
+    expect(playOptions({ ...session, previousEpisode }).episodes).toEqual({ previous: 'Show S01E01 · One' });
+    expect(playOptions(session)).not.toHaveProperty('episodes');
+  });
+
   it('passes the language tags through for MPV', () => {
     const options = playOptions({ ...session, audioLanguages: ['de', 'ger', 'deu'], subtitleLanguages: ['en', 'eng'] });
     expect(options.audioLanguages).toEqual(['de', 'ger', 'deu']);
@@ -294,6 +300,36 @@ describe('createDesktopPlayback', () => {
 
       expect(player.upNexts).toEqual([]);
       expect(player.stopCalls).toBe(1);
+    });
+
+    it('plays the previous or next episode the session named when the viewer asks in MPV', async () => {
+      const previousEpisode: NextEpisode = { playableId: 'e0', seasonNumber: 1, episodeNumber: 1, title: 'The Office S01E01 · Pilot' };
+      const player = createFakeDesktopPlayer();
+      const { api, created } = fakeApi({ ...episode, previousEpisode, nextEpisode }, { ...episode, playableId: 'e0', title: previousEpisode.title });
+      const playback = createDesktopPlayback(player, api);
+      await playback.play('e1');
+      const launchId = player.lastLaunchId();
+      expect(player.plays.at(-1)?.options.episodes).toEqual({ previous: previousEpisode.title, next: nextEpisode.title });
+
+      player.emit({ launchId, type: 'episode', choice: 'previous' });
+      await flush();
+
+      expect(created).toEqual(['e1', 'e0']);
+      expect(playback.getState()).toEqual({ status: 'playing', playableId: 'e0', title: previousEpisode.title });
+
+      // The first launch was replaced, so its buttons no longer do anything.
+      player.emit({ launchId, type: 'episode', choice: 'next' });
+      await flush();
+      expect(created).toEqual(['e1', 'e0']);
+    });
+
+    it('ignores an episode choice with no episode there', async () => {
+      const { player, launchId, created } = await playEpisode(nextEpisode);
+
+      player.emit({ launchId, type: 'episode', choice: 'previous' });
+      await flush();
+
+      expect(created).toEqual(['e1']);
     });
 
     it('ignores Up next from a launch the viewer has replaced', async () => {

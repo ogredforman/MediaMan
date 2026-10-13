@@ -4,7 +4,7 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { checkMpvExecutable, type CheckMpvExecutable } from './mpvCheck.js';
-import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
+import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
 import { upNextAt, type Chapter } from './upNext.js';
 
 /** A spawned MPV, narrowed so tests can stand in for a real child process. */
@@ -89,6 +89,12 @@ const observed = { 1: 'time-pos', 2: 'duration', 3: 'pause', 4: 'eof-reached', 5
 /** The script messages between the OSC (mpv/osc.lua) and the main process for "Up next". */
 export const upNextMessages = { show: 'mediaman-up-next', choice: 'mediaman-up-next-choice' } as const;
 
+/**
+ * The script messages for the OSC's Previous and Next episode buttons: `show` names the neighbours' titles (empty for
+ * none) once the file loads; `choice` comes back with `previous` or `next`.
+ */
+export const episodeMessages = { show: 'mediaman-episodes', choice: 'mediaman-episode' } as const;
+
 /** One MPV launch, from spawn to exit. */
 interface Session {
   child: MpvChild;
@@ -144,6 +150,7 @@ export class MpvPlayer implements IPlayer {
   private readonly creditsListeners: (() => void)[] = [];
   private readonly endReachedListeners: (() => void)[] = [];
   private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
+  private readonly episodeListeners: ((choice: EpisodeChoice) => void)[] = [];
   private session: Session | undefined;
   private launches = 0;
 
@@ -181,6 +188,10 @@ export class MpvPlayer implements IPlayer {
 
   onUpNextChoice(cb: (choice: UpNextChoice) => void): void {
     this.upNextListeners.push(cb);
+  }
+
+  onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void {
+    this.episodeListeners.push(cb);
   }
 
   showUpNext(offer: UpNextOffer): void {
@@ -331,12 +342,17 @@ export class MpvPlayer implements IPlayer {
         const [name, choice] = message.args ?? [];
         if (name === upNextMessages.choice && (choice === 'play' || choice === 'cancel')) {
           for (const listener of this.upNextListeners) listener(choice);
+        } else if (name === episodeMessages.choice && (choice === 'previous' || choice === 'next')) {
+          for (const listener of this.episodeListeners) listener(choice);
         }
         break;
       }
       case 'file-loaded':
         for (const sub of opts.subtitles) {
           send(session.connection, ['sub-add', sub.url, sub.isDefault ? 'select' : 'auto', sub.title ?? sub.language ?? 'External', sub.language ?? '']);
+        }
+        if (opts.episodes) {
+          send(session.connection, ['script-message', episodeMessages.show, opts.episodes.previous ?? '', opts.episodes.next ?? '']);
         }
         break;
       case 'seek':

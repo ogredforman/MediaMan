@@ -1,6 +1,6 @@
 // IPlayer contract tests (SPEC §12): the same behaviour from FakePlayer and the real MpvPlayer driven by a fake MPV.
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
+import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
 
 /** Drives one player implementation from the outside, the way MPV (or a test) would. */
 export interface PlayerHarness {
@@ -17,6 +17,8 @@ export interface PlayerHarness {
   upNexts(): UpNextOffer[];
   /** The viewer answers the countdown. */
   chooseUpNext(choice: UpNextChoice): Promise<void>;
+  /** The viewer picks Previous or Next episode. */
+  chooseEpisode(choice: EpisodeChoice): Promise<void>;
   failNextStart(): void;
   /** How many times playback actually started. */
   launches(): number;
@@ -44,6 +46,7 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       harness.player.onCredits(() => marks.push('credits'));
       harness.player.onEndReached(() => marks.push('endReached'));
       harness.player.onUpNextChoice((choice) => marks.push(choice));
+      harness.player.onEpisodeChoice((choice) => marks.push(`episode:${choice}`));
       harness.player.onProgress((p) => progress.push(p));
       harness.player.onEnded((reason, detail) => ended.push([reason, detail]));
     });
@@ -82,6 +85,14 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
 
       expect(harness.upNexts()).toEqual([{ title: 'The Office S01E03 · Health Care', seconds: 10 }]);
       expect(marks).toEqual(['cancel', 'play']);
+    });
+
+    it('reports the Previous and Next episode choices', async () => {
+      await harness.player.play({ ...contractPlay, episodes: { previous: 'Show S01E01 · One', next: 'Show S01E03 · Three' } });
+      await harness.chooseEpisode('next');
+      await harness.chooseEpisode('previous');
+
+      expect(marks).toEqual(['episode:next', 'episode:previous']);
     });
 
     it('shows no Up next when nothing plays', async () => {

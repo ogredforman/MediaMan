@@ -1,10 +1,16 @@
 -- MediaMan on-screen controller (SPEC §7.4 step 3, §8 playback [M], §11): the title, a progress bar with chapters,
--- play/pause and time, audio and subtitle menus, and the "Up next" countdown, in the purple theme. Loaded with --script by the desktop app,
+-- play/pause, skip back and forward, previous and next episode, time, audio and subtitle menus, and the "Up next"
+-- countdown, in the purple theme over a dark gradient. Loaded with --script by the desktop app,
 -- with the built-in OSC off (mpv.conf). It talks to the desktop main process only through MPV script messages and
 -- properties (.claude/rules/desktop.md). Needs MPV 0.37 or later (the mouse-pos property).
 --
 -- Keys: `a` opens the audio menu and `u` the subtitle menu (rebind with `script-binding osc/audio-menu` and
 -- `script-binding osc/subtitle-menu` in input.conf); in a menu, Up/Down move, Enter picks and Esc closes.
+--
+-- Skip back/forward seek by `skip_back`/`skip_forward` seconds (bindable as `script-binding osc/skip-back` and
+-- `osc/skip-forward`). Episodes: once the file loads the main process sends
+-- `script-message mediaman-episodes <previous title> <next title>` (empty for none); the buttons, and the PREV/NEXT
+-- media keys (`osc/previous-episode`, `osc/next-episode`), answer `script-message mediaman-episode previous|next`.
 --
 -- Up next (SPEC §7.4 step 5): the main process sends `script-message mediaman-up-next <seconds> <title>`; the card
 -- counts down and answers `script-message mediaman-up-next-choice play` when it runs out or on Play now (Enter), or
@@ -16,6 +22,8 @@ local options = require 'mp.options'
 local opts = {
   hide_timeout = 2, -- seconds without mouse movement before the controls hide
   scale = 1, -- multiplies the size taken from the window height
+  skip_back = 10, -- seconds the skip back button goes back
+  skip_forward = 30, -- seconds the skip forward button goes ahead
 }
 options.read_options(opts, 'mediaman_osc')
 
@@ -61,6 +69,7 @@ local state = {
   dragging = false,
   menu = nil, -- { kind = 'audio' | 'sub', items = { { label, id, selected } }, focus = n }
   up_next = nil, -- { title, seconds, deadline, timer }
+  episodes = nil, -- { previous = title or nil, next = title or nil } for an episode
   elements = {}, -- clickable areas from the last render
   click_bound = false,
 }
@@ -169,15 +178,19 @@ local function text(ass, x, y, align, size, c, str, alpha)
   ass:append(ass_escape(str))
 end
 
--- A soft fade from the background colour: opaque-ish at the edge, clear towards the video.
-local function fade(ass, y0, y1, from_bottom)
-  local steps = 24
+-- Heights of the dark gradients behind the controls, before scaling; the pointer over them shows the controls.
+local bottom_shade, top_shade = 280, 130
+
+-- A fade from the background colour: `peak` (0–255) opacity at the edge, easing to clear towards the video, so the
+-- controls stay readable over a bright scene.
+local function fade(ass, y0, y1, from_bottom, peak)
+  local steps = 32
   local step = (y1 - y0) / steps
   for i = 0, steps - 1 do
-    local strength = (from_bottom and (i + 1) or (steps - i)) / steps
+    local strength = ((from_bottom and (i + 1) or (steps - i)) / steps) ^ 1.2
     -- Whole-pixel edges, so neighbouring strips never overlap into darker lines.
     local top, bottom = math.floor(y0 + i * step + 0.5), math.floor(y0 + (i + 1) * step + 0.5)
-    if bottom > top then box(ass, 0, top, state.w, bottom, color.background, math.floor(255 - 150 * strength)) end
+    if bottom > top then box(ass, 0, top, state.w, bottom, color.background, math.floor(255 - peak * strength)) end
   end
 end
 
@@ -243,25 +256,124 @@ local function draw_seekbar(ass, els)
   end
 end
 
-local function draw_play_button(ass, els)
-  local s = state.s
-  local cx, cy, r = 66 * s, state.h - 46 * s, 18 * s
-  local c = hovered(cx - r, cy - r, cx + r, cy + r) and color.highlight or color.text
+-- A ring around (cx, cy) from angle a0 to a1 (radians, clockwise on screen), `thick` wide.
+local function arc(ass, cx, cy, r, thick, a0, a1)
+  local steps, outer, inner = 20, r + thick / 2, r - thick / 2
+  for i = 0, steps do
+    local a = a0 + (a1 - a0) * i / steps
+    local x, y = cx + outer * math.cos(a), cy + outer * math.sin(a)
+    if i == 0 then ass:move_to(x, y) else ass:line_to(x, y) end
+  end
+  for i = steps, 0, -1 do
+    local a = a0 + (a1 - a0) * i / steps
+    ass:line_to(cx + inner * math.cos(a), cy + inner * math.sin(a))
+  end
+end
+
+-- The transport buttons, each drawn in colour c and alpha a within a square of half-size r around (cx, cy).
+local icons = {}
+
+function icons.play(ass, cx, cy, r, c, a)
   if state.paused then
-    shape(ass, c, 0)
+    shape(ass, c, a)
     ass:move_to(cx - r * 0.6, cy - r * 0.8)
     ass:line_to(cx + r * 0.8, cy)
     ass:line_to(cx - r * 0.6, cy + r * 0.8)
     ass:draw_stop()
   else
-    box(ass, cx - r * 0.7, cy - r * 0.8, cx - r * 0.2, cy + r * 0.8, c, 0, 2 * s)
-    box(ass, cx + r * 0.2, cy - r * 0.8, cx + r * 0.7, cy + r * 0.8, c, 0, 2 * s)
+    box(ass, cx - r * 0.7, cy - r * 0.8, cx - r * 0.2, cy + r * 0.8, c, a, 2 * state.s)
+    box(ass, cx + r * 0.2, cy - r * 0.8, cx + r * 0.7, cy + r * 0.8, c, a, 2 * state.s)
   end
-  els[#els + 1] = { x0 = cx - r, y0 = cy - r, x1 = cx + r, y1 = cy + r, action = function()
-    mp.commandv('cycle', 'pause')
-  end }
 end
 
+-- A circular arrow with the seconds inside: anticlockwise for back, clockwise for forward, open at the top where the
+-- arrowhead points the way it turns.
+local function skip_icon(ass, cx, cy, r, c, a, seconds, forward)
+  local ring, dir = r * 0.8, forward and 1 or -1
+  shape(ass, c, a)
+  -- Back runs clockwise from the top round to the upper left; forward is its mirror image.
+  if forward then
+    arc(ass, cx, cy, ring, 2.5 * state.s, -math.pi / 6, math.pi * 3 / 2)
+  else
+    arc(ass, cx, cy, ring, 2.5 * state.s, -math.pi / 2, math.pi * 7 / 6)
+  end
+  ass:draw_stop()
+  shape(ass, c, a)
+  ass:move_to(cx + dir * r * 0.45, cy - ring)
+  ass:line_to(cx, cy - ring - r * 0.32)
+  ass:line_to(cx, cy - ring + r * 0.32)
+  ass:draw_stop()
+  text(ass, cx, cy + state.s, 5, r * 0.85, c, tostring(seconds), a)
+end
+
+function icons.back(ass, cx, cy, r, c, a) skip_icon(ass, cx, cy, r, c, a, opts.skip_back, false) end
+function icons.forward(ass, cx, cy, r, c, a) skip_icon(ass, cx, cy, r, c, a, opts.skip_forward, true) end
+
+-- A triangle and a bar: pointing left for the previous episode, right for the next.
+local function episode_icon(ass, cx, cy, r, c, a, forward)
+  local dir = forward and 1 or -1
+  box(ass, cx + dir * r * 0.55 - r * 0.12, cy - r * 0.7, cx + dir * r * 0.55 + r * 0.12, cy + r * 0.7, c, a)
+  shape(ass, c, a)
+  ass:move_to(cx - dir * r * 0.6, cy - r * 0.7)
+  ass:line_to(cx + dir * r * 0.4, cy)
+  ass:line_to(cx - dir * r * 0.6, cy + r * 0.7)
+  ass:draw_stop()
+end
+
+function icons.previous(ass, cx, cy, r, c, a) episode_icon(ass, cx, cy, r, c, a, false) end
+function icons.next(ass, cx, cy, r, c, a) episode_icon(ass, cx, cy, r, c, a, true) end
+
+local function skip(seconds)
+  mp.commandv('seek', tostring(seconds), 'relative+exact')
+end
+
+local function choose_episode(which)
+  if state.episodes and state.episodes[which] then mp.commandv('script-message', 'mediaman-episode', which) end
+end
+
+-- A label in a box ending at y, centred on cx where the window allows, like the seek bar's hover time.
+local function tooltip(ass, cx, y, label)
+  local s = state.s
+  local width = (#label * 11 + 32) * s
+  local bx0 = math.max(8 * s, math.min(state.w - 8 * s - width, cx - width / 2))
+  box(ass, bx0, y - 38 * s, bx0 + width, y, color.surface, 0x10, 8 * s)
+  text(ass, bx0 + width / 2, y - 19 * s, 5, 22 * s, color.highlight, label)
+end
+
+-- From the left: previous episode, skip back, play/pause, skip forward, next episode. The episode buttons show only
+-- for an episode, faint where there is none that way. Returns the x where the row ends.
+local function draw_transport(ass, els)
+  local s = state.s
+  local cy, r, gap = state.h - 46 * s, 18 * s, 58 * s
+  local eps = state.episodes
+  local buttons = {}
+  if eps then buttons[#buttons + 1] = { icon = 'previous', episode = 'previous' } end
+  buttons[#buttons + 1] = { icon = 'back', action = function() skip(-opts.skip_back) end }
+  buttons[#buttons + 1] = { icon = 'play', action = function() mp.commandv('cycle', 'pause') end }
+  buttons[#buttons + 1] = { icon = 'forward', action = function() skip(opts.skip_forward) end }
+  if eps then buttons[#buttons + 1] = { icon = 'next', episode = 'next' } end
+
+  local cx = 66 * s
+  for _, b in ipairs(buttons) do
+    local title = b.episode and eps[b.episode]
+    local enabled = not b.episode or title ~= nil
+    local over = enabled and hovered(cx - r, cy - r, cx + r, cy + r)
+    icons[b.icon](ass, cx, cy, r, over and color.highlight or color.text, enabled and 0 or 0xB0)
+    if enabled then
+      local episode = b.episode
+      els[#els + 1] = { x0 = cx - r, y0 = cy - r, x1 = cx + r, y1 = cy + r, action = b.action or function()
+        choose_episode(episode)
+      end }
+    end
+    if over and title then
+      -- Above the seek bar, so it covers neither the bar nor the buttons.
+      local _, _, bar = seek_geometry()
+      tooltip(ass, cx, bar - 14 * s, (b.episode == 'next' and 'Next: ' or 'Previous: ') .. truncate(title, 60))
+    end
+    cx = cx + gap
+  end
+  return cx - gap + r
+end
 
 local function draw_menu_button(ass, els, kind, label, x1)
   local s = state.s
@@ -280,13 +392,13 @@ end
 
 local function draw_bottom(ass, els)
   local s = state.s
-  fade(ass, state.h - 200 * s, state.h, true)
+  fade(ass, state.h - bottom_shade * s, state.h, true, 235)
   draw_seekbar(ass, els)
-  draw_play_button(ass, els)
+  local row_end = draw_transport(ass, els)
 
   local times = format_time(state.position)
   if state.duration and state.duration > 0 then times = times .. ' / ' .. format_time(state.duration) end
-  text(ass, 104 * s, state.h - 46 * s, 4, 26 * s, color.text, times, 0x20)
+  text(ass, row_end + 22 * s, state.h - 46 * s, 4, 26 * s, color.text, times, 0x20)
 
   local right = state.w - 48 * s
   if track_count('sub') > 0 then right = draw_menu_button(ass, els, 'sub', 'Subtitles', right) - 12 * s end
@@ -378,7 +490,7 @@ end
 
 local function over_controls()
   local m = state.mouse
-  return m.hover and (m.y >= state.h - 200 * state.s or m.y <= 110 * state.s)
+  return m.hover and (m.y >= state.h - bottom_shade * state.s or m.y <= top_shade * state.s)
 end
 
 local function visible()
@@ -419,7 +531,7 @@ local function render()
   local ass = assdraw.ass_new()
   local els = {}
   if controls then
-    fade(ass, 0, 110 * state.s, false)
+    fade(ass, 0, top_shade * state.s, false, 170)
     text(ass, 48 * state.s, 46 * state.s, 4, 34 * state.s, color.text,
       truncate(state.title, math.max(10, math.floor((w - 96 * state.s) / (17 * state.s)))))
     draw_bottom(ass, els)
@@ -550,6 +662,19 @@ mp.register_script_message('mediaman-up-next', function(seconds, title)
   mp.add_forced_key_binding('ESC', 'mediaman-up-next-esc', function() finish_up_next('cancel') end)
   request_render()
 end)
+
+-- Episodes ---------------------------------------------------------------------------------------------------------
+
+mp.register_script_message('mediaman-episodes', function(previous, following)
+  local function title(v) return (v and v ~= '') and v or nil end
+  state.episodes = { previous = title(previous), next = title(following) }
+  request_render()
+end)
+
+mp.add_key_binding('PREV', 'previous-episode', function() choose_episode('previous') end)
+mp.add_key_binding('NEXT', 'next-episode', function() choose_episode('next') end)
+mp.add_key_binding(nil, 'skip-back', function() skip(-opts.skip_back) end, { repeatable = true })
+mp.add_key_binding(nil, 'skip-forward', function() skip(opts.skip_forward) end, { repeatable = true })
 
 mp.add_key_binding('a', 'audio-menu', function() toggle_menu('audio') end)
 mp.add_key_binding('u', 'subtitle-menu', function() toggle_menu('sub') end)

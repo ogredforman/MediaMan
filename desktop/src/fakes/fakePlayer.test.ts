@@ -28,6 +28,10 @@ describePlayerContract('FakePlayer', () => {
       player.emitUpNextChoice(choice);
       return Promise.resolve();
     },
+    chooseEpisode: (choice) => {
+      player.emitEpisodeChoice(choice);
+      return Promise.resolve();
+    },
     failNextStart: () => {
       player.failNextPlay();
     },

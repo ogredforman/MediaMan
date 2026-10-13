@@ -17,6 +17,8 @@ export interface DesktopPlayOptions {
   subtitles: { url: string; language?: string; title?: string; isDefault?: boolean }[];
   audioLanguages: string[];
   subtitleLanguages: string[];
+  /** An episode's neighbours by display title, offered as Previous and Next episode in MPV. */
+  episodes?: { previous?: string; next?: string };
 }
 
 /** The "Up next" countdown MPV shows: the next episode's title and the seconds before it starts. */
@@ -34,7 +36,8 @@ export type DesktopPlayerEvent =
   | { launchId: string; type: 'ended'; reason: 'eof' | 'quit' | 'error'; detail?: string }
   | { launchId: string; type: 'credits' }
   | { launchId: string; type: 'endReached' }
-  | { launchId: string; type: 'upNext'; choice: 'play' | 'cancel' };
+  | { launchId: string; type: 'upNext'; choice: 'play' | 'cancel' }
+  | { launchId: string; type: 'episode'; choice: 'previous' | 'next' };
 
 /** The MPV the next Play uses: picked in Settings, `MEDIAMAN_MPV_PATH`, or `mpv` from PATH. Mirrors the desktop's `MpvSetting`. */
 export interface DesktopMpvSetting {
