@@ -402,6 +402,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - A crash or power loss never corrupts the database (SQLite WAL mode).
   - Torrents resume with their state after a restart.
   - Interrupted scans resume.
+  - Upgrades keep data: before applying database migrations the server copies the database to `backups/` in the data directory (the three newest copies are kept). If a migration fails, it puts the database back as it was, doesn't start, and says which update failed, where the copy is and what to do next; it never runs on a half-migrated database. Each released database schema is kept as a test fixture that must migrate to the current schema with its data intact.
 - **Privacy:** no telemetry. Outbound calls go only to the configured metadata providers, indexers, the leak-check service and the BitTorrent network.
 - **Security:**
   - Passwords are hashed with Argon2id.
@@ -412,7 +413,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - Clients outside the local network are refused until the Superadmin turns on remote access (7.12).
   - Browsers may call the API cross-origin (CORS) only from the configured UI origins (`MediaMan:AllowedOrigins`, none by default; the desktop app passes its UI's origin to the server it starts), without credentials since tokens are bearer tokens.
   - Never logs secrets.
-- **Data portability:** a single SQLite file, the per-install key file and an artwork cache folder. Backup and restore are just copying files. Settings export and import as JSON.
+- **Data portability:** a single SQLite file, the per-install key file and an artwork cache folder (plus pre-upgrade copies of the database in `backups/`). Backup and restore are just copying files. Settings export and import as JSON.
 - **Accessibility:** keyboard navigable throughout; visible focus states; WCAG AA contrast for text.
 - **Bundled tools:** distributions always ship ffmpeg/ffprobe and MPV for their platform; users never install them separately. Their paths can be overridden in settings, but the bundled copies are the default.
 - **Licensing:** AGPL-3.0; third-party licences (ffmpeg, MPV, MonoTorrent) are included in distributions.

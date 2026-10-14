@@ -18,6 +18,9 @@ public sealed class MediaManOptions
     /// <summary>The per-install key (ADR 0008). Back it up with the database: without it, stored secrets are unreadable.</summary>
     public string KeyPath => Path.Combine(DataDirectory, KeyFileName);
 
+    /// <summary>Copies of the database taken before an upgrade changes its schema (SPEC §9 resilience).</summary>
+    public string BackupDirectory => Path.Combine(DataDirectory, "backups");
+
     /// <summary>Dev configuration (SPEC §8 setup [P]); honoured only in the Development environment of a Debug build.</summary>
     public DevOptions Dev { get; set; } = new();
 

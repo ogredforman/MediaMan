@@ -1,4 +1,5 @@
 using MediaMan.Fakes;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
@@ -63,6 +64,31 @@ public class MigrationTests
         command.CommandText = "PRAGMA journal_mode;";
 
         (await command.ExecuteScalarAsync(Ct)).Should().Be("wal");
+    }
+
+    [Fact]
+    public async Task A_database_out_of_wal_mode_opens_and_goes_back_to_wal()
+    {
+        // As a copy restored by hand might be: EF's existence check opens it read-only, which can't switch it to WAL.
+        await using var db = await TempDatabase.CreateMigratedAsync(Ct);
+        SqliteConnection.ClearAllPools();
+        using (var connection = db.OpenRawConnection())
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = "PRAGMA journal_mode = DELETE;";
+            (await command.ExecuteScalarAsync(Ct)).Should().Be("delete");
+        }
+
+        await using (var context = db.CreateContext())
+        {
+            (await context.Database.GetPendingMigrationsAsync(Ct)).Should().BeEmpty();
+            (await context.Libraries.CountAsync(Ct)).Should().Be(0);
+        }
+
+        using var check = db.OpenRawConnection();
+        using var mode = check.CreateCommand();
+        mode.CommandText = "PRAGMA journal_mode;";
+        (await mode.ExecuteScalarAsync(Ct)).Should().Be("wal");
     }
 
     [Fact]
