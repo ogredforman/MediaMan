@@ -8,7 +8,9 @@ import { defineConfig } from 'vite';
 // and API share an origin and no CORS is needed. The server e2e run uses this (playwright.server.config.ts).
 const serverUrl = process.env.MEDIAMAN_SERVER_URL;
 
-export default defineConfig({
+// The server serves the built app under /app/ (ADR 0009; WebUi.RequestPath); the dev server keeps it at /.
+export default defineConfig(({ command }) => ({
+  base: command === 'build' ? '/app/' : '/',
   // The router plugin generates src/routeTree.gen.ts from src/routes/ and must run before React.
   plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react(), tailwindcss()],
   server: serverUrl
@@ -21,4 +23,4 @@ export default defineConfig({
     testTimeout: 15_000,
     include: ['src/**/*.test.{ts,tsx}'],
   },
-});
+}));

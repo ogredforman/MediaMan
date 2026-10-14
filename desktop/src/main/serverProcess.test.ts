@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SERVER_PORT,
   BUNDLED_SERVER_HINT,
+  localServerBaseUrl,
   resolveServerCommand,
   resolveServerPort,
   ServerProcess,
@@ -246,6 +247,12 @@ describe('resolveServerCommand', () => {
       command: path.join(cwd, 'MediaMan.Server'),
       args: [],
     });
+  });
+});
+
+describe('localServerBaseUrl', () => {
+  it('is loopback on the port, where ServerProcess starts', () => {
+    expect(localServerBaseUrl(9000)).toBe('http://127.0.0.1:9000');
   });
 });
 

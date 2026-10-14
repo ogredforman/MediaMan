@@ -6,8 +6,14 @@ export interface RouterContext {
   queryClient: QueryClient;
 }
 
-export function createAppRouter(queryClient: QueryClient, history?: RouterHistory) {
-  return createRouter({ routeTree, context: { queryClient }, history });
+/**
+ * Where the app lives: `/app` in the build the server serves (Vite `base`, ADR 0009), `/` on the dev server. Route
+ * paths, `location.href` and `?redirect=` values stay without it; navigate with `to` or `href` so the router adds it.
+ */
+export const appBasepath: string = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
+
+export function createAppRouter(queryClient: QueryClient, history?: RouterHistory, basepath = appBasepath) {
+  return createRouter({ routeTree, context: { queryClient }, history, basepath });
 }
 
 export type AppRouter = ReturnType<typeof createAppRouter>;

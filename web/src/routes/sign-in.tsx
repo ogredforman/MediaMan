@@ -23,8 +23,8 @@ function SignInRoute() {
   const router = useRouter();
   return (
     <SignInForm
-      onSignedIn={() => { router.history.push(target ?? '/'); }}
-      onSetupRequired={() => { router.history.push('/setup'); }}
+      onSignedIn={() => { void router.navigate({ href: target ?? '/' }); }}
+      onSetupRequired={() => { void router.navigate({ to: '/setup' }); }}
     />
   );
 }

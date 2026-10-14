@@ -73,6 +73,11 @@ export function resolveServerPort(env: Readonly<Record<string, string | undefine
   return port;
 }
 
+/** The address of the server this app starts on loopback at `port`. */
+export function localServerBaseUrl(port: number): string {
+  return `http://127.0.0.1:${String(port)}`;
+}
+
 /**
  * Starts the server on loopback and resolves once `GET /health` answers. If a MediaMan server already answers on the
  * port, it is used as is and left running on stop, since this app didn't start it.
@@ -94,7 +99,7 @@ export class ServerProcess implements IServerProcess {
 
   constructor(private readonly options: ServerProcessOptions) {
     this.port = options.port ?? DEFAULT_SERVER_PORT;
-    this.baseUrl = `http://127.0.0.1:${String(this.port)}`;
+    this.baseUrl = localServerBaseUrl(this.port);
     this.healthTimeoutMs = options.healthTimeoutMs ?? 30_000;
     this.pollIntervalMs = options.pollIntervalMs ?? 250;
     this.stopGraceMs = options.stopGraceMs ?? 5_000;

@@ -26,5 +26,5 @@ function ProfilesRoute() {
   useRedirectOnSignOut();
   // Back to the picker would only ask again.
   const next = target === undefined || target.startsWith('/profiles') ? '/' : target;
-  return <ProfilePicker onPicked={() => { router.history.push(next); }} />;
+  return <ProfilePicker onPicked={() => { void router.navigate({ href: next }); }} />;
 }

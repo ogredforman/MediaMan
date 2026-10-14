@@ -11,17 +11,24 @@ import { mpvAssetsIn, MpvPlayer } from './mpvPlayer.js';
 import { PlayerHost } from './playerHost.js';
 import {
   BUNDLED_SERVER_HINT,
+  localServerBaseUrl,
   resolveServerCommand,
   resolveServerPort,
   ServerProcess,
   type IServerProcess,
 } from './serverProcess.js';
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
-import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl } from './window.js';
+import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl, serverUiUrl } from './window.js';
 
-const uiUrl = resolveUiUrl(process.env);
 // Only a packaged app has the server and MPV in its resources folder; unpackaged runs use the dev overrides or PATH.
 const bundled = app.isPackaged ? bundledTools(process.resourcesPath, process.platform) : undefined;
+const devServer = Boolean(process.env.MEDIAMAN_SERVER_PATH?.trim());
+const serverPort = resolveServerPort(process.env);
+const serverBaseUrl = localServerBaseUrl(serverPort);
+// A packaged app shows the UI its own server serves (ADR 0009); MEDIAMAN_UI_URL still overrides it, and unpackaged
+// runs use the Vite dev server.
+const ownServerUi = bundled && !devServer ? serverUiUrl(serverBaseUrl) : undefined;
+const uiUrl = resolveUiUrl(process.env, ownServerUi);
 let server: IServerProcess | undefined;
 let serverUrl: string | undefined;
 let player: PlayerHost | undefined;
@@ -46,9 +53,9 @@ function createMainWindow(): void {
   });
   win.loadURL(uiUrl.toString()).catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `Could not load the web UI at ${uiUrl.toString()}: ${message}. Start it with "npm run dev:mock -w web" or set MEDIAMAN_UI_URL.`,
-    );
+    const next =
+      uiUrl === ownServerUi ? BUNDLED_SERVER_HINT : 'Start it with "npm run dev:mock -w web" or set MEDIAMAN_UI_URL.';
+    console.error(`Could not load the web UI at ${uiUrl.toString()}: ${message}. ${next}`);
     win.show();
   });
 }
@@ -95,15 +102,15 @@ void app.whenReady().then(async () => {
     },
   });
 
-  const devServer = Boolean(process.env.MEDIAMAN_SERVER_PATH?.trim());
   try {
     const local = await startLocalServer(
       resolveServerCommand(process.env, process.cwd(), bundled?.serverPath),
       (command) =>
         (server = new ServerProcess({
           command,
-          port: resolveServerPort(process.env),
-          allowedOrigin: uiUrl.origin,
+          port: serverPort,
+          // A UI on the server's own origin needs no CORS.
+          ...(uiUrl.origin === serverBaseUrl ? {} : { allowedOrigin: uiUrl.origin }),
           ...(devServer ? {} : { startFailureHint: BUNDLED_SERVER_HINT }),
         })),
     );

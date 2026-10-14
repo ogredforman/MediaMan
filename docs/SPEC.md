@@ -444,7 +444,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
 | Media tools | ffmpeg / ffprobe (jellyfin-ffmpeg builds), run as a separate process | Bundled per platform |
 | Real-time updates | Server-Sent Events | Scan progress, downloads, VPN status |
 | API contract | OpenAPI 3.1 in `contracts/openapi.yaml` | TS client generated; server conformance tested |
-| Web UI | React + Vite + TypeScript, TanStack Query, TanStack Router, Tailwind | Installable as a PWA |
+| Web UI | React + Vite + TypeScript, TanStack Query, TanStack Router, Tailwind | Installable as a PWA; the server serves the built UI under `/app/`, the API stays at the root (ADR 0009) |
 | Desktop | Electron (TypeScript) | Local mode spawns the server; MPV over JSON IPC |
 | Player | MPV + custom Lua OSC, run as a separate process | Bundled per platform with the desktop app; separate window in v1 |
 | Indexers | Cardigann YAML engine + Torznab client | Optional FlareSolverr |

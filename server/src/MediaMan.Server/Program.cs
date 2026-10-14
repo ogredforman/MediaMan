@@ -7,6 +7,7 @@ var app = builder.Build();
 app.UseMediaManErrors();
 app.UseLocalNetworkGuard();
 app.UseMediaManCors();
+app.UseMediaManWebUi();
 app.UseSetupGate();
 app.UseMediaManAuth();
 app.MapMediaManEndpoints();

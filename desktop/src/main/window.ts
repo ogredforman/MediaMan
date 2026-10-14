@@ -1,16 +1,27 @@
 // Pure window setup, kept free of runtime Electron imports so it can be unit tested.
 import type { BrowserWindowConstructorOptions } from 'electron';
 
-/** The Vite dev server (`npm run dev:mock -w web`). Local mode will use the IServerProcess base URL instead. */
+/** The Vite dev server (`npm run dev:mock -w web`), for unpackaged runs. */
 export const DEFAULT_UI_URL = 'http://localhost:5173';
+
+/** Where the server serves the built web UI (ADR 0009; the server's `WebUi.RequestPath`, the web build's `base`). */
+export const SERVER_UI_PATH = '/app/';
 
 /** SPEC §11 background, shown before the UI paints. */
 const BACKGROUND_COLOR = '#0E0B14';
 
-/** Resolves the web UI URL from `MEDIAMAN_UI_URL`, falling back to the dev server. Only http(s) is accepted. */
-export function resolveUiUrl(env: Readonly<Record<string, string | undefined>>): URL {
+/** The web UI the server at `serverBaseUrl` serves. */
+export function serverUiUrl(serverBaseUrl: string): URL {
+  return new URL(SERVER_UI_PATH, serverBaseUrl);
+}
+
+/**
+ * Resolves the web UI URL: `MEDIAMAN_UI_URL` (the dev override), else `serverUi` (the packaged app's own server), else
+ * the dev server. Only http(s) is accepted.
+ */
+export function resolveUiUrl(env: Readonly<Record<string, string | undefined>>, serverUi?: URL): URL {
   const raw = env.MEDIAMAN_UI_URL?.trim();
-  if (!raw) return new URL(DEFAULT_UI_URL);
+  if (!raw) return serverUi ?? new URL(DEFAULT_UI_URL);
 
   let url: URL;
   try {

@@ -27,6 +27,8 @@ public sealed class MediaManOptions
 
     public MetadataOptions Metadata { get; set; } = new();
 
+    public WebUiOptions Web { get; set; } = new();
+
     /// <summary>
     /// Web UI origins on another origin than the server (the desktop app's UI, the Vite dev server) that may call the
     /// API from a browser (CORS). Empty allows none; bearer tokens, not cookies, so credentials are never allowed.
@@ -65,6 +67,13 @@ public sealed class ToolsOptions
 {
     /// <summary>Overrides the bundled ffprobe; unset means the bundled copy, else <c>ffprobe</c> on PATH (<see cref="BundledTools"/>).</summary>
     public string? FfprobePath { get; set; }
+}
+
+/// <summary>The built web UI the server serves (<see cref="WebUi"/>, ADR 0009).</summary>
+public sealed class WebUiOptions
+{
+    /// <summary>Overrides the UI folder; unset means <c>web</c> beside the server when present, else no UI.</summary>
+    public string? RootPath { get; set; }
 }
 
 /// <summary>Where an external dependency comes from in the dev configuration.</summary>
