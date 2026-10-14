@@ -601,7 +601,7 @@ All fakes live in `server/tests/MediaMan.Fakes` (and `desktop/src/fakes` for TS)
 - **Community definitions (`IDefinitionSource`):** returns fixture YAML definitions from `tests/fixtures/definitions/`.
 - **FlareSolverr:** behind `IIndexerHttp`; the fake simulates solved and unsolved challenges.
 - **VPN:** covered by `INetworkInterfaces` and `IPublicIpProbe` fakes; no VPN is needed in tests.
-- **MPV (`IPlayer`):** `FakePlayer` (TS) records `play` calls and Up next offers, and lets tests emit progress, credits, end-reached, Up next choices and ended events. Real MPV is used only in manual and smoke testing.
+- **MPV (`IPlayer`):** `FakePlayer` (TS) records `play` calls and Up next offers, and lets tests emit progress, credits, end-reached, Up next choices and ended events. Real MPV is used only in manual testing.
 - **Server process (`IServerProcess`):** `FakeServerProcess` resolves with a fixed URL pointing at the MSW mock API.
 - **Web UI vs. API:** MSW handlers generated from `contracts/openapi.yaml` with fixture data, so UI work never waits on the server.
 
@@ -647,7 +647,7 @@ UX rules:
   - IP bans never apply to a trusted proxy or a local-network address.
 - **API conformance:** server responses are validated against `contracts/openapi.yaml` in integration tests.
 - **Web:** component tests with MSW, and Playwright end-to-end tests for the core flows (setup, browse, play request, Get).
-- **Desktop:** `IPlayer` contract tests against `FakePlayer`, plus a manual smoke checklist with real MPV per platform.
+- **Desktop:** `IPlayer` contract tests against `FakePlayer`, plus manual testing with real MPV per platform.
 - CI runs build, lint and tests for server, web and desktop on Windows and Linux.
 - **Releases:** the app version lives in the root `package.json` and every part reports it. Pushing a `vX.Y.Z` tag that matches it runs the full CI, then builds the Windows installer and publishes it to GitHub Releases with the bundled GPL tools' source archives and SHA-256 sums. A release whose schema has no migration fixture is refused (§9).
 

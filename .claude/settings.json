@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/node_modules/**)",
+      "Read(**/bin/**)",
+      "Read(**/obj/**)",
+      "Read(**/dist/**)",
+      "Read(**/dist-electron/**)",
+      "Read(**/out/**)",
+      "Read(**/coverage/**)",
+      "Read(**/TestResults/**)",
+      "Read(**/playwright-report/**)",
+      "Read(**/test-results/**)",
+      "Read(./web/.e2e-server/**)",
+      "Read(**/*.tsbuildinfo)",
+      "Read(**/*.db)",
+      "Read(**/*.db-shm)",
+      "Read(**/*.db-wal)",
+      "Read(./package-lock.json)"
+    ]
+  }
+}

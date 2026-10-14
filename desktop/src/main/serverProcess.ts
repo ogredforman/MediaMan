@@ -53,7 +53,7 @@ export const BUNDLED_SERVER_HINT = 'Restart MediaMan, and reinstall it if this k
 /**
  * The server build to run: `MEDIAMAN_SERVER_PATH` (a dev override) wins, else the packaged app's bundled server. A
  * `.dll` runs under `dotnet`, anything else is run directly. Neither means the desktop app doesn't start a server
- * (in development one runs on its own, see docs/LOCAL-DEV.md). A relative `MEDIAMAN_SERVER_PATH` is taken from where
+ * (in development one runs on its own). A relative `MEDIAMAN_SERVER_PATH` is taken from where
  * `npm` was run (`INIT_CWD`), not `desktop/`, where `npm start -w desktop` runs.
  */
 export function resolveServerCommand(

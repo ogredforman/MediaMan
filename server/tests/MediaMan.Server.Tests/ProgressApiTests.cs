@@ -103,7 +103,7 @@ public sealed class ProgressApiTests : IAsyncLifetime
         await ReportAsync(_episodes["1x1"], 1290, 1300);
         (await WatchStateAsync(_episodes["1x1"])).Watched.Should().BeTrue();
 
-        // A rewatch from the start, then the credits again (smoke finding 2: Up next on a rewatch).
+        // A rewatch from the start, then the credits again (Up next on a rewatch).
         (await ReportAsync(_episodes["1x1"], 5, 1300)).NextEpisode!.PlayableId.Should().Be(_episodes["1x2"]);
         (await ReportAsync(_episodes["1x1"], 1250, 1300)).NextEpisode!.PlayableId.Should().Be(_episodes["1x2"]);
     }
