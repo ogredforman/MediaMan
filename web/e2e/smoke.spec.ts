@@ -19,6 +19,7 @@ test('browses the Movies grid and follows a scan live', async ({ page }) => {
   await expect(grid.getByText('The Office')).toHaveCount(0);
 
   // Mock mode plays a scan over the event stream (src/mocks/browser.ts).
+  await page.getByRole('button', { name: /^Libraries/ }).click();
   const libraries = page.getByRole('list', { name: 'Libraries' });
   await libraries.getByRole('button', { name: 'Scan Media' }).click();
   await expect(libraries.getByText('Media: matching titles…')).toBeVisible();

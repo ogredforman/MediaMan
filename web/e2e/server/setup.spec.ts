@@ -29,6 +29,7 @@ setup('runs first-run setup, picks a profile and lands on Home with the first sc
   await page.getByRole('list', { name: 'Profiles' }).getByRole('button', { name: 'owner' }).click();
 
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
+  await page.getByRole('button', { name: /^Libraries/ }).click();
   const libraries = page.getByRole('list', { name: 'Libraries' });
   await expect(libraries.getByText(/Media: scanned, \d+ linked/)).toBeVisible({ timeout: 30_000 });
 

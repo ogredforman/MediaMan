@@ -28,7 +28,7 @@ describe('profile picker', () => {
     await user.click(within(profileList()).getByRole('button', { name: 'owner' }));
 
     expect(await screen.findByRole('heading', { name: 'Shows' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Switch profile (owner)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Profile menu (owner)' })).toBeInTheDocument();
   });
 
   it("shows the server's message and next action when the pick fails", async () => {
@@ -55,14 +55,15 @@ describe('profile picker', () => {
     const user = userEvent.setup();
     renderApp('/movies');
 
-    await user.click(await screen.findByRole('link', { name: 'Switch profile (owner)' }));
+    await user.click(await screen.findByRole('button', { name: 'Profile menu (owner)' }));
+    await user.click(screen.getByRole('link', { name: 'Switch profile' }));
     await user.click(await screen.findByRole('button', { name: 'Manage profiles' }));
     await addProfile(user, 'Kids', 'Teal');
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(within(profileList()).getByRole('button', { name: 'Kids' }));
 
     expect(await screen.findByRole('heading', { name: 'Movies' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Switch profile (Kids)' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Profile menu (Kids)' })).toBeInTheDocument();
   });
 
   it('adds, renames, recolours and deletes profiles in manage mode', async () => {
@@ -155,7 +156,8 @@ describe('profile picker', () => {
     await addProfile(user, 'Sam');
     await user.click(screen.getByRole('button', { name: 'Done' }));
     await user.click(within(profileList()).getByRole('button', { name: 'Sam' }));
-    await user.click(await screen.findByRole('link', { name: 'Switch profile (Sam)' }));
+    await user.click(await screen.findByRole('button', { name: 'Profile menu (Sam)' }));
+    await user.click(screen.getByRole('link', { name: 'Switch profile' }));
     await user.click(await screen.findByRole('button', { name: 'Manage profiles' }));
     await user.click(within(profileList()).getByRole('button', { name: 'Edit Sam' }));
     await user.click(screen.getByRole('button', { name: 'Delete' }));

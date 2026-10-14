@@ -3,9 +3,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useGetHealth, useListProfiles, useLogout } from '../api/mediaman';
 import { clearTokens } from '../lib/session';
 import { useSignedIn } from '../lib/useSession';
+import { HeaderPopover } from './HeaderPopover';
 import { Logo } from './Logo';
 import { AvatarTile } from './ProfilePicker';
-import { ScanStatus } from './ScanStatus';
+import { LibrariesMenu } from './ScanStatus';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -15,22 +16,25 @@ const navLinks = [
   { to: '/settings', label: 'Settings' },
 ] as const;
 
+const menuItemClass =
+  'block w-full rounded-card px-3 py-1.5 text-left text-fg-muted transition-colors duration-(--motion-fast) hover:bg-bg hover:text-fg focus-visible:outline-2 focus-visible:outline-highlight disabled:opacity-50';
+
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center gap-8 bg-surface px-8 py-4 shadow-soft">
-        <div className="flex items-center gap-2">
-          <Logo size={32} />
+      <header className="flex items-center gap-6 bg-surface px-8 py-3 shadow-soft">
+        <div className="flex shrink-0 items-center gap-3">
+          <Logo size={44} variant="wide" />
           <span className="text-xl font-bold text-highlight">MediaMan</span>
         </div>
         <nav aria-label="Main">
-          <ul className="flex gap-4">
+          <ul className="flex gap-2">
             {navLinks.map((link) => (
               <li key={link.to}>
                 <Link
                   to={link.to}
                   activeOptions={{ exact: link.to === '/' }}
-                  className="rounded-card px-3 py-1 text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg [&.active]:text-fg"
+                  className="whitespace-nowrap rounded-card px-3 py-1 text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg [&.active]:text-fg"
                 >
                   {link.label}
                 </Link>
@@ -39,9 +43,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           </ul>
         </nav>
         <SearchField />
-        <ScanStatus />
-        <SwitchProfile />
-        <SignOutButton />
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <LibrariesMenu />
+          <ProfileMenu />
+        </div>
       </header>
       <main className="flex-1">{children}</main>
       <footer className="px-8 py-3 text-sm text-fg-muted">
@@ -51,39 +56,50 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** The session's profile; picking another goes through the picker and comes back here (SPEC §7.11 step 3). */
-function SwitchProfile() {
+/**
+ * The session's profile on a button opening Switch profile (through the picker, coming back here; SPEC §7.11 step 3)
+ * and Sign out.
+ */
+function ProfileMenu() {
   const profiles = useListProfiles().data;
   const profile = profiles?.items.find((p) => p.id === profiles.activeProfileId);
   const href = useRouterState({ select: (state) => state.location.href });
   return (
-    <Link
-      to="/profiles"
-      search={{ redirect: href }}
-      aria-label={profile === undefined ? 'Switch profile' : `Switch profile (${profile.name})`}
-      className="flex items-center gap-2 rounded-card px-3 py-1 text-sm text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg"
+    <HeaderPopover
+      label={profile === undefined ? 'Profile menu' : `Profile menu (${profile.name})`}
+      button={
+        <>
+          {profile !== undefined && <AvatarTile name={profile.name} avatar={profile.avatar} size="small" />}
+          <span className="max-w-40 truncate">{profile?.name ?? 'Profile'}</span>
+        </>
+      }
     >
-      {profile !== undefined && <AvatarTile name={profile.name} avatar={profile.avatar} size="small" />}
-      <span>{profile?.name ?? 'Switch profile'}</span>
-    </Link>
+      {(close) => (
+        <ul className="flex min-w-40 flex-col gap-1">
+          <li>
+            <Link to="/profiles" search={{ redirect: href }} onClick={close} className={menuItemClass}>
+              Switch profile
+            </Link>
+          </li>
+          <SignOutItem />
+        </ul>
+      )}
+    </HeaderPopover>
   );
 }
 
 /** Shown only with a stored session (dev auto sign-in has none to end); the `_app` layout then goes to sign-in. */
-function SignOutButton() {
+function SignOutItem() {
   const signedIn = useSignedIn();
   // Signed out here even when the server can't be reached to revoke the session.
   const signOut = useLogout({ mutation: { onSettled: clearTokens } });
   if (!signedIn) return null;
   return (
-    <button
-      type="button"
-      onClick={() => { signOut.mutate(); }}
-      disabled={signOut.isPending}
-      className="rounded-card px-3 py-1 text-sm text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg disabled:opacity-50"
-    >
-      Sign out
-    </button>
+    <li>
+      <button type="button" onClick={() => { signOut.mutate(); }} disabled={signOut.isPending} className={menuItemClass}>
+        Sign out
+      </button>
+    </li>
   );
 }
 

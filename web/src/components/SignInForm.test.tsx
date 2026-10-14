@@ -41,6 +41,7 @@ describe('sign-in', () => {
     await user.click(screen.getByRole('button', { name: 'owner' }));
     expect(await screen.findByRole('heading', { name: 'Movies' })).toBeInTheDocument();
     expect(storedTokens()?.accessToken).toBe('access-signed-in');
+    await user.click(screen.getByRole('button', { name: 'Profile menu (owner)' }));
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 
@@ -96,7 +97,8 @@ describe('sign-in', () => {
     const user = userEvent.setup();
     renderApp('/shows');
 
-    await user.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await user.click(await screen.findByRole('button', { name: /^Profile menu/ }));
+    await user.click(screen.getByRole('button', { name: 'Sign out' }));
 
     expect(await screen.findByRole('heading', { name: 'Sign in to MediaMan' })).toBeInTheDocument();
     expect(loggedOut).toBe(true);
@@ -124,9 +126,12 @@ describe('sign-in', () => {
   });
 
   it('shows no Sign out without a stored session (dev auto sign-in)', async () => {
+    const user = userEvent.setup();
     renderApp('/');
 
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /^Profile menu/ }));
+    expect(screen.getByRole('link', { name: 'Switch profile' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
   });
 });

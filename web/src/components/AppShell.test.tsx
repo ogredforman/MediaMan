@@ -12,11 +12,38 @@ describe('AppShell', () => {
 
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument();
     const header = screen.getByRole('banner');
-    expect(within(header).getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo'));
+    expect(within(header).getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo-wide'));
     expect(within(header).getByText('MediaMan')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(await screen.findByText(`Server ${mockHealth.version}`)).toBeInTheDocument();
+  });
+
+  it('opens the profile menu with Switch profile, closes it on Esc and on an outside click', async () => {
+    const user = userEvent.setup();
+    renderApp('/movies');
+    const button = await screen.findByRole('button', { name: 'Profile menu (owner)' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('link', { name: 'Switch profile' })).not.toBeInTheDocument();
+
+    await user.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('link', { name: 'Switch profile' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('link', { name: 'Switch profile' })).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+
+    await user.click(button);
+    await user.tab();
+    expect(screen.getByRole('link', { name: 'Switch profile' })).toHaveFocus();
+    await user.tab();
+    expect(screen.queryByRole('link', { name: 'Switch profile' })).not.toBeInTheDocument();
+
+    await user.click(button);
+    const search = screen.getByRole('searchbox', { name: 'Search the library' });
+    await user.click(search);
+    expect(screen.queryByRole('link', { name: 'Switch profile' })).not.toBeInTheDocument();
+    expect(search).toHaveFocus();
   });
 
   it('navigates to Movies and Shows from the keyboard and marks the current page', async () => {

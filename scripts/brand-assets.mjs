@@ -39,6 +39,7 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 /** Copies the web and desktop ship, from assets/brand/<key> to each path (relative to the repo root). */
 const copies = {
   'icon-256.png': [['web', 'src', 'assets', 'logo.png']],
+  'mediaman-wide.png': [['web', 'src', 'assets', 'logo-wide.png']],
   'favicon.ico': [['web', 'public', 'favicon.ico']],
   'favicon-32.png': [['web', 'public', 'favicon-32.png']],
   'apple-touch-icon.png': [['web', 'public', 'apple-touch-icon.png']],
