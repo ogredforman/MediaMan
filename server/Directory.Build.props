@@ -9,4 +9,17 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+
+  <!-- The app version lives only in the root package.json (PLAN 2.5.5); /health and Settings → About report it as is.
+       The regex takes the top-level "version" key (two-space indent, as npm writes it), never a nested one. -->
+  <PropertyGroup>
+    <MediaManPackageJson>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)', '..', 'package.json'))</MediaManPackageJson>
+    <MediaManVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MediaManPackageJson)')), '(?m)^ {2}"version"\s*:\s*"([^"]+)"').Groups[1].Value)</MediaManVersion>
+    <Version>$(MediaManVersion)</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <Target Name="MediaManRequireVersion" BeforeTargets="BeforeBuild" Condition="'$(MediaManVersion)' == ''">
+    <Error Text="There's no &quot;version&quot; in $(MediaManPackageJson). Add the app version there with npm version X.Y.Z --workspaces --include-workspace-root --no-git-tag-version." />
+  </Target>
 </Project>
