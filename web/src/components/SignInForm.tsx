@@ -1,6 +1,7 @@
 import { useState, type SubmitEvent } from 'react';
 import { useLogin } from '../api/mediaman';
 import { storeTokens } from '../lib/session';
+import { Logo } from './Logo';
 
 const inputClass = 'rounded-card bg-bg px-3 py-2 text-fg';
 
@@ -36,6 +37,7 @@ export function SignInForm({ onSignedIn, onSetupRequired }: { onSignedIn: () => 
         onSubmit={submit}
         className="flex w-full max-w-sm flex-col gap-4 rounded-card bg-surface p-8 shadow-soft"
       >
+        <Logo size={64} className="self-center" />
         <h1 id="sign-in-heading" className="text-2xl font-semibold">
           Sign in to <span className="text-highlight">MediaMan</span>
         </h1>

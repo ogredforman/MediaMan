@@ -1,4 +1,5 @@
 import { useGetHealth } from '../api/mediaman';
+import { Logo } from './Logo';
 
 const sourceUrl = 'https://github.com/ogredforman/MediaMan';
 
@@ -28,7 +29,10 @@ export function AboutSettings() {
         About and licences
       </h2>
       <div className="flex flex-col gap-2 rounded-card bg-surface p-4">
-        <h3 className="font-medium">MediaMan</h3>
+        <div className="flex items-center gap-3">
+          <Logo size={64} />
+          <h3 className="font-medium">MediaMan</h3>
+        </div>
         {health.isPending && <p role="status">Loading the server version…</p>}
         {health.isError && <p role="alert">Couldn't reach the server for its version. Check that it's running, then reload.</p>}
         {health.isSuccess && <p>Server version {health.data.version}</p>}

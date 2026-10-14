@@ -29,6 +29,7 @@ describe('sign-in', () => {
     const { router } = renderApp('/movies');
 
     expect(await screen.findByRole('heading', { name: 'Sign in to MediaMan' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo'));
     expect(router.state.location.search).toEqual({ redirect: '/movies' });
 
     await user.type(screen.getByLabelText('Username'), 'owner');

@@ -1,5 +1,15 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_UI_URL, isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl, serverUiUrl } from './window.js';
+import {
+  DEFAULT_UI_URL,
+  isExternalWebLink,
+  isSameOrigin,
+  mainWindowOptions,
+  resolveUiUrl,
+  serverUiUrl,
+  windowIconPath,
+} from './window.js';
 
 describe('resolveUiUrl', () => {
   it('defaults to the dev server', () => {
@@ -38,6 +48,27 @@ describe('mainWindowOptions', () => {
       sandbox: true,
       webSecurity: true,
     });
+  });
+
+  it('sets the window icon only when given one', () => {
+    expect(mainWindowOptions('preload.cjs', 'icon.ico').icon).toBe('icon.ico');
+    expect(mainWindowOptions('preload.cjs')).not.toHaveProperty('icon');
+  });
+});
+
+describe('windowIconPath', () => {
+  const appPath = path.join('app', 'root');
+
+  it('uses the multi-size .ico on Windows and a PNG elsewhere', () => {
+    expect(windowIconPath(appPath, 'win32')).toBe(path.join(appPath, 'assets', 'icon.ico'));
+    expect(windowIconPath(appPath, 'linux')).toBe(path.join(appPath, 'assets', 'icon.png'));
+    expect(windowIconPath(appPath, 'darwin')).toBe(path.join(appPath, 'assets', 'icon.png'));
+  });
+
+  it('finds both icons under the desktop app path', () => {
+    const desktopDir = path.join(import.meta.dirname, '..', '..');
+    expect(existsSync(windowIconPath(desktopDir, 'win32'))).toBe(true);
+    expect(existsSync(windowIconPath(desktopDir, 'linux'))).toBe(true);
   });
 });
 

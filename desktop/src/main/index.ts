@@ -18,7 +18,7 @@ import {
   type IServerProcess,
 } from './serverProcess.js';
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
-import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl, serverUiUrl } from './window.js';
+import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl, serverUiUrl, windowIconPath } from './window.js';
 
 // Only a packaged app has the server and MPV in its resources folder; unpackaged runs use the dev overrides or PATH.
 const bundled = app.isPackaged ? bundledTools(process.resourcesPath, process.platform) : undefined;
@@ -35,7 +35,7 @@ let player: PlayerHost | undefined;
 
 function createMainWindow(): void {
   const preloadPath = path.join(import.meta.dirname, '..', 'preload', 'index.cjs');
-  const win = new BrowserWindow(mainWindowOptions(preloadPath));
+  const win = new BrowserWindow(mainWindowOptions(preloadPath, windowIconPath(app.getAppPath(), process.platform)));
 
   // Keep the window on the UI origin; other web links open in the system browser.
   win.webContents.on('will-navigate', (event, target) => {

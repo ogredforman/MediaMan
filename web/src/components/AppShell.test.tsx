@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -7,10 +7,13 @@ import { server } from '../mocks/node';
 import { renderApp } from '../test/renderApp';
 
 describe('AppShell', () => {
-  it('renders the shell with navigation and the server version', async () => {
+  it('renders the shell with the logo, navigation and the server version', async () => {
     renderApp();
 
     expect(await screen.findByRole('heading', { name: 'Home' })).toBeInTheDocument();
+    const header = screen.getByRole('banner');
+    expect(within(header).getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo'));
+    expect(within(header).getByText('MediaMan')).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
     expect(await screen.findByText(`Server ${mockHealth.version}`)).toBeInTheDocument();

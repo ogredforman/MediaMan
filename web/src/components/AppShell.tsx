@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useGetHealth, useListProfiles, useLogout } from '../api/mediaman';
 import { clearTokens } from '../lib/session';
 import { useSignedIn } from '../lib/useSession';
+import { Logo } from './Logo';
 import { AvatarTile } from './ProfilePicker';
 import { ScanStatus } from './ScanStatus';
 
@@ -18,7 +19,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center gap-8 bg-surface px-8 py-4 shadow-soft">
-        <span className="text-xl font-bold text-highlight">MediaMan</span>
+        <div className="flex items-center gap-2">
+          <Logo size={32} />
+          <span className="text-xl font-bold text-highlight">MediaMan</span>
+        </div>
         <nav aria-label="Main">
           <ul className="flex gap-4">
             {navLinks.map((link) => (

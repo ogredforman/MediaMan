@@ -30,11 +30,12 @@ async function reachLibraryStep(user: UserEvent) {
 }
 
 describe('setup wizard', () => {
-  it('sends an un-set-up server to the wizard', async () => {
+  it('sends an un-set-up server to the wizard, which shows the logo', async () => {
     server.use(http.get('*/profiles', setupRequired));
     const { router } = renderApp('/movies');
 
     expect(await screen.findByRole('heading', { name: 'Create the owner account' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo'));
     expect(router.state.location.pathname).toBe('/setup');
   });
 
