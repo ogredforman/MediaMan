@@ -1,0 +1,130 @@
+# Publish a release when a version tag (vX.Y.Z) is pushed (PLAN 2.5.5, SPEC §12): check the tag against the app
+# version and the migration fixtures, run the full CI, build the unsigned Windows installer and attach it, the GPL
+# source archives and their SHA-256 sums to a GitHub release. Pushing the tag is the only manual step.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Check the tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check the tag matches the app version
+        run: node scripts/version.mjs check --tag "$GITHUB_REF_NAME"
+        shell: bash
+
+      # A release can't change the schema without a fixture, or the next release couldn't prove it upgrades its data.
+      - name: Check the current schema has a migration fixture
+        run: node scripts/version.mjs check-fixture
+        shell: bash
+
+      - name: Check the tagged commit is on main
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+            echo "::error::$GITHUB_REF_NAME isn't on main. Merge the release commit into main, then tag it there."
+            exit 1
+          }
+        shell: bash
+
+  ci:
+    name: CI
+    needs: verify
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Build and publish
+    needs: [verify, ci]
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      # Unsigned for now (PLAN 2.5.4): don't look for a signing certificate.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # Electron and NSIS downloads land beside the pinned tool downloads, so one cache keeps them all.
+      ELECTRON_CACHE: ${{ github.workspace }}\dist\.cache\electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}\dist\.cache\electron-builder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/cache@v4
+        with:
+          path: dist/.cache
+          key: package-win-${{ hashFiles('scripts/lib/pins.mjs', 'package-lock.json', 'desktop/electron-builder.json') }}
+          restore-keys: package-win-
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # electron-builder never publishes (desktop package:win passes --publish never); gh release below does.
+      - name: Build the installer
+        run: npm run package:win
+
+      - name: Collect the release files
+        id: files
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          installer="dist/installer/MediaMan-Setup-${version}-x64.exe"
+          files=("$installer" dist/sources/*-source.tar.gz)
+          for file in "${files[@]}"; do
+            [ -f "$file" ] || { echo "::error::$file is missing; the installer build didn't produce it."; exit 1; }
+          done
+          mkdir -p dist/release
+          cp "${files[@]}" dist/release/
+          (cd dist/release && sha256sum -- * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.files.outputs.version }}
+        run: |
+          prerelease=()
+          # 0.x versions and X.Y.Z-suffix versions are prereleases.
+          if [[ "$VERSION" == 0.* || "$VERSION" == *-* ]]; then prerelease=(--prerelease); fi
+          cat > "$RUNNER_TEMP/notes.md" <<EOF
+          MediaMan $VERSION for Windows (x64). Download \`MediaMan-Setup-$VERSION-x64.exe\` and run it.
+
+          The installer isn't code-signed yet, so Windows SmartScreen may warn about it: choose **More info**, then
+          **Run anyway**. Installing over an older version keeps your libraries, watch progress and sign-in.
+          \`SHA256SUMS.txt\` lists each file's SHA-256; the \`*-source.tar.gz\` files are the source of the bundled
+          GPL tools (MPV and jellyfin-ffmpeg).
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/release/* \
+            --verify-tag \
+            --title "MediaMan $VERSION" \
+            --notes-file "$RUNNER_TEMP/notes.md" \
+            --generate-notes \
+            "${prerelease[@]}"
+        shell: bash

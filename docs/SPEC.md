@@ -649,6 +649,7 @@ UX rules:
 - **Web:** component tests with MSW, and Playwright end-to-end tests for the core flows (setup, browse, play request, Get).
 - **Desktop:** `IPlayer` contract tests against `FakePlayer`, plus a manual smoke checklist with real MPV per platform.
 - CI runs build, lint and tests for server, web and desktop on Windows and Linux.
+- **Releases:** the app version lives in the root `package.json` and every part reports it. Pushing a `vX.Y.Z` tag that matches it runs the full CI, then builds the Windows installer and publishes it to GitHub Releases with the bundled GPL tools' source archives and SHA-256 sums. A release whose schema has no migration fixture is refused (§9).
 
 ## 13. Open questions
 

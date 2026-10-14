@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "start": "npm run build && electron .",
     "test": "tsc -p tsconfig.json && vitest run",
-    "package:win": "electron-builder --win nsis --x64"
+    "package:win": "electron-builder --win nsis --x64 --publish never"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
