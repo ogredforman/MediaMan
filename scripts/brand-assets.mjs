@@ -17,7 +17,8 @@
 //    Checked 2026-10-14: the TV reads at 16 px but "MM" only from 24–32 px up; see PLAN Parked for a
 //    screen-only crop at 16/24 px if that bites in use.
 //
-// Which file is used where: docs/CODEMAP.md (Brand assets).
+// Which file is used where: docs/CODEMAP.md (Brand assets). The web and desktop copies in `copies` below are
+// rewritten on every run, so they can't drift from assets/brand.
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -34,6 +35,16 @@ const MASTER_MARGIN = 12;
 const THEME_BACKGROUND = '#0E0B14';
 const THEME_SURFACE = '#17121F';
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
+
+/** Copies the web and desktop ship, from assets/brand/<key> to each path (relative to the repo root). */
+const copies = {
+  'icon-256.png': [['web', 'src', 'assets', 'logo.png']],
+  'favicon.ico': [['web', 'public', 'favicon.ico']],
+  'favicon-32.png': [['web', 'public', 'favicon-32.png']],
+  'apple-touch-icon.png': [['web', 'public', 'apple-touch-icon.png']],
+  'mediaman.ico': [['desktop', 'assets', 'icon.ico']],
+  'icon-512.png': [['desktop', 'assets', 'icon.png']],
+};
 
 const appIconSizes = [16, 20, 24, 32, 40, 48, 64, 256];
 const faviconSizes = [16, 32, 48];
@@ -196,6 +207,12 @@ async function main() {
   for (const [name, bytes] of Object.entries(outputs)) {
     await writeFile(path.join(brandDir, name), bytes);
     console.log(`assets/brand/${name}`);
+    for (const parts of copies[name] ?? []) {
+      const target = path.join(root, ...parts);
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, bytes);
+      console.log(`  copied to ${parts.join('/')}`);
+    }
   }
 
   await mkdir(path.dirname(previewFile), { recursive: true });

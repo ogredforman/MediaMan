@@ -5,6 +5,7 @@ import type { ContentType, ServerMode } from '../api/mediaman.schemas';
 import { storeTokens } from '../lib/session';
 import { Field, FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
+import { Logo } from './Logo';
 
 /** Matches the server's rule (SPEC §7.1 step 2); the server checks it again. */
 const minimumPasswordLength = 12;
@@ -134,9 +135,12 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         noValidate
         className="flex w-full max-w-md flex-col gap-4 rounded-card bg-surface p-8 shadow-soft"
       >
-        <p className="text-sm text-fg-muted">
-          Set up <span className="text-highlight">MediaMan</span>
-        </p>
+        <div className="flex items-center gap-3">
+          <Logo size={48} />
+          <p className="text-sm text-fg-muted">
+            Set up <span className="text-highlight">MediaMan</span>
+          </p>
+        </div>
         <ol aria-label="Setup progress" className="flex gap-2">
           {steps.map((s, i) => (
             <li

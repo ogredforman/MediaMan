@@ -180,10 +180,12 @@ describe('Settings sections', () => {
   });
 
   describe('About and licences', () => {
-    it('shows the version, the licence and source, the TMDB notice and the third-party list', async () => {
+    it('shows the logo, the version, the licence and source, the TMDB notice and the third-party list', async () => {
       renderApp('/settings/about');
 
       expect(await screen.findByText(`Server version ${mockHealth.version}`)).toBeInTheDocument();
+      const about = screen.getByRole('region', { name: 'About and licences' });
+      expect(within(about).getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo'));
       expect(screen.getByRole('link', { name: 'GNU Affero General Public License v3.0' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'source code' })).toHaveAttribute('href', 'https://github.com/ogredforman/MediaMan');
       expect(screen.getByText(/This product uses the TMDB API but is not endorsed or certified by TMDB/)).toBeInTheDocument();

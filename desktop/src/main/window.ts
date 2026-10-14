@@ -1,4 +1,5 @@
 // Pure window setup, kept free of runtime Electron imports so it can be unit tested.
+import path from 'node:path';
 import type { BrowserWindowConstructorOptions } from 'electron';
 
 /** The Vite dev server (`npm run dev:mock -w web`), for unpackaged runs. */
@@ -37,9 +38,19 @@ export function resolveUiUrl(env: Readonly<Record<string, string | undefined>>, 
   return url;
 }
 
+/**
+ * The window and taskbar icon under the app path (`desktop/` in dev, the asar when packaged, so the installer's
+ * app files must include `assets/**`): the multi-size .ico on Windows, a PNG elsewhere (macOS uses the bundle's icon).
+ * Both are copies of assets/brand written by `npm run brand`.
+ */
+export function windowIconPath(appPath: string, platform: NodeJS.Platform): string {
+  return path.join(appPath, 'assets', platform === 'win32' ? 'icon.ico' : 'icon.png');
+}
+
 /** The renderer is the shared web UI: isolated, sandboxed, no Node (.claude/rules/desktop.md). */
-export function mainWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
+export function mainWindowOptions(preloadPath: string, iconPath?: string): BrowserWindowConstructorOptions {
   return {
+    ...(iconPath === undefined ? {} : { icon: iconPath }),
     width: 1280,
     height: 800,
     minWidth: 800,
