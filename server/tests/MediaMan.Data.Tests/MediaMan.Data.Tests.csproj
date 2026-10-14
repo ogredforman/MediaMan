@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\MediaMan.Data\MediaMan.Data.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="../fixtures/databases/*.sql" LinkBase="fixtures/databases" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

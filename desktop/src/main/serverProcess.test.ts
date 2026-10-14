@@ -4,6 +4,7 @@ import {
   DEFAULT_SERVER_PORT,
   BUNDLED_SERVER_HINT,
   localServerBaseUrl,
+  SERVER_FATAL_PREFIX,
   resolveServerCommand,
   resolveServerPort,
   ServerProcess,
@@ -59,6 +60,8 @@ function setUp(
     ignoreTerm?: boolean;
     allowedOrigin?: string;
     startFailureHint?: string;
+    /** Lines the server writes once spawned. */
+    output?: string[];
   } = {},
 ) {
   const health = new FakeHealth();
@@ -66,6 +69,7 @@ function setUp(
   const child = new FakeChild();
   child.ignoreTerm = options.ignoreTerm ?? false;
   const spawned: { command: ServerCommand; env: NodeJS.ProcessEnv }[] = [];
+  const logged: string[] = [];
   const server = new ServerProcess({
     command: { command: 'dotnet', args: ['MediaMan.Server.dll'] },
     port: 9123,
@@ -76,14 +80,15 @@ function setUp(
     pollIntervalMs: 5,
     stopGraceMs: 20,
     fetch: health.fetch,
-    log: () => undefined,
-    spawn: (command, env) => {
+    log: (line) => logged.push(line),
+    spawn: (command, env, log) => {
       spawned.push({ command, env });
+      for (const line of options.output ?? []) log(line);
       if (options.healthyAfterSpawn) health.healthy = true;
       return child;
     },
   });
-  return { server, health, child, spawned };
+  return { server, health, child, spawned, logged };
 }
 
 describe('ServerProcess', () => {
@@ -144,6 +149,21 @@ describe('ServerProcess', () => {
     child.exit(3);
 
     await expect(start).rejects.toThrow(`stopped before it was ready (exit code 3). ${BUNDLED_SERVER_HINT}`);
+  });
+
+  it("shows the server's own explanation when it refuses to start", async () => {
+    const problem =
+      "MediaMan couldn't update its database to this version: the step 20261010024327_AddVersionPreferences failed. Reinstall the previous MediaMan version.";
+    const { server, child, logged } = setUp({
+      startFailureHint: BUNDLED_SERVER_HINT,
+      output: ['info: starting', `${SERVER_FATAL_PREFIX}${problem}`],
+    });
+
+    const start = server.start();
+    child.exit(3);
+
+    await expect(start).rejects.toThrow(new Error(problem));
+    expect(logged).toEqual(['info: starting', `${SERVER_FATAL_PREFIX}${problem}`]);
   });
 
   it('fails when the server can not be launched at all', async () => {

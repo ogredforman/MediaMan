@@ -1,6 +1,7 @@
 // The local MediaMan server the desktop app spawns in Local mode (SPEC §10.1, §10.3).
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { createInterface } from 'node:readline';
 
 export interface IServerProcess {
   start(): Promise<{ baseUrl: string }>;
@@ -39,6 +40,12 @@ export interface ServerProcessOptions {
   fetch?: typeof fetch;
   log?: (line: string) => void;
 }
+
+/**
+ * Starts the one line the server writes when it refuses to start (`DatabaseMigrator.FatalPrefix`), such as a database
+ * it couldn't upgrade; the rest of the line says what happened and what to do.
+ */
+export const SERVER_FATAL_PREFIX = 'MEDIAMAN-FATAL: ';
 
 /** Says what to try when the packaged app's own server stops before it is ready. */
 export const BUNDLED_SERVER_HINT = 'Restart MediaMan, and reinstall it if this keeps happening.';
@@ -143,10 +150,14 @@ export class ServerProcess implements IServerProcess {
     }
 
     let exitDetail: string | undefined;
+    let fatal: string | undefined;
     this.exited = false;
     const env: NodeJS.ProcessEnv = { ...(this.options.env ?? process.env), MediaMan__Server__Port: String(this.port) };
     if (this.options.allowedOrigin) env.MediaMan__AllowedOrigins__0 = this.options.allowedOrigin;
-    const child = this.spawnServer(this.options.command, env, this.log);
+    const child = this.spawnServer(this.options.command, env, (line) => {
+      if (line.startsWith(SERVER_FATAL_PREFIX)) fatal = line.slice(SERVER_FATAL_PREFIX.length).trim();
+      this.log(line);
+    });
     this.child = child;
     this.exit = new Promise<void>((resolve) => {
       child.onExit((code, error) => {
@@ -160,8 +171,9 @@ export class ServerProcess implements IServerProcess {
     for (;;) {
       if (this.hasExited()) {
         this.child = undefined;
+        // The server's own explanation, when it gave one, already says what to do.
         throw new Error(
-          `The MediaMan server stopped before it was ready (${exitDetail ?? 'no detail'}). ${this.startFailureHint}`,
+          fatal ?? `The MediaMan server stopped before it was ready (${exitDetail ?? 'no detail'}). ${this.startFailureHint}`,
         );
       }
       if (await this.isHealthy()) return { baseUrl: this.baseUrl };
@@ -194,18 +206,20 @@ export class ServerProcess implements IServerProcess {
 
 function spawnChild(command: ServerCommand, env: NodeJS.ProcessEnv, log: (line: string) => void): ServerChild {
   const child = spawn(command.command, command.args, { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
-  const forward = (chunk: Buffer): void => {
-    for (const line of chunk.toString().split(/\r?\n/)) if (line.trim()) log(line);
-  };
-  child.stdout.on('data', forward);
-  child.stderr.on('data', forward);
+  // Whole lines, however the output is chunked, so a MEDIAMAN-FATAL line arrives in one piece.
+  for (const stream of [child.stdout, child.stderr]) {
+    createInterface({ input: stream, crlfDelay: Infinity }).on('line', (line) => {
+      if (line.trim()) log(line);
+    });
+  }
   return {
     kill: (signal) => {
       child.kill(signal);
     },
     onExit: (listener) => {
       let done = false;
-      child.once('exit', (code) => {
+      // 'close' comes after the output has been read, so a last MEDIAMAN-FATAL line is seen before the exit.
+      child.once('close', (code) => {
         if (!done) listener(code);
         done = true;
       });
