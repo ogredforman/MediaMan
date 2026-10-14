@@ -43,6 +43,27 @@ describe('sign-in', () => {
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeInTheDocument();
   });
 
+  it('keeps the address under /app when the server serves the app there', async () => {
+    requireSignIn();
+    const user = userEvent.setup();
+    const { router } = renderApp('/app/movies', { basepath: '/app' });
+
+    expect(await screen.findByRole('heading', { name: 'Sign in to MediaMan' })).toBeInTheDocument();
+    expect(router.history.location.pathname).toBe('/app/sign-in');
+    // The redirect is a route path; the router adds /app when it goes back.
+    expect(router.state.location.search).toEqual({ redirect: '/movies' });
+
+    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(screen.getByLabelText('Password'), 'correct horse battery');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
+    expect(router.history.location.pathname).toBe('/app/profiles');
+
+    await user.click(screen.getByRole('button', { name: 'owner' }));
+    expect(await screen.findByRole('heading', { name: 'Movies' })).toBeInTheDocument();
+    expect(router.history.location.pathname).toBe('/app/movies');
+  });
+
   it("shows the server's message and next action when sign-in fails", async () => {
     requireSignIn();
     server.use(

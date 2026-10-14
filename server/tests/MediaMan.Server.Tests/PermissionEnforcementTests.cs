@@ -49,6 +49,20 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         await AssertEveryRouteAsync(factory);
     }
 
+    [Fact]
+    public async Task Every_route_enforces_its_permission_with_the_web_ui_served()
+    {
+        // The UI is middleware, not routes (PLAN 2.5.2b): serving it maps nothing and opens nothing.
+        var web = Path.Combine(_root, "web");
+        Directory.CreateDirectory(web);
+        await File.WriteAllTextAsync(Path.Combine(web, "index.html"), "<!doctype html>", Ct);
+        await using var plain = new MediaManFactory();
+        await using var factory = new MediaManFactory(settings: new Dictionary<string, string> { ["MediaMan:Web:RootPath"] = web });
+
+        (await ContractCoverageTests.MappedRoutesAsync(factory)).Should().BeEquivalentTo(await ContractCoverageTests.MappedRoutesAsync(plain));
+        await AssertEveryRouteAsync(factory);
+    }
+
     private static async Task AssertEveryRouteAsync(MediaManFactory factory)
     {
         var routes = await ContractCoverageTests.MappedRoutesAsync(factory);

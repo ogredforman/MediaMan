@@ -15,5 +15,5 @@ export const Route = createFileRoute('/setup')({
 function SetupRoute() {
   const router = useRouter();
   // Home shows the first library's scan, which setup has queued (SPEC §7.1 step 6).
-  return <SetupWizard onComplete={() => { router.history.push('/'); }} />;
+  return <SetupWizard onComplete={() => { void router.navigate({ to: '/' }); }} />;
 }

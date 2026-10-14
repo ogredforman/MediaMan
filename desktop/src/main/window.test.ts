@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_UI_URL, isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl } from './window.js';
+import { DEFAULT_UI_URL, isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl, serverUiUrl } from './window.js';
 
 describe('resolveUiUrl', () => {
   it('defaults to the dev server', () => {
@@ -13,6 +13,19 @@ describe('resolveUiUrl', () => {
 
   it.each(['file:///etc/passwd', 'javascript:alert(1)', 'not a url'])('rejects %s', (value) => {
     expect(() => resolveUiUrl({ MEDIAMAN_UI_URL: value })).toThrow(/MEDIAMAN_UI_URL/);
+  });
+
+  it("uses the UI of the packaged app's own server", () => {
+    const serverUi = serverUiUrl('http://127.0.0.1:8420');
+    expect(serverUi.href).toBe('http://127.0.0.1:8420/app/');
+    expect(resolveUiUrl({}, serverUi).href).toBe('http://127.0.0.1:8420/app/');
+    expect(resolveUiUrl({ MEDIAMAN_UI_URL: ' ' }, serverUi).href).toBe('http://127.0.0.1:8420/app/');
+  });
+
+  it("lets MEDIAMAN_UI_URL override the server's UI", () => {
+    expect(resolveUiUrl({ MEDIAMAN_UI_URL: 'http://localhost:5173' }, serverUiUrl('http://127.0.0.1:8420')).origin).toBe(
+      'http://localhost:5173',
+    );
   });
 });
 
