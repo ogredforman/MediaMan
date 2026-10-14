@@ -2,6 +2,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SERVER_PORT,
+  BUNDLED_SERVER_HINT,
   resolveServerCommand,
   resolveServerPort,
   ServerProcess,
@@ -51,7 +52,13 @@ class FakeHealth {
 }
 
 function setUp(
-  options: { healthy?: boolean; healthyAfterSpawn?: boolean; ignoreTerm?: boolean; allowedOrigin?: string } = {},
+  options: {
+    healthy?: boolean;
+    healthyAfterSpawn?: boolean;
+    ignoreTerm?: boolean;
+    allowedOrigin?: string;
+    startFailureHint?: string;
+  } = {},
 ) {
   const health = new FakeHealth();
   health.healthy = options.healthy ?? false;
@@ -63,6 +70,7 @@ function setUp(
     port: 9123,
     env: { PATH: '/bin' },
     ...(options.allowedOrigin === undefined ? {} : { allowedOrigin: options.allowedOrigin }),
+    ...(options.startFailureHint === undefined ? {} : { startFailureHint: options.startFailureHint }),
     healthTimeoutMs: 200,
     pollIntervalMs: 5,
     stopGraceMs: 20,
@@ -128,6 +136,15 @@ describe('ServerProcess', () => {
     await expect(start).rejects.toThrow(/stopped before it was ready \(exit code 3\).*MEDIAMAN_SERVER_PATH/);
   });
 
+  it('says what to try instead when given a hint, as the packaged app does', async () => {
+    const { server, child } = setUp({ startFailureHint: BUNDLED_SERVER_HINT });
+
+    const start = server.start();
+    child.exit(3);
+
+    await expect(start).rejects.toThrow(`stopped before it was ready (exit code 3). ${BUNDLED_SERVER_HINT}`);
+  });
+
   it('fails when the server can not be launched at all', async () => {
     const { server, child } = setUp();
 
@@ -189,6 +206,15 @@ describe('resolveServerCommand', () => {
   it('is undefined when MEDIAMAN_SERVER_PATH is unset or blank', () => {
     expect(resolveServerCommand({})).toBeUndefined();
     expect(resolveServerCommand({ MEDIAMAN_SERVER_PATH: '  ' })).toBeUndefined();
+  });
+
+  it('runs the bundled server without MEDIAMAN_SERVER_PATH, and the variable overrides it', () => {
+    const bundled = path.resolve('install', 'resources', 'server', 'MediaMan.Server.exe');
+    expect(resolveServerCommand({}, process.cwd(), bundled)).toEqual({ command: bundled, args: [] });
+    expect(resolveServerCommand({ MEDIAMAN_SERVER_PATH: '/srv/MediaMan.Server.dll' }, process.cwd(), bundled)).toEqual({
+      command: 'dotnet',
+      args: ['/srv/MediaMan.Server.dll'],
+    });
   });
 
   it('runs a .dll under dotnet', () => {

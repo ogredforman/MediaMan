@@ -50,7 +50,7 @@ export interface MpvAssets {
   script: string;
 }
 
-/** The `mpv/` folder under the app's path. MPV reads them from disk, so packaging keeps them outside the asar. */
+/** The `mpv/` folder under the app's path, or under the resources folder when packaged (`bundledTools`). */
 export function mpvAssetsIn(appPath: string): MpvAssets {
   const dir = path.join(appPath, 'mpv');
   return { config: path.join(dir, 'mpv.conf'), script: path.join(dir, 'osc.lua') };
@@ -61,10 +61,10 @@ export class PlayerStartError extends Error {
   override readonly name = 'PlayerStartError';
 }
 
-/** `MEDIAMAN_MPV_PATH`, or `mpv` from PATH. */
-export function resolveMpvPath(env: Readonly<Record<string, string | undefined>>): string {
+/** `MEDIAMAN_MPV_PATH` (a dev override), else the packaged app's bundled MPV, else `mpv` from PATH. */
+export function resolveMpvPath(env: Readonly<Record<string, string | undefined>>, bundledMpv?: string): string {
   const raw = env.MEDIAMAN_MPV_PATH?.trim();
-  return raw === undefined || raw === '' ? 'mpv' : raw;
+  return raw === undefined || raw === '' ? (bundledMpv ?? 'mpv') : raw;
 }
 
 /** A named pipe on Windows, a Unix socket in the temp directory elsewhere. */
@@ -232,7 +232,7 @@ export class MpvPlayer implements IPlayer {
       return;
     }
     await this.stop();
-    // Never start a program that isn't MPV, picked or from MEDIAMAN_MPV_PATH (SPEC §5).
+    // Never start a program that isn't MPV, picked, from MEDIAMAN_MPV_PATH or bundled (SPEC §5).
     const check = await this.checkExecutable(this.options.mpvPath);
     if (!check.ok) throw new PlayerStartError(check.message);
 

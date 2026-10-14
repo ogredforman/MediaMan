@@ -1,16 +1,27 @@
-// Electron main process: one window showing the shared web UI (SPEC §10.1). In Local mode it starts the server first.
+// Electron main process: one window showing the shared web UI (SPEC §10.1). In Local mode it starts the server first:
+// the packaged app's own server, or `MEDIAMAN_SERVER_PATH` as a dev override.
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
 import { registerBridge, type MpvChoice } from './bridge.js';
+import { bundledTools } from './bundled.js';
 import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './desktopSettings.js';
+import { startLocalServer, stopServerOnQuit } from './localServer.js';
 import { checkMpvExecutable } from './mpvCheck.js';
 import { mpvAssetsIn, MpvPlayer } from './mpvPlayer.js';
 import { PlayerHost } from './playerHost.js';
-import { resolveServerCommand, resolveServerPort, ServerProcess, type IServerProcess } from './serverProcess.js';
+import {
+  BUNDLED_SERVER_HINT,
+  resolveServerCommand,
+  resolveServerPort,
+  ServerProcess,
+  type IServerProcess,
+} from './serverProcess.js';
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
 import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl } from './window.js';
 
 const uiUrl = resolveUiUrl(process.env);
+// Only a packaged app has the server and MPV in its resources folder; unpackaged runs use the dev overrides or PATH.
+const bundled = app.isPackaged ? bundledTools(process.resourcesPath, process.platform) : undefined;
 let server: IServerProcess | undefined;
 let serverUrl: string | undefined;
 let player: PlayerHost | undefined;
@@ -68,8 +79,8 @@ void app.whenReady().then(async () => {
   const tokens = new TokenStore(path.join(app.getPath('userData'), 'servers.json'), safeStorageCipher(safeStorage));
   const settings = new DesktopSettings(path.join(app.getPath('userData'), 'settings.json'));
   player = new PlayerHost(
-    (mpvPath) => new MpvPlayer({ mpvPath, assets: mpvAssetsIn(app.getAppPath()) }),
-    async () => mpvPathFrom(await settings.get(), process.env),
+    (mpvPath) => new MpvPlayer({ mpvPath, assets: bundled?.mpvAssets ?? mpvAssetsIn(app.getAppPath()) }),
+    async () => mpvPathFrom(await settings.get(), process.env, bundled?.mpvPath),
   );
   registerBridge(ipcMain, {
     uiOrigin: uiUrl.origin,
@@ -77,28 +88,31 @@ void app.whenReady().then(async () => {
     tokens,
     player,
     chooseMpv: () => chooseMpv(settings),
-    mpvSetting: async () => mpvSettingFrom(await settings.get(), process.env),
+    mpvSetting: async () => mpvSettingFrom(await settings.get(), process.env, bundled?.mpvPath),
     useDefaultMpv: async () => {
       await settings.clearMpvPath();
-      return mpvSettingFrom(await settings.get(), process.env);
+      return mpvSettingFrom(await settings.get(), process.env, bundled?.mpvPath);
     },
   });
 
-  const serverCommand = resolveServerCommand(process.env);
-  if (serverCommand) {
-    try {
-      server = new ServerProcess({
-        command: serverCommand,
-        port: resolveServerPort(process.env),
-        allowedOrigin: uiUrl.origin,
-      });
-      serverUrl = (await server.start()).baseUrl;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      dialog.showErrorBox("Can't start the MediaMan server", message);
-      app.quit();
-      return;
-    }
+  const devServer = Boolean(process.env.MEDIAMAN_SERVER_PATH?.trim());
+  try {
+    const local = await startLocalServer(
+      resolveServerCommand(process.env, process.cwd(), bundled?.serverPath),
+      (command) =>
+        (server = new ServerProcess({
+          command,
+          port: resolveServerPort(process.env),
+          allowedOrigin: uiUrl.origin,
+          ...(devServer ? {} : { startFailureHint: BUNDLED_SERVER_HINT }),
+        })),
+    );
+    serverUrl = local?.baseUrl;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    dialog.showErrorBox("Can't start the MediaMan server", message);
+    app.quit();
+    return;
   }
 
   createMainWindow();
@@ -112,18 +126,13 @@ app.on('window-all-closed', () => {
 });
 
 // Stop the server this app started before exiting; quitting again once it has stopped goes through.
-let serverStopped = false;
+const stopServer = stopServerOnQuit(
+  () => server,
+  () => {
+    app.quit();
+  },
+);
 app.on('before-quit', (event) => {
   void player?.stop();
-  if (!server || serverStopped) return;
-  event.preventDefault();
-  serverStopped = true;
-  void server
-    .stop()
-    .catch((err: unknown) => {
-      console.error(`Could not stop the MediaMan server: ${err instanceof Error ? err.message : String(err)}`);
-    })
-    .finally(() => {
-      app.quit();
-    });
+  stopServer(event);
 });

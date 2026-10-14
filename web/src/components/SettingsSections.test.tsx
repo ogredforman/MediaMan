@@ -89,6 +89,15 @@ describe('Settings sections', () => {
       expect(screen.getByText('The default: mpv from your PATH')).toBeInTheDocument();
     });
 
+    it('names the MPV that comes with the installed app', async () => {
+      const player = installDesktop();
+      player.setMpvSetting({ path: '/opt/MediaMan/resources/mpv/mpv', source: 'bundled' });
+      renderApp('/settings/playback');
+
+      expect(await screen.findByText('The default: the MPV that comes with MediaMan')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Use default' })).toBeDisabled();
+    });
+
     it('shows the MPV in use, picks another and goes back to the default', async () => {
       const user = userEvent.setup();
       const player = installDesktop();

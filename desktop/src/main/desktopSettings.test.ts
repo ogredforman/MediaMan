@@ -51,6 +51,12 @@ describe('mpvPathFrom', () => {
     expect(mpvPathFrom({}, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toBe('/env/mpv');
     expect(mpvPathFrom({}, {})).toBe('mpv');
   });
+
+  it('uses the bundled MPV after MEDIAMAN_MPV_PATH and before mpv on PATH', () => {
+    expect(mpvPathFrom({ mpvPath: '/picked/mpv' }, {}, '/app/mpv/mpv')).toBe('/picked/mpv');
+    expect(mpvPathFrom({}, { MEDIAMAN_MPV_PATH: '/env/mpv' }, '/app/mpv/mpv')).toBe('/env/mpv');
+    expect(mpvPathFrom({}, {}, '/app/mpv/mpv')).toBe('/app/mpv/mpv');
+  });
 });
 
 describe('mpvSettingFrom', () => {
@@ -58,6 +64,8 @@ describe('mpvSettingFrom', () => {
     expect(mpvSettingFrom({ mpvPath: '/picked/mpv' }, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toEqual({ path: '/picked/mpv', source: 'picked' });
     expect(mpvSettingFrom({}, { MEDIAMAN_MPV_PATH: '/env/mpv' })).toEqual({ path: '/env/mpv', source: 'environment' });
     expect(mpvSettingFrom({}, { MEDIAMAN_MPV_PATH: '  ' })).toEqual({ path: 'mpv', source: 'default' });
+    expect(mpvSettingFrom({}, {}, '/app/mpv/mpv')).toEqual({ path: '/app/mpv/mpv', source: 'bundled' });
+    expect(mpvSettingFrom({}, { MEDIAMAN_MPV_PATH: '/env/mpv' }, '/app/mpv/mpv')).toEqual({ path: '/env/mpv', source: 'environment' });
   });
 });
 

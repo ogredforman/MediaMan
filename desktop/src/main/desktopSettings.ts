@@ -5,7 +5,7 @@ import path from 'node:path';
 import { resolveMpvPath } from './mpvPlayer.js';
 
 export interface DesktopSettingsValues {
-  /** The MPV executable the user picked; absent means `MEDIAMAN_MPV_PATH` or `mpv` from PATH. */
+  /** The MPV executable the user picked; absent means `MEDIAMAN_MPV_PATH`, the bundled MPV or `mpv` from PATH. */
   mpvPath?: string;
 }
 
@@ -25,7 +25,7 @@ export class DesktopSettings {
     await this.write({ ...(await this.get()), mpvPath });
   }
 
-  /** Forgets the picked MPV, so `MEDIAMAN_MPV_PATH` or `mpv` from PATH is used again. */
+  /** Forgets the picked MPV, so `MEDIAMAN_MPV_PATH`, the bundled MPV or `mpv` from PATH is used again. */
   async clearMpvPath(): Promise<void> {
     const { mpvPath: _cleared, ...rest } = await this.get();
     await this.write(rest);
@@ -66,22 +66,32 @@ function parseSettings(value: unknown): DesktopSettingsValues {
   return typeof mpvPath === 'string' && mpvPath.trim() !== '' ? { mpvPath } : {};
 }
 
-/** The MPV in use and where it comes from: picked in settings, `MEDIAMAN_MPV_PATH`, or `mpv` from PATH. */
+/** The MPV in use and where it comes from: picked in settings, `MEDIAMAN_MPV_PATH`, bundled, or `mpv` from PATH. */
 export interface MpvSetting {
   path: string;
-  source: 'picked' | 'environment' | 'default';
+  source: 'picked' | 'environment' | 'bundled' | 'default';
 }
 
-export function mpvSettingFrom(settings: DesktopSettingsValues, env: Readonly<Record<string, string | undefined>>): MpvSetting {
+/** `bundledMpv` is the packaged app's own MPV (`bundledTools`); unpackaged runs have none. */
+export function mpvSettingFrom(
+  settings: DesktopSettingsValues,
+  env: Readonly<Record<string, string | undefined>>,
+  bundledMpv?: string,
+): MpvSetting {
   const picked = settings.mpvPath?.trim();
   if (picked) return { path: picked, source: 'picked' };
-  const path = resolveMpvPath(env);
-  return { path, source: env.MEDIAMAN_MPV_PATH?.trim() ? 'environment' : 'default' };
+  const path = resolveMpvPath(env, bundledMpv);
+  if (env.MEDIAMAN_MPV_PATH?.trim()) return { path, source: 'environment' };
+  return { path, source: bundledMpv === undefined ? 'default' : 'bundled' };
 }
 
-/** The picked MPV, else `MEDIAMAN_MPV_PATH`, else `mpv` from PATH. */
-export function mpvPathFrom(settings: DesktopSettingsValues, env: Readonly<Record<string, string | undefined>>): string {
-  return mpvSettingFrom(settings, env).path;
+/** The picked MPV, else `MEDIAMAN_MPV_PATH`, else the bundled MPV, else `mpv` from PATH. */
+export function mpvPathFrom(
+  settings: DesktopSettingsValues,
+  env: Readonly<Record<string, string | undefined>>,
+  bundledMpv?: string,
+): string {
+  return mpvSettingFrom(settings, env, bundledMpv).path;
 }
 
 /** On macOS a picked `mpv.app` bundle means the executable inside it. */
