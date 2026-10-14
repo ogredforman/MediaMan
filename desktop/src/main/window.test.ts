@@ -2,7 +2,9 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  applicationMenuTemplate,
   DEFAULT_UI_URL,
+  devShortcut,
   isExternalWebLink,
   isSameOrigin,
   mainWindowOptions,
@@ -88,5 +90,53 @@ describe('navigation guard', () => {
     expect(isExternalWebLink('file:///C:/Windows/system32/calc.exe')).toBe(false);
     expect(isExternalWebLink('magnet:?xt=urn:btih:abc')).toBe(false);
     expect(isExternalWebLink('garbage')).toBe(false);
+  });
+});
+
+describe('applicationMenuTemplate', () => {
+  it('has no menu on Windows and Linux', () => {
+    expect(applicationMenuTemplate('win32', 'MediaMan')).toBeNull();
+    expect(applicationMenuTemplate('linux', 'MediaMan')).toBeNull();
+  });
+
+  it('keeps a minimal role-based menu on macOS', () => {
+    const menu = applicationMenuTemplate('darwin', 'MediaMan');
+    const roles = (index: number): unknown[] => {
+      const submenu = menu?.[index]?.submenu;
+      return Array.isArray(submenu) ? submenu.map((item) => item.role).filter((role) => role !== undefined) : [];
+    };
+    expect(menu).toHaveLength(3);
+    expect(menu?.[0]?.label).toBe('MediaMan');
+    expect(roles(0)).toEqual(expect.arrayContaining(['about', 'quit']));
+    expect(roles(1)).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'selectAll']);
+    expect(menu?.[2]?.role).toBe('windowMenu');
+  });
+});
+
+describe('devShortcut', () => {
+  const key = (k: string, mods: Partial<{ control: boolean; meta: boolean; shift: boolean }> = {}) => ({
+    type: 'keyDown',
+    key: k,
+    control: false,
+    meta: false,
+    shift: false,
+    ...mods,
+  });
+
+  it('opens DevTools on F12 and Ctrl/Cmd+Shift+I', () => {
+    expect(devShortcut(key('F12'))).toBe('devtools');
+    expect(devShortcut(key('I', { control: true, shift: true }))).toBe('devtools');
+    expect(devShortcut(key('I', { meta: true, shift: true }))).toBe('devtools');
+  });
+
+  it('reloads on Ctrl/Cmd+R', () => {
+    expect(devShortcut(key('r', { control: true }))).toBe('reload');
+    expect(devShortcut(key('r', { meta: true }))).toBe('reload');
+  });
+
+  it('ignores other keys and key-up events', () => {
+    expect(devShortcut(key('r'))).toBeUndefined();
+    expect(devShortcut(key('i', { control: true }))).toBeUndefined();
+    expect(devShortcut({ ...key('F12'), type: 'keyUp' })).toBeUndefined();
   });
 });

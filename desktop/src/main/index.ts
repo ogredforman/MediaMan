@@ -1,7 +1,7 @@
 // Electron main process: one window showing the shared web UI (SPEC §10.1). In Local mode it starts the server first:
 // the packaged app's own server, or `MEDIAMAN_SERVER_PATH` as a dev override.
 import path from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from 'electron';
 import { registerBridge, type MpvChoice } from './bridge.js';
 import { bundledTools } from './bundled.js';
 import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './desktopSettings.js';
@@ -18,7 +18,16 @@ import {
   type IServerProcess,
 } from './serverProcess.js';
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
-import { isExternalWebLink, isSameOrigin, mainWindowOptions, resolveUiUrl, serverUiUrl, windowIconPath } from './window.js';
+import {
+  applicationMenuTemplate,
+  devShortcut,
+  isExternalWebLink,
+  isSameOrigin,
+  mainWindowOptions,
+  resolveUiUrl,
+  serverUiUrl,
+  windowIconPath,
+} from './window.js';
 
 // Only a packaged app has the server and MPV in its resources folder; unpackaged runs use the dev overrides or PATH.
 const bundled = app.isPackaged ? bundledTools(process.resourcesPath, process.platform) : undefined;
@@ -47,6 +56,18 @@ function createMainWindow(): void {
     if (isExternalWebLink(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // Without the default menu, DevTools and reload stay for unpackaged runs only. A runtime gate, not Debug-only code:
+  // a packaged build never registers the handler.
+  if (!app.isPackaged) {
+    win.webContents.on('before-input-event', (event, input) => {
+      const action = devShortcut(input);
+      if (action === undefined) return;
+      event.preventDefault();
+      if (action === 'devtools') win.webContents.toggleDevTools();
+      else win.webContents.reload();
+    });
+  }
 
   win.once('ready-to-show', () => {
     win.show();
@@ -83,6 +104,8 @@ async function chooseMpv(settings: DesktopSettings): Promise<MpvChoice> {
 }
 
 void app.whenReady().then(async () => {
+  const menu = applicationMenuTemplate(process.platform, app.name);
+  Menu.setApplicationMenu(menu === null ? null : Menu.buildFromTemplate(menu));
   const tokens = new TokenStore(path.join(app.getPath('userData'), 'servers.json'), safeStorageCipher(safeStorage));
   const settings = new DesktopSettings(path.join(app.getPath('userData'), 'settings.json'));
   player = new PlayerHost(

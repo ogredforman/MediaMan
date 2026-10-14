@@ -1,6 +1,6 @@
 // Pure window setup, kept free of runtime Electron imports so it can be unit tested.
 import path from 'node:path';
-import type { BrowserWindowConstructorOptions } from 'electron';
+import type { BrowserWindowConstructorOptions, Input, MenuItemConstructorOptions } from 'electron';
 
 /** The Vite dev server (`npm run dev:mock -w web`), for unpackaged runs. */
 export const DEFAULT_UI_URL = 'http://localhost:5173';
@@ -66,6 +66,53 @@ export function mainWindowOptions(preloadPath: string, iconPath?: string): Brows
       webSecurity: true,
     },
   };
+}
+
+/**
+ * The application menu (SPEC §11): none on Windows and Linux, so the window has no menu bar; on macOS a minimal
+ * role-based menu so Cmd+Q, Cmd+H and the clipboard shortcuts keep working.
+ */
+export function applicationMenuTemplate(platform: NodeJS.Platform, appName: string): MenuItemConstructorOptions[] | null {
+  if (platform !== 'darwin') return null;
+  return [
+    {
+      label: appName,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ];
+}
+
+/** Dev shortcuts the default menu used to provide, for unpackaged runs: F12 or Ctrl/Cmd+Shift+I, and Ctrl/Cmd+R. */
+export function devShortcut(
+  input: Pick<Input, 'type' | 'key' | 'control' | 'meta' | 'shift'>,
+): 'devtools' | 'reload' | undefined {
+  if (input.type !== 'keyDown') return undefined;
+  const mod = input.control || input.meta;
+  const key = input.key.toLowerCase();
+  if (key === 'f12' || (mod && input.shift && key === 'i')) return 'devtools';
+  if (mod && !input.shift && key === 'r') return 'reload';
+  return undefined;
 }
 
 /** True when `target` is on the UI's origin, so the window may navigate there. */
