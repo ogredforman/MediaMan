@@ -30,6 +30,8 @@ export interface ServerProcessOptions {
   env?: NodeJS.ProcessEnv;
   /** The web UI's origin, which the spawned server lets call its API (CORS, `MediaMan:AllowedOrigins`). */
   allowedOrigin?: string;
+  /** What to try when the server stops before it is ready; defaults to checking `MEDIAMAN_SERVER_PATH`. */
+  startFailureHint?: string;
   healthTimeoutMs?: number;
   pollIntervalMs?: number;
   stopGraceMs?: number;
@@ -38,17 +40,22 @@ export interface ServerProcessOptions {
   log?: (line: string) => void;
 }
 
+/** Says what to try when the packaged app's own server stops before it is ready. */
+export const BUNDLED_SERVER_HINT = 'Restart MediaMan, and reinstall it if this keeps happening.';
+
 /**
- * `MEDIAMAN_SERVER_PATH` is the server build to run: a `.dll` runs under `dotnet`, anything else is run directly.
- * Unset means the desktop app doesn't start a server (in development one runs on its own, see docs/LOCAL-DEV.md).
- * A relative path is taken from where `npm` was run (`INIT_CWD`), not `desktop/`, where `npm start -w desktop` runs.
+ * The server build to run: `MEDIAMAN_SERVER_PATH` (a dev override) wins, else the packaged app's bundled server. A
+ * `.dll` runs under `dotnet`, anything else is run directly. Neither means the desktop app doesn't start a server
+ * (in development one runs on its own, see docs/LOCAL-DEV.md). A relative `MEDIAMAN_SERVER_PATH` is taken from where
+ * `npm` was run (`INIT_CWD`), not `desktop/`, where `npm start -w desktop` runs.
  */
 export function resolveServerCommand(
   env: Readonly<Record<string, string | undefined>>,
   cwd: string = process.cwd(),
+  bundledServer?: string,
 ): ServerCommand | undefined {
   const raw = env.MEDIAMAN_SERVER_PATH?.trim();
-  if (!raw) return undefined;
+  if (!raw) return bundledServer === undefined ? undefined : { command: bundledServer, args: [] };
   const serverPath = path.isAbsolute(raw) ? raw : path.resolve(cwd, env.INIT_CWD?.trim() ?? '', raw);
   return serverPath.toLowerCase().endsWith('.dll')
     ? { command: 'dotnet', args: [serverPath] }
@@ -79,6 +86,7 @@ export class ServerProcess implements IServerProcess {
   private readonly spawnServer: SpawnServer;
   private readonly fetchFn: typeof fetch;
   private readonly log: (line: string) => void;
+  private readonly startFailureHint: string;
   private starting: Promise<{ baseUrl: string }> | undefined;
   private child: ServerChild | undefined;
   private exit: Promise<void> | undefined;
@@ -92,6 +100,8 @@ export class ServerProcess implements IServerProcess {
     this.stopGraceMs = options.stopGraceMs ?? 5_000;
     this.spawnServer = options.spawn ?? spawnChild;
     this.fetchFn = options.fetch ?? fetch;
+    this.startFailureHint =
+      options.startFailureHint ?? 'Check the server output, and that MEDIAMAN_SERVER_PATH points at a working server build.';
     this.log =
       options.log ??
       ((line) => {
@@ -146,7 +156,7 @@ export class ServerProcess implements IServerProcess {
       if (this.hasExited()) {
         this.child = undefined;
         throw new Error(
-          `The MediaMan server stopped before it was ready (${exitDetail ?? 'no detail'}). Check the server output, and that MEDIAMAN_SERVER_PATH points at a working server build.`,
+          `The MediaMan server stopped before it was ready (${exitDetail ?? 'no detail'}). ${this.startFailureHint}`,
         );
       }
       if (await this.isHealthy()) return { baseUrl: this.baseUrl };

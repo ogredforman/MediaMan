@@ -7,6 +7,7 @@ const mpvSettingKey = ['desktop', 'mpvSetting'] as const;
 const sourceLabels: Record<DesktopMpvSetting['source'], string> = {
   picked: 'Picked in Settings',
   environment: 'From the MEDIAMAN_MPV_PATH environment variable',
+  bundled: 'The default: the MPV that comes with MediaMan',
   default: 'The default: mpv from your PATH',
 };
 

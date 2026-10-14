@@ -39,10 +39,10 @@ export type DesktopPlayerEvent =
   | { launchId: string; type: 'upNext'; choice: 'play' | 'cancel' }
   | { launchId: string; type: 'episode'; choice: 'previous' | 'next' };
 
-/** The MPV the next Play uses: picked in Settings, `MEDIAMAN_MPV_PATH`, or `mpv` from PATH. Mirrors the desktop's `MpvSetting`. */
+/** The MPV the next Play uses: picked in Settings, `MEDIAMAN_MPV_PATH`, bundled, or `mpv` from PATH. Mirrors the desktop's `MpvSetting`. */
 export interface DesktopMpvSetting {
   path: string;
-  source: 'picked' | 'environment' | 'default';
+  source: 'picked' | 'environment' | 'bundled' | 'default';
 }
 
 /** What Choose MPV did; a refused file isn't MPV and was neither run nor saved. Mirrors the desktop's `MpvChoice`. */
