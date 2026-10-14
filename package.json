@@ -12,7 +12,8 @@
     "test:perf": "dotnet test --project server/tests/MediaMan.Server.Tests -- --explicit only",
     "lint": "eslint . && dotnet format server/MediaMan.sln --verify-no-changes",
     "publish:server:win": "node scripts/publish-server.mjs",
-    "brand": "node scripts/brand-assets.mjs"
+    "brand": "node scripts/brand-assets.mjs",
+    "package:win": "node scripts/package-win.mjs"
   },
   "engines": {
     "node": ">=22"
