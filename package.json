@@ -11,7 +11,8 @@
     "test": "dotnet test server/MediaMan.sln && npm test -w web && npm test -w desktop",
     "test:perf": "dotnet test --project server/tests/MediaMan.Server.Tests -- --explicit only",
     "lint": "eslint . && dotnet format server/MediaMan.sln --verify-no-changes",
-    "publish:server:win": "node scripts/publish-server.mjs"
+    "publish:server:win": "node scripts/publish-server.mjs",
+    "brand": "node scripts/brand-assets.mjs"
   },
   "engines": {
     "node": ">=22"
@@ -23,6 +24,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
+    "sharp": "^0.35.5",
     "typescript-eslint": "^8.71.0"
   }
 }
