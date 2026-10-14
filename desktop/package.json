@@ -1,5 +1,7 @@
 {
   "name": "@mediaman/desktop",
+  "version": "0.1.0",
+  "description": "MediaMan desktop app",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -8,11 +10,13 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json",
     "start": "npm run build && electron .",
-    "test": "tsc -p tsconfig.json && vitest run"
+    "test": "tsc -p tsconfig.json && vitest run",
+    "package:win": "electron-builder --win nsis --x64"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
     "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "typescript": "~6.0.0",
     "vitest": "^5.0.3"
   }

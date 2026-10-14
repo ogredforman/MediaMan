@@ -1,0 +1,71 @@
+{
+  "appId": "io.github.ogredforman.mediaman",
+  "productName": "MediaMan",
+  "extraMetadata": {
+    "productName": "MediaMan"
+  },
+  "copyright": "Copyright © MediaMan contributors. Licensed under the GNU AGPL-3.0.",
+  "electronVersion": "44.5.1",
+  "npmRebuild": false,
+  "directories": {
+    "output": "../dist/installer"
+  },
+  "files": [
+    "package.json",
+    "dist/**/*",
+    "assets/**/*"
+  ],
+  "asar": true,
+  "extraResources": [
+    {
+      "from": "../dist/server/win-x64",
+      "to": "server"
+    },
+    {
+      "from": "../dist/mpv/win-x64",
+      "to": "mpv"
+    },
+    {
+      "from": "mpv",
+      "to": "mpv",
+      "filter": [
+        "mpv.conf",
+        "osc.lua"
+      ]
+    }
+  ],
+  "extraFiles": [
+    {
+      "from": "../LICENSE",
+      "to": "LICENSE.txt"
+    },
+    {
+      "from": "THIRD-PARTY-NOTICES.md",
+      "to": "THIRD-PARTY-NOTICES.md"
+    }
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "../assets/brand/mediaman.ico"
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "runAfterFinish": true,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "MediaMan",
+    "installerIcon": "../assets/brand/mediaman.ico",
+    "uninstallerIcon": "../assets/brand/mediaman.ico",
+    "installerHeaderIcon": "../assets/brand/mediaman.ico",
+    "deleteAppDataOnUninstall": false,
+    "artifactName": "MediaMan-Setup-${version}-x64.${ext}"
+  }
+}
