@@ -123,6 +123,7 @@ export const mockTitleDetails: Record<string, TitleDetail> = {
     ...office,
     overview: 'A mockumentary on a group of typical office workers.',
     externalIds: { tmdb: 'tv/2316' },
+    showPlay: { playableId: episodePlayableId(1), episode: { seasonNumber: 1, number: 1, name: 'Pilot' }, resumeSeconds: 615 },
     seasons: [
       {
         id: '01920000-0000-7000-8000-000000000600',

@@ -900,7 +900,22 @@ export interface VersionPreference {
 }
 
 /**
- * A title with everything the detail page shows. `playable` is set for movies, `seasons` for shows.
+ * What a show's Play starts for the session's profile, picked as `HomeHero.playableId`: the episode the profile is
+ * part-way through, else its next episode, else the first episode of the first season (specials last). Without a
+ * picked profile, the first episode with no resume. Set on shows only; absent when no episode has a file.
+ */
+export interface ShowPlay {
+  playableId: string;
+  episode: HomeEpisode;
+  /**
+     * Where the profile stopped in `playableId`, when resume is offered (as on `HomeHero`).
+     * @minimum 0
+     */
+  resumeSeconds?: number;
+}
+
+/**
+ * A title with everything the detail page shows. `playable` is set for movies, `seasons` and `showPlay` for shows.
  */
 export interface TitleDetail {
   id: string;
@@ -918,6 +933,7 @@ export interface TitleDetail {
   playable?: MoviePlayable;
   seasons?: Season[];
   versionPreference?: VersionPreference;
+  showPlay?: ShowPlay;
 }
 
 export interface PreferredVersionRequest {

@@ -247,13 +247,14 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
 
         MoviePlayable? movie = null;
         IReadOnlyList<SeasonDto>? seasons = null;
+        ShowPlay? showPlay = null;
         if (title.Kind == TitleKind.Movie)
         {
             movie = await MoviePlayableAsync(titleId, profileId, preference, ct);
         }
         else
         {
-            seasons = await SeasonsAsync(titleId, profileId, preference, ct);
+            (seasons, showPlay) = await SeasonsAsync(titleId, profileId, preference, ct);
         }
 
         var ext = title.ExternalIds;
@@ -261,7 +262,8 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             title.Id, Wire.Name(title.Kind), title.Name, title.Year, title.Rating, title.Genres, Art(ArtworkType.Poster),
             title.Overview, title.RuntimeMinutes, new ExternalIdsDto(ext.Tmdb, ext.Imdb, ext.Tvdb, ext.AniList),
             Art(ArtworkType.Backdrop), Art(ArtworkType.Logo), movie, seasons,
-            preference is null ? null : new VersionPreferenceDto(preference.MediaFileId, preference.Resolution, preference.HdrFormat));
+            preference is null ? null : new VersionPreferenceDto(preference.MediaFileId, preference.Resolution, preference.HdrFormat),
+            showPlay);
     }
 
     private async Task<MoviePlayable?> MoviePlayableAsync(
@@ -279,7 +281,8 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
         return new MoviePlayable(playable.Id, found?.Versions ?? [], found?.Selected, watch.ResumeSeconds, watch.Watched);
     }
 
-    private async Task<IReadOnlyList<SeasonDto>> SeasonsAsync(
+    /// <summary>The show's seasons and episodes, and what its Play starts for the profile (as the Home hero picks it).</summary>
+    private async Task<(IReadOnlyList<SeasonDto> Seasons, ShowPlay? Play)> SeasonsAsync(
         Guid titleId, Guid? profileId, VersionPreference? preference, CancellationToken ct)
     {
         var seasons = await db.Seasons.AsNoTracking().Where(s => s.TitleId == titleId).OrderBy(s => s.Number).ToListAsync(ct);
@@ -307,7 +310,30 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             .GroupBy(a => a.EpisodeId!.Value).ToDictionary(g => g.Key, g => g.First());
         var episodesBySeason = episodes.ToLookup(e => e.SeasonId);
 
-        return [.. seasons.Select(s => new SeasonDto(
+        // Episodes Play can start (a version that isn't missing), as Home counts them.
+        var seasonNumbers = seasons.ToDictionary(s => s.Id, s => s.Number);
+        var episodeById = episodes.ToDictionary(e => e.Id);
+        List<HomePlayable> withFiles =
+        [
+            .. playables
+                .Where(p => versions.GetValueOrDefault(p.Id)?.Selected is not null)
+                .Select(p =>
+                {
+                    var e = episodeById[p.EpisodeId!.Value];
+                    return new HomePlayable(p.Id, titleId, new EpisodeSlot(seasonNumbers[e.SeasonId], e.Number));
+                }),
+        ];
+        ShowPlay? play = null;
+        if (HomeRules.HeroPlay(titleId, withFiles, HomeRules.Watching(withFiles, watches.Values)) is { } pick)
+        {
+            var e = episodeById[playables.First(p => p.Id == pick.PlayableId).EpisodeId!.Value];
+            play = new ShowPlay(
+                pick.PlayableId,
+                new HomeEpisode(seasonNumbers[e.SeasonId], e.Number, e.Name, Ref(stillByEpisode.GetValueOrDefault(e.Id))),
+                pick.ResumeSeconds);
+        }
+
+        IReadOnlyList<SeasonDto> dtos = [.. seasons.Select(s => new SeasonDto(
             s.Id, s.Number, s.Name, s.Overview, Ref(posterBySeason.GetValueOrDefault(s.Id)),
             [.. episodesBySeason[s.Id].Select(e =>
             {
@@ -318,6 +344,7 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
                     e.Id, e.Number, e.AbsoluteNumber, e.Name, e.Overview, e.AirDate, Ref(stillByEpisode.GetValueOrDefault(e.Id)),
                     playableId, found?.Versions ?? [], found?.Selected, watch.ResumeSeconds, watch.Watched);
             })]))];
+        return (dtos, play);
     }
 
     /// <summary>

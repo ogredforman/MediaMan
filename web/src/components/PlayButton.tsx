@@ -4,9 +4,14 @@ import { ApiError } from '../lib/http';
 import { formatPosition } from '../lib/mediaFormat';
 import { buttonClass } from './formClasses';
 
-/** What Play starts and the profile's watch state on it; `name` is the episode's, absent for a movie. */
+/**
+ * What Play starts and the profile's watch state on it; `name` is the episode's, absent for a movie. `nameShown` puts
+ * the name on the button too ("Resume S2:E3 from 12:30"), and `verb` says Continue instead of Play.
+ */
 export interface PlayTarget {
   name?: string | undefined;
+  nameShown?: boolean;
+  verb?: 'Play' | 'Continue';
   resumeSeconds?: number | undefined;
   watched: boolean;
 }
@@ -36,15 +41,16 @@ function PlayControl({
   onPlay: (startSeconds?: number) => void;
   children?: ReactNode;
 }) {
-  const { name, resumeSeconds, watched } = target;
+  const { name, nameShown = false, verb = 'Play', resumeSeconds, watched } = target;
   const of = name === undefined ? '' : ` ${name}`;
+  const shown = nameShown ? of : '';
   const at = resumeSeconds === undefined ? undefined : formatPosition(resumeSeconds);
   return (
     <div className="flex flex-col items-start gap-2">
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          aria-label={at === undefined ? `Play${of}` : `Resume${of} from ${at}`}
+          aria-label={at === undefined ? `${verb}${of}` : `Resume${of} from ${at}`}
           disabled={disabled}
           onClick={() => {
             onPlay();
@@ -54,7 +60,7 @@ function PlayControl({
           <svg aria-hidden="true" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
             <path d="M4 2.5v11a.5.5 0 0 0 .76.43l9-5.5a.5.5 0 0 0 0-.86l-9-5.5A.5.5 0 0 0 4 2.5Z" />
           </svg>
-          {at === undefined ? 'Play' : `Resume from ${at}`}
+          {at === undefined ? `${verb}${shown}` : `Resume${shown} from ${at}`}
         </button>
         {at !== undefined && (
           <button

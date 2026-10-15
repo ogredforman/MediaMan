@@ -14,7 +14,7 @@ import { ApiError, artworkSrc } from '../lib/http';
 import { formatDuration, formatSize, versionTags } from '../lib/mediaFormat';
 import type { FixMatchFile } from '../lib/fixMatch';
 import { FixMatchDialog } from './FixMatchDialog';
-import { PlayButton } from './PlayButton';
+import { PlayButton, type PlayTarget } from './PlayButton';
 import { WatchedButton } from './WatchedButton';
 import { buttonClass } from './formClasses';
 
@@ -316,6 +316,28 @@ function SeasonTabs({ titleId, seasons, choice }: { titleId: string; seasons: Se
   );
 }
 
+/**
+ * A show's Play in the hero (SPEC §11): "Resume S2:E3 from 12:30", "Continue S2:E4" when the profile has watched
+ * another episode but not this one, else "Play S1:E1". The episode list shows watched marks, so the hero doesn't.
+ */
+function showPlayTarget(title: Title): { playableId: string; target: PlayTarget } | undefined {
+  const play = title.showPlay;
+  if (play === undefined) return undefined;
+  const episodes = (title.seasons ?? []).flatMap((season) => season.episodes);
+  const picked = episodes.find((episode) => episode.playableId === play.playableId);
+  const others = episodes.some((episode) => episode.playableId !== play.playableId && episode.watched);
+  return {
+    playableId: play.playableId,
+    target: {
+      name: `S${String(play.episode.seasonNumber)}:E${String(play.episode.number)}`,
+      nameShown: true,
+      verb: picked?.watched !== true && others ? 'Continue' : 'Play',
+      resumeSeconds: play.resumeSeconds,
+      watched: false,
+    },
+  };
+}
+
 /** A version can be played unless its file is missing; the server picks which one (SPEC §7.4). */
 function isPlayable(versions: MediaVersion[]): boolean {
   return versions.some((v) => v.status !== 'missing');
@@ -376,6 +398,7 @@ function Hero({ title }: { title: Title }) {
     title.runtimeMinutes === undefined ? undefined : formatDuration(title.runtimeMinutes),
     title.rating === undefined ? undefined : `${title.rating.toFixed(1)}/10`,
   ].filter((fact): fact is string => fact !== undefined);
+  const showPlay = showPlayTarget(title);
 
   return (
     <div className="relative isolate overflow-hidden" style={style}>
@@ -422,6 +445,7 @@ function Hero({ title }: { title: Title }) {
                 target={{ resumeSeconds: title.playable.resumeSeconds, watched: title.playable.watched }}
               />
             )}
+            {showPlay && <PlayButton playableId={showPlay.playableId} target={showPlay.target} />}
             {title.playable && title.playable.versions.length > 0 && (
               <WatchedButton target={{ playableId: title.playable.id }} watched={title.playable.watched} name={title.name} />
             )}

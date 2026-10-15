@@ -97,7 +97,11 @@ public sealed record TitleDetail(
     ArtworkRef? Logo,
     MoviePlayable? Playable,
     IReadOnlyList<SeasonDto>? Seasons,
-    VersionPreferenceDto? VersionPreference);
+    VersionPreferenceDto? VersionPreference,
+    ShowPlay? ShowPlay);
+
+/// <summary>What a show's Play starts for the profile, picked as the Home hero's (<see cref="HomeRules.HeroPlay"/>).</summary>
+public sealed record ShowPlay(Guid PlayableId, HomeEpisode Episode, double? ResumeSeconds);
 
 public sealed record VersionPreferenceDto(Guid? MediaFileId, string? Resolution, string? HdrFormat);
 

@@ -2321,7 +2321,7 @@ components:
 
     TitleDetail:
       type: object
-      description: A title with everything the detail page shows. `playable` is set for movies, `seasons` for shows.
+      description: A title with everything the detail page shows. `playable` is set for movies, `seasons` and `showPlay` for shows.
       required: [id, kind, name, genres, externalIds]
       additionalProperties: false
       properties:
@@ -2360,6 +2360,27 @@ components:
             $ref: '#/components/schemas/Season'
         versionPreference:
           $ref: '#/components/schemas/VersionPreference'
+        showPlay:
+          $ref: '#/components/schemas/ShowPlay'
+
+    ShowPlay:
+      type: object
+      description: |
+        What a show's Play starts for the session's profile, picked as `HomeHero.playableId`: the episode the profile is
+        part-way through, else its next episode, else the first episode of the first season (specials last). Without a
+        picked profile, the first episode with no resume. Set on shows only; absent when no episode has a file.
+      required: [playableId, episode]
+      additionalProperties: false
+      properties:
+        playableId:
+          type: string
+          format: uuid
+        episode:
+          $ref: '#/components/schemas/HomeEpisode'
+        resumeSeconds:
+          type: number
+          minimum: 0
+          description: Where the profile stopped in `playableId`, when resume is offered (as on `HomeHero`).
 
     VersionPreference:
       type: object

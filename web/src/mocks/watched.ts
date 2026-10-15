@@ -53,6 +53,11 @@ export function createMockWatched(details: Record<string, TitleDetail>) {
         ...season,
         episodes: season.episodes.map((episode) => mark(episode, episode.playableId)),
       })),
+      // A marked episode loses its resume point; the mock doesn't re-pick the show's episode.
+      showPlay:
+        detail.showPlay && marks.has(detail.showPlay.playableId)
+          ? { playableId: detail.showPlay.playableId, episode: detail.showPlay.episode }
+          : detail.showPlay,
     };
   };
 

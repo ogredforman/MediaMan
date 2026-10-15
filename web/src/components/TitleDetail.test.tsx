@@ -370,6 +370,71 @@ describe('TitleDetail', () => {
     });
   });
 
+  describe("a show's Play in the hero", () => {
+    const officeDetail = () => must(mockTitleDetails[office]);
+    const playableOf = (seasonNumber: number, number: number) =>
+      must(
+        officeDetail()
+          .seasons?.find((s) => s.number === seasonNumber)
+          ?.episodes.find((e) => e.number === number)?.playableId,
+      );
+    const withWatched = (detail: TitleDetail, watched: (playableId: string | undefined) => boolean): TitleDetail => ({
+      ...detail,
+      seasons: detail.seasons?.map((s) => ({
+        ...s,
+        episodes: s.episodes.map(({ resumeSeconds: _dropped, ...e }) => ({ ...e, watched: watched(e.playableId) })),
+      })),
+    });
+    const hero = async () => must((await screen.findByRole('heading', { level: 1, name: 'The Office' })).parentElement);
+
+    it('resumes the episode the profile is part-way through, with Start over', async () => {
+      const user = userEvent.setup();
+      renderApp(`/titles/${office}`);
+      const panel = within(await hero());
+
+      expect(panel.getByRole('button', { name: 'Resume S1:E1 from 10:15' })).toHaveTextContent('Resume S1:E1 from 10:15');
+      await user.click(panel.getByRole('button', { name: 'Start S1:E1 over' }));
+
+      expect(await panel.findByRole('alert')).toHaveTextContent('Play works in the MediaMan desktop app.');
+    });
+
+    it('continues with the next episode after a watched one', async () => {
+      const next = playableOf(2, 1);
+      const detail: TitleDetail = {
+        ...withWatched(officeDetail(), (id) => id === playableOf(1, 2)),
+        showPlay: { playableId: next, episode: { seasonNumber: 2, number: 1, name: 'The Dundies' } },
+      };
+      server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
+      renderApp(`/titles/${office}`);
+
+      expect(within(await hero()).getByRole('button', { name: 'Continue S2:E1' })).toHaveTextContent('Continue S2:E1');
+    });
+
+    it.each([
+      ['an unwatched show', () => false],
+      ['an all-watched show', () => true],
+    ])('plays the first episode of %s', async (_, watched) => {
+      const detail: TitleDetail = {
+        ...withWatched(officeDetail(), watched),
+        showPlay: { playableId: playableOf(1, 1), episode: { seasonNumber: 1, number: 1, name: 'Pilot' } },
+      };
+      server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
+      renderApp(`/titles/${office}`);
+      const panel = within(await hero());
+
+      expect(panel.getByRole('button', { name: 'Play S1:E1' })).toHaveTextContent('Play S1:E1');
+      expect(panel.queryByRole('button', { name: /over$/ })).not.toBeInTheDocument();
+    });
+
+    it('offers no Play when no episode has a file', async () => {
+      const { showPlay: _none, ...detail } = officeDetail();
+      server.use(http.get('*/titles/:titleId', () => HttpResponse.json(detail)));
+      renderApp(`/titles/${office}`);
+
+      expect(within(await hero()).queryByRole('button', { name: /^(Play|Resume|Continue)/ })).not.toBeInTheDocument();
+    });
+  });
+
   it('shows season tabs with the first regular season selected and specials last', async () => {
     renderApp(`/titles/${office}`);
 
