@@ -1,6 +1,35 @@
-// FakePlayer (SPEC §10.4): records play calls and lets tests emit progress and ended events; never starts MPV.
+// FakePlayer (SPEC §10.4): records play calls and commands and lets tests emit progress, state and ended events; never
+// starts MPV.
 import { PlayerStartError } from '../main/mpvPlayer.js';
-import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
+import type {
+  EpisodeChoice,
+  IPlayer,
+  PlayerCommand,
+  PlayerEndReason,
+  PlayerProgress,
+  PlayerState,
+  PlayOptions,
+  UpNextChoice,
+  UpNextOffer,
+} from '../main/player.js';
+
+/** The state a file starts with: its title and neighbours, at the start, playing at full volume. */
+export function initialPlayerState(opts: PlayOptions): PlayerState {
+  return {
+    positionSeconds: opts.startSeconds,
+    durationSeconds: 0,
+    bufferedSeconds: 0,
+    paused: false,
+    buffering: false,
+    volume: 100,
+    muted: false,
+    audioTracks: [],
+    subtitleTracks: [],
+    chapters: [],
+    title: opts.title,
+    ...(opts.episodes === undefined ? {} : { episodes: opts.episodes }),
+  };
+}
 
 export class FakePlayer implements IPlayer {
   readonly plays: PlayOptions[] = [];
@@ -8,6 +37,10 @@ export class FakePlayer implements IPlayer {
   readonly upNexts: UpNextOffer[] = [];
   /** Every notice shown while something played. */
   readonly notices: string[] = [];
+  /** Every command given while something played. */
+  readonly commands: PlayerCommand[] = [];
+  /** The current file's state; undefined when nothing plays. */
+  state: PlayerState | undefined;
   stopCalls = 0;
   /** Plays that opened a new window; a play while something plays replaces it in the same window. */
   launches = 0;
@@ -18,6 +51,7 @@ export class FakePlayer implements IPlayer {
   private readonly endReachedListeners: (() => void)[] = [];
   private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
   private readonly episodeListeners: ((choice: EpisodeChoice) => void)[] = [];
+  private readonly stateListeners: ((state: PlayerState) => void)[] = [];
   private nextFailure: Error | undefined;
 
   /** Makes the next `play()` reject with `error`, as when MPV can't be started. */
@@ -49,6 +83,17 @@ export class FakePlayer implements IPlayer {
     this.episodeListeners.push(cb);
   }
 
+  onState(cb: (state: PlayerState) => void): void {
+    this.stateListeners.push(cb);
+  }
+
+  /** Records the command; `episode` reports the choice when that neighbour exists, as MpvPlayer does. */
+  command(cmd: PlayerCommand): void {
+    if (!this.playing) return;
+    this.commands.push(cmd);
+    if (cmd.type === 'episode' && this.plays.at(-1)?.episodes?.[cmd.choice] !== undefined) this.emitEpisodeChoice(cmd.choice);
+  }
+
   showUpNext(offer: UpNextOffer): void {
     if (this.playing) this.upNexts.push(offer);
   }
@@ -63,6 +108,7 @@ export class FakePlayer implements IPlayer {
       this.emitEnded('quit');
       this.plays.push(opts);
       this.playing = true;
+      this.startState(opts);
       return;
     }
     await this.stop();
@@ -74,6 +120,12 @@ export class FakePlayer implements IPlayer {
     this.plays.push(opts);
     this.launches++;
     this.playing = true;
+    this.startState(opts);
+  }
+
+  private startState(opts: PlayOptions): void {
+    this.state = initialPlayerState(opts);
+    this.emitState({});
   }
 
   stop(): Promise<void> {
@@ -112,10 +164,19 @@ export class FakePlayer implements IPlayer {
     for (const listener of this.episodeListeners) listener(choice);
   }
 
+  /** Changes the current file's state and reports all of it. Ignored when nothing plays. */
+  emitState(change: Partial<PlayerState>): void {
+    if (!this.playing || !this.state) return;
+    const state: PlayerState = { ...this.state, ...change };
+    this.state = state;
+    for (const listener of this.stateListeners) listener(state);
+  }
+
   /** Ends the current playback. Ignored when nothing plays, so each play ends once. */
   emitEnded(reason: PlayerEndReason, detail?: string): void {
     if (!this.playing) return;
     this.playing = false;
+    this.state = undefined;
     for (const listener of this.endedListeners) {
       if (detail === undefined) listener(reason);
       else listener(reason, detail);

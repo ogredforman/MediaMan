@@ -2,8 +2,23 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractPlay, describePlayerContract, settle } from '../fakes/playerContract.js';
-import { episodeMessages, ipcPathFor, mpvArgs, mpvAssetsIn, MpvPlayer, noticeMs, PlayerStartError, redactUrls, resolveMpvPath, upNextMessages, type MpvChild, type MpvConnection, type MpvPlayerOptions } from './mpvPlayer.js';
-import type { PlayerEndReason, PlayerProgress } from './player.js';
+import {
+  episodeMessages,
+  ipcPathFor,
+  mpvArgs,
+  mpvAssetsIn,
+  MpvPlayer,
+  noticeMs,
+  PlayerStartError,
+  redactUrls,
+  resolveMpvPath,
+  upNextMessages,
+  windowIdOf,
+  type MpvChild,
+  type MpvConnection,
+  type MpvPlayerOptions,
+} from './mpvPlayer.js';
+import type { PlayerEndReason, PlayerProgress, PlayerState } from './player.js';
 
 /** A stand-in MPV process: answers IPC the way MPV does, and tests decide what it sends and when it exits. */
 class FakeMpv {
@@ -118,14 +133,21 @@ class FakeMpv {
   }
 }
 
+/** The IPC commands `IPlayer.command` sends. */
+function isPlayerCommand([name, property]: unknown[]): boolean {
+  return name === 'cycle' || name === 'seek' || (name === 'set_property' && (property === 'volume' || property === 'aid' || property === 'sid'));
+}
+
 function setUp(options: Partial<MpvPlayerOptions> = {}) {
   const mpv = new FakeMpv();
   const player = new MpvPlayer({ mpvPath: 'mpv', connectRetryMs: 1, connectTimeoutMs: 50, stopGraceMs: 20, ...mpv.options, ...options });
   const progress: PlayerProgress[] = [];
   const ended: [PlayerEndReason, string | undefined][] = [];
+  const states: PlayerState[] = [];
   player.onProgress((p) => progress.push(p));
   player.onEnded((reason, detail) => ended.push([reason, detail]));
-  return { mpv, player, progress, ended };
+  player.onState((state) => states.push(state));
+  return { mpv, player, progress, ended, states };
 }
 
 describePlayerContract('MpvPlayer', () => {
@@ -140,6 +162,20 @@ describePlayerContract('MpvPlayer', () => {
       mpv.send({ event: 'property-change', id: 3, name: 'pause', data: p.paused });
       await settle();
     },
+    state: async (change) => {
+      const properties: [number, string, unknown][] = [
+        [1, 'time-pos', change.positionSeconds],
+        [2, 'duration', change.durationSeconds],
+        [10, 'demuxer-cache-time', change.bufferedSeconds],
+        [3, 'pause', change.paused],
+        [9, 'paused-for-cache', change.buffering],
+        [6, 'volume', change.volume],
+        [7, 'mute', change.muted],
+      ];
+      for (const [id, name, data] of properties) if (data !== undefined) mpv.send({ event: 'property-change', id, name, data });
+      await settle();
+    },
+    commandsReceived: () => mpv.commands.filter(isPlayerCommand).length,
     end: async (reason, detail) => {
       mpv.send(reason === 'eof' ? { event: 'end-file', reason: 'eof' } : { event: 'end-file', reason: 'error', file_error: detail });
       mpv.exit(reason === 'eof' ? 0 : 2);
@@ -206,7 +242,116 @@ describe('MpvPlayer', () => {
       ['observe_property', 3, 'pause'],
       ['observe_property', 4, 'eof-reached'],
       ['observe_property', 5, 'chapter-list'],
+      ['observe_property', 6, 'volume'],
+      ['observe_property', 7, 'mute'],
+      ['observe_property', 8, 'track-list'],
+      ['observe_property', 9, 'paused-for-cache'],
+      ['observe_property', 10, 'demuxer-cache-time'],
     ]);
+  });
+
+  it('sends each command to MPV', async () => {
+    const { mpv, player } = setUp();
+    await player.play(contractPlay);
+
+    player.command({ type: 'togglePause' });
+    player.command({ type: 'seekTo', seconds: 600.5 });
+    player.command({ type: 'seekBy', seconds: -10 });
+    player.command({ type: 'setVolume', volume: 35 });
+    player.command({ type: 'toggleMute' });
+    player.command({ type: 'selectAudio', trackId: 2 });
+    player.command({ type: 'selectSubtitle', trackId: 3 });
+    player.command({ type: 'selectSubtitle', trackId: null });
+
+    expect(mpv.commands.filter(isPlayerCommand)).toEqual([
+      ['cycle', 'pause'],
+      ['seek', 600.5, 'absolute'],
+      ['seek', -10, 'relative'],
+      ['set_property', 'volume', 35],
+      ['cycle', 'mute'],
+      ['set_property', 'aid', 2],
+      ['set_property', 'sid', 3],
+      ['set_property', 'sid', 'no'],
+    ]);
+  });
+
+  it('ignores commands while a replacing file is still loading', async () => {
+    const { mpv, player } = setUp();
+    await player.play(contractPlay);
+    const replacing = player.play({ ...contractPlay, title: 'Aliens (1986)' });
+    player.command({ type: 'seekBy', seconds: 30 });
+    await replacing;
+    await settle();
+    player.command({ type: 'seekBy', seconds: 10 });
+
+    expect(mpv.commands.filter(isPlayerCommand)).toEqual([['seek', 10, 'relative']]);
+  });
+
+  it('sends position changes at most every 250 ms, the latest when the wait ends', async () => {
+    vi.useFakeTimers();
+    const { mpv, player, states } = setUp();
+    await player.play(contractPlay);
+    const before = states.length;
+
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1 });
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1.1 });
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1.2 });
+    vi.advanceTimersByTime(249);
+    expect(states.slice(before).map((s) => s.positionSeconds)).toEqual([1]);
+    vi.advanceTimersByTime(1);
+    vi.advanceTimersByTime(250);
+    mpv.send({ event: 'property-change', id: 7, name: 'mute', data: true });
+
+    expect(states.slice(before).map((s) => [s.positionSeconds, s.muted])).toEqual([
+      [1, false],
+      [1.2, false],
+      [1.2, true],
+    ]);
+  });
+
+  it('reports the audio and subtitle tracks with the selected ones, leaving out video and malformed entries', async () => {
+    const { mpv, player, states } = setUp();
+    await player.play(contractPlay);
+
+    mpv.send({
+      event: 'property-change',
+      id: 8,
+      name: 'track-list',
+      data: [
+        { id: 1, type: 'video', selected: true },
+        { id: 1, type: 'audio', lang: 'eng', title: 'Surround 5.1', selected: true },
+        { id: 2, type: 'audio', lang: 'ger', selected: false },
+        { id: 1, type: 'sub', lang: 'eng', selected: false },
+        { id: 2, type: 'sub', title: 'en', external: true, selected: true },
+        { type: 'sub', lang: 'fre' },
+        null,
+      ],
+    });
+
+    expect(states.at(-1)).toMatchObject({
+      audioTracks: [
+        { id: 1, language: 'eng', title: 'Surround 5.1', selected: true },
+        { id: 2, language: 'ger', selected: false },
+      ],
+      subtitleTracks: [
+        { id: 1, language: 'eng', selected: false },
+        { id: 2, title: 'en', selected: true },
+      ],
+    });
+  });
+
+  it('reports the chapters, and keeps volume and mute for the next file in the same window', async () => {
+    const { mpv, player, states } = setUp();
+    await player.play(contractPlay);
+    mpv.send({ event: 'property-change', id: 5, name: 'chapter-list', data: [{ title: 'Intro', time: 0 }, { time: 90 }] });
+    mpv.send({ event: 'property-change', id: 6, name: 'volume', data: 40 });
+    mpv.send({ event: 'property-change', id: 7, name: 'mute', data: true });
+    expect(states.at(-1)?.chapters).toEqual([{ title: 'Intro', time: 0 }, { time: 90 }]);
+
+    await player.play({ ...contractPlay, title: 'Aliens (1986)', startSeconds: 120 });
+    await settle();
+
+    expect(states.at(-1)).toMatchObject({ title: 'Aliens (1986)', positionSeconds: 120, chapters: [], volume: 40, muted: true });
   });
 
   it('adds the subtitles once the file has loaded, selecting the default one', async () => {
@@ -581,9 +726,30 @@ describe('mpvArgs', () => {
     expect(args.slice(args.indexOf('--force-media-title=Alien (1979)') + 1)).toEqual(['--alang=de,ger,deu,en,eng', '--', contractPlay.url]);
   });
 
+  it('draws into the window it is given instead of opening one, leaving the keyboard to the app', () => {
+    const handle = Buffer.alloc(8);
+    handle.writeBigUInt64LE(0x2_0a3cn);
+    const args = mpvArgs({ ...contractPlay, embedIn: handle }, 'p');
+
+    expect(args.slice(0, 3)).toEqual(['--input-ipc-server=p', '--wid=133692', '--input-vo-keyboard=no']);
+    expect(args).not.toContain('--force-window=yes');
+  });
+
   it('loads the MediaMan config and OSC after the launch options, with the built-in OSC off', () => {
     const args = mpvArgs(contractPlay, 'p', { config: 'conf', script: 'osc' });
     expect(args.slice(args.indexOf('--osc=no'), args.indexOf('--'))).toEqual(['--osc=no', '--include=conf', '--script=osc']);
+  });
+});
+
+describe('windowIdOf', () => {
+  it('reads a 64-bit or a 32-bit handle as a decimal number', () => {
+    const wide = Buffer.alloc(8);
+    wide.writeBigUInt64LE(0x1_0000_0002n);
+    const narrow = Buffer.alloc(4);
+    narrow.writeUInt32LE(0x0040_0a3c);
+
+    expect(windowIdOf(wide)).toBe('4294967298');
+    expect(windowIdOf(narrow)).toBe('4196924');
   });
 });
 

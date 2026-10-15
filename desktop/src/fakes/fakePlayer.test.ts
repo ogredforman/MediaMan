@@ -10,6 +10,11 @@ describePlayerContract('FakePlayer', () => {
       player.emitProgress(p);
       return Promise.resolve();
     },
+    state: (change) => {
+      player.emitState(change);
+      return Promise.resolve();
+    },
+    commandsReceived: () => player.commands.length,
     end: (reason, detail) => {
       player.emitEnded(reason, detail);
       return Promise.resolve();

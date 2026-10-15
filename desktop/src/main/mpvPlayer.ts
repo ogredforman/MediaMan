@@ -1,10 +1,22 @@
-// The real IPlayer: MPV as a separate process in its own window, driven over its JSON IPC (SPEC §7.4, §10.1, §10.3).
+// The real IPlayer: MPV as a separate process, in its own window or drawing into the app's (`embedIn`), driven over its
+// JSON IPC (SPEC §7.4, §10.1, §10.3).
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { checkMpvExecutable, type CheckMpvExecutable } from './mpvCheck.js';
-import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayerProgress, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
+import type {
+  EpisodeChoice,
+  IPlayer,
+  PlayerCommand,
+  PlayerEndReason,
+  PlayerProgress,
+  PlayerState,
+  PlayerTrack,
+  PlayOptions,
+  UpNextChoice,
+  UpNextOffer,
+} from './player.js';
 import { upNextAt, type Chapter } from './upNext.js';
 
 /** A spawned MPV, narrowed so tests can stand in for a real child process. */
@@ -30,6 +42,8 @@ export interface MpvPlayerOptions {
   /** The MPV executable; a bare name is looked up on PATH. */
   mpvPath: string;
   progressIntervalMs?: number;
+  /** The shortest time between two states sent for a position change (`onState`); defaults to 250 ms. */
+  stateIntervalMs?: number;
   connectTimeoutMs?: number;
   connectRetryMs?: number;
   stopGraceMs?: number;
@@ -74,7 +88,11 @@ export function ipcPathFor(platform: NodeJS.Platform, tempDir: string, id: strin
 
 /** MPV's command line for one launch. The URL comes after `--`, so it is never read as an option. */
 export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets): string[] {
-  const args = [`--input-ipc-server=${ipcPath}`, '--force-window=yes', '--idle=no', '--keep-open=yes', `--force-media-title=${opts.title}`];
+  const args = [`--input-ipc-server=${ipcPath}`];
+  // Embedded, MPV draws into the app window and leaves the keyboard to the overlay above it (ADR 0011).
+  if (opts.embedIn) args.push(`--wid=${windowIdOf(opts.embedIn)}`, '--input-vo-keyboard=no');
+  else args.push('--force-window=yes');
+  args.push('--idle=no', '--keep-open=yes', `--force-media-title=${opts.title}`);
   // The user's own mpv.conf and scripts still load; ours comes after, so it wins where both set an option.
   if (assets) args.push('--osc=no', `--include=${assets.config}`, `--script=${assets.script}`);
   if (opts.startSeconds > 0) args.push(`--start=${String(opts.startSeconds)}`);
@@ -84,7 +102,26 @@ export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets):
   return args;
 }
 
-const observed = { 1: 'time-pos', 2: 'duration', 3: 'pause', 4: 'eof-reached', 5: 'chapter-list' } as const;
+/**
+ * A native window handle from `getNativeWindowHandle()` (an HWND, or an X11 window id) as the decimal number `--wid`
+ * takes. The buffer is in the machine's byte order, little-endian on every platform the app ships for.
+ */
+export function windowIdOf(handle: Buffer): string {
+  return handle.length >= 8 ? handle.readBigUInt64LE(0).toString() : handle.readUInt32LE(0).toString();
+}
+
+const observed = {
+  1: 'time-pos',
+  2: 'duration',
+  3: 'pause',
+  4: 'eof-reached',
+  5: 'chapter-list',
+  6: 'volume',
+  7: 'mute',
+  8: 'track-list',
+  9: 'paused-for-cache',
+  10: 'demuxer-cache-time',
+} as const;
 
 /** The script messages between the OSC (mpv/osc.lua) and the main process for "Up next". */
 export const upNextMessages = { show: 'mediaman-up-next', choice: 'mediaman-up-next-choice' } as const;
@@ -108,6 +145,12 @@ interface Session {
   connection?: MpvConnection;
   timer?: NodeJS.Timeout;
   paused: boolean;
+  // Volume and mute carry over from one file to the next, like pause.
+  volume: number;
+  muted: boolean;
+  /** Running while position changes wait to be sent (`emitState`); `stateDirty` when one did. */
+  stateTimer?: NodeJS.Timeout;
+  stateDirty: boolean;
   stopping: boolean;
   nextRequestId: number;
   positionRequests: Set<number>;
@@ -123,7 +166,11 @@ interface Item {
   started: boolean;
   position?: number;
   duration?: number;
+  buffered?: number;
+  buffering: boolean;
   chapters: Chapter[];
+  audioTracks: PlayerTrack[];
+  subtitleTracks: PlayerTrack[];
   creditsReached: boolean;
   eofReached: boolean;
   seeking: boolean;
@@ -131,7 +178,18 @@ interface Item {
 }
 
 function newItem(opts: PlayOptions, started: boolean): Item {
-  return { opts, started, chapters: [], creditsReached: false, eofReached: false, seeking: false, ended: false };
+  return {
+    opts,
+    started,
+    buffering: false,
+    chapters: [],
+    audioTracks: [],
+    subtitleTracks: [],
+    creditsReached: false,
+    eofReached: false,
+    seeking: false,
+    ended: false,
+  };
 }
 
 interface MpvMessage {
@@ -155,6 +213,7 @@ interface MpvMessage {
  */
 export class MpvPlayer implements IPlayer {
   private readonly progressIntervalMs: number;
+  private readonly stateIntervalMs: number;
   private readonly connectTimeoutMs: number;
   private readonly connectRetryMs: number;
   private readonly stopGraceMs: number;
@@ -169,11 +228,13 @@ export class MpvPlayer implements IPlayer {
   private readonly endReachedListeners: (() => void)[] = [];
   private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
   private readonly episodeListeners: ((choice: EpisodeChoice) => void)[] = [];
+  private readonly stateListeners: ((state: PlayerState) => void)[] = [];
   private session: Session | undefined;
   private launches = 0;
 
   constructor(private readonly options: MpvPlayerOptions) {
     this.progressIntervalMs = options.progressIntervalMs ?? 10_000;
+    this.stateIntervalMs = options.stateIntervalMs ?? 250;
     this.connectTimeoutMs = options.connectTimeoutMs ?? 5_000;
     this.connectRetryMs = options.connectRetryMs ?? 100;
     this.stopGraceMs = options.stopGraceMs ?? 3_000;
@@ -212,6 +273,44 @@ export class MpvPlayer implements IPlayer {
     this.episodeListeners.push(cb);
   }
 
+  onState(cb: (state: PlayerState) => void): void {
+    this.stateListeners.push(cb);
+  }
+
+  command(cmd: PlayerCommand): void {
+    const session = this.session;
+    const connection = session?.connection;
+    // A file still loading after a replace isn't playing yet: a seek would land in the old one.
+    if (!session || !connection || !session.item.started || session.item.ended) return;
+    switch (cmd.type) {
+      case 'togglePause':
+        send(connection, ['cycle', 'pause']);
+        break;
+      case 'seekTo':
+        send(connection, ['seek', cmd.seconds, 'absolute']);
+        break;
+      case 'seekBy':
+        send(connection, ['seek', cmd.seconds, 'relative']);
+        break;
+      case 'setVolume':
+        send(connection, ['set_property', 'volume', cmd.volume]);
+        break;
+      case 'toggleMute':
+        send(connection, ['cycle', 'mute']);
+        break;
+      case 'selectAudio':
+        send(connection, ['set_property', 'aid', cmd.trackId]);
+        break;
+      case 'selectSubtitle':
+        send(connection, ['set_property', 'sid', cmd.trackId ?? 'no']);
+        break;
+      case 'episode':
+        if (session.item.opts.episodes?.[cmd.choice] === undefined) break;
+        for (const listener of this.episodeListeners) listener(cmd.choice);
+        break;
+    }
+  }
+
   showUpNext(offer: UpNextOffer): void {
     const session = this.session;
     if (!session || session.item.ended) return;
@@ -246,6 +345,9 @@ export class MpvPlayer implements IPlayer {
       exitCode: null,
       exitError: undefined,
       paused: false,
+      volume: 100,
+      muted: false,
+      stateDirty: false,
       stopping: false,
       nextRequestId: 100,
       positionRequests: new Set(),
@@ -276,6 +378,7 @@ export class MpvPlayer implements IPlayer {
       }
     });
     for (const [id, name] of Object.entries(observed)) send(connection, ['observe_property', Number(id), name]);
+    this.emitState(session);
     session.timer = setInterval(() => {
       this.report(session);
     }, this.progressIntervalMs);
@@ -289,6 +392,7 @@ export class MpvPlayer implements IPlayer {
    */
   private replace(session: Session, connection: MpvConnection, opts: PlayOptions): void {
     this.end(session, 'quit');
+    this.clearState(session);
     session.item = newItem(opts, false);
     session.pendingStarts++;
     session.positionRequests.clear();
@@ -366,22 +470,45 @@ export class MpvPlayer implements IPlayer {
       // Two quick replaces send two loadfiles: only the second start-file is the current file's.
       if (session.pendingStarts > 0) session.pendingStarts--;
       item.started = session.pendingStarts === 0;
+      if (item.started) this.emitState(session);
       return;
     }
-    // A replaced file's last events (its end-file, its final position) arrive before the new file starts.
-    if (!item.started && message.event !== 'client-message' && !(message.event === 'property-change' && message.name === 'pause')) return;
+    // A replaced file's last events (its end-file, its final position) arrive before the new file starts; pause, volume
+    // and mute belong to the whole session.
+    const sessionWide = message.event === 'property-change' && (message.name === 'pause' || message.name === 'volume' || message.name === 'mute');
+    if (!item.started && message.event !== 'client-message' && !sessionWide) return;
 
     switch (message.event) {
       case 'property-change':
         if (message.name === 'time-pos') {
           item.position = typeof message.data === 'number' ? message.data : item.position;
           this.checkCredits(session);
+          this.emitState(session, true);
         } else if (message.name === 'duration') {
           item.duration = typeof message.data === 'number' ? message.data : item.duration;
           this.checkCredits(session);
+          this.emitState(session);
         } else if (message.name === 'chapter-list') {
           item.chapters = chaptersOf(message.data);
           this.checkCredits(session);
+          this.emitState(session);
+        } else if (message.name === 'demuxer-cache-time') {
+          item.buffered = typeof message.data === 'number' ? message.data : item.buffered;
+          this.emitState(session, true);
+        } else if (message.name === 'paused-for-cache') {
+          item.buffering = message.data === true;
+          this.emitState(session);
+        } else if (message.name === 'track-list') {
+          const tracks = tracksOf(message.data);
+          item.audioTracks = tracks.audio;
+          item.subtitleTracks = tracks.subtitle;
+          this.emitState(session);
+        } else if (message.name === 'volume' && typeof message.data === 'number') {
+          session.volume = Math.min(100, Math.max(0, message.data));
+          this.emitState(session);
+        } else if (message.name === 'mute' && typeof message.data === 'boolean') {
+          session.muted = message.data;
+          this.emitState(session);
         } else if (message.name === 'eof-reached') {
           const reached = message.data === true;
           if (reached && !item.eofReached) {
@@ -392,6 +519,7 @@ export class MpvPlayer implements IPlayer {
         } else if (message.name === 'pause' && typeof message.data === 'boolean' && message.data !== session.paused) {
           session.paused = message.data;
           this.report(session);
+          this.emitState(session);
         }
         break;
       case 'client-message': {
@@ -445,7 +573,50 @@ export class MpvPlayer implements IPlayer {
     if (!session.connection) return;
     this.end(session, reason, detail);
     clearInterval(session.timer);
+    this.clearState(session);
     session.connection.close();
+  }
+
+  /**
+   * Sends the current file's state now; a position change (`throttled`) at most once per `stateIntervalMs`, the latest
+   * one when the wait ends. Nothing before the file starts or after it ends.
+   */
+  private emitState(session: Session, throttled = false): void {
+    const item = session.item;
+    if (!session.connection || !item.started || item.ended) return;
+    if (throttled && session.stateTimer) {
+      session.stateDirty = true;
+      return;
+    }
+    session.stateDirty = false;
+    if (throttled) {
+      session.stateTimer = setTimeout(() => {
+        session.stateTimer = undefined;
+        if (session.stateDirty) this.emitState(session, true);
+      }, this.stateIntervalMs);
+    }
+    const state: PlayerState = {
+      positionSeconds: item.position ?? item.opts.startSeconds,
+      durationSeconds: item.duration ?? 0,
+      bufferedSeconds: item.buffered ?? 0,
+      paused: session.paused,
+      buffering: item.buffering,
+      volume: session.volume,
+      muted: session.muted,
+      audioTracks: item.audioTracks,
+      subtitleTracks: item.subtitleTracks,
+      chapters: item.chapters,
+      title: item.opts.title,
+      ...(item.opts.episodes === undefined ? {} : { episodes: item.opts.episodes }),
+    };
+    for (const listener of this.stateListeners) listener(state);
+  }
+
+  /** Drops a position change still waiting to be sent, when its file ends. */
+  private clearState(session: Session): void {
+    clearTimeout(session.stateTimer);
+    session.stateTimer = undefined;
+    session.stateDirty = false;
   }
 
   /** Reports the current file's last progress and ends it once; only launches that connected ever end. */
@@ -493,6 +664,27 @@ function chaptersOf(data: unknown): Chapter[] {
     chapters.push(typeof title === 'string' ? { title, time } : { time });
   }
   return chapters;
+}
+
+/** The audio and subtitle tracks in MPV's `track-list`; video tracks and malformed entries are left out. */
+function tracksOf(data: unknown): { audio: PlayerTrack[]; subtitle: PlayerTrack[] } {
+  const audio: PlayerTrack[] = [];
+  const subtitle: PlayerTrack[] = [];
+  if (!Array.isArray(data)) return { audio, subtitle };
+  for (const raw of data as unknown[]) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const { id, type, lang, title, selected } = raw as Record<string, unknown>;
+    if (typeof id !== 'number') continue;
+    const track: PlayerTrack = {
+      id,
+      selected: selected === true,
+      ...(typeof lang === 'string' ? { language: lang } : {}),
+      ...(typeof title === 'string' ? { title } : {}),
+    };
+    if (type === 'audio') audio.push(track);
+    else if (type === 'sub') subtitle.push(track);
+  }
+  return { audio, subtitle };
 }
 
 // A function, so the connect loop sees the flag the exit listener sets across awaits.

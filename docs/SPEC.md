@@ -568,6 +568,11 @@ interface IPlayer {
   onEndReached(cb: () => void): void;                   // the file ended; MPV holds the last frame
   showUpNext(offer: { title: string; seconds: number }): void;
   onUpNextChoice(cb: (choice: 'play' | 'cancel') => void): void;
+  // What the overlay draws: position (about 4 Hz), duration, buffered end, paused, buffering, volume, mute,
+  // audio and subtitle tracks, chapters, title, episode neighbours; only while a file plays.
+  onState(cb: (state: PlayerState) => void): void;
+  // Pause, seek to/by, volume, mute, audio and subtitle track (or off), previous/next episode.
+  command(cmd: PlayerCommand): void;
   stop(): Promise<void>;
 }
 interface IServerProcess {                              // Local mode
@@ -601,7 +606,7 @@ All fakes live in `server/tests/MediaMan.Fakes` (and `desktop/src/fakes` for TS)
 - **Community definitions (`IDefinitionSource`):** returns fixture YAML definitions from `tests/fixtures/definitions/`.
 - **FlareSolverr:** behind `IIndexerHttp`; the fake simulates solved and unsolved challenges.
 - **VPN:** covered by `INetworkInterfaces` and `IPublicIpProbe` fakes; no VPN is needed in tests.
-- **MPV (`IPlayer`):** `FakePlayer` (TS) records `play` calls and Up next offers, and lets tests emit progress, credits, end-reached, Up next choices and ended events. Real MPV is used only in manual testing.
+- **MPV (`IPlayer`):** `FakePlayer` (TS) records `play` calls and Up next offers, and overlay commands, and lets tests emit progress, state, credits, end-reached, Up next choices and ended events. Real MPV is used only in manual testing.
 - **Server process (`IServerProcess`):** `FakeServerProcess` resolves with a fixed URL pointing at the MSW mock API.
 - **Web UI vs. API:** MSW handlers generated from `contracts/openapi.yaml` with fixture data, so UI work never waits on the server.
 
