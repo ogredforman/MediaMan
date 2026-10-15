@@ -80,6 +80,17 @@ public sealed record TitleSummary(
 
 public sealed record TitlePage(IReadOnlyList<TitleSummary> Items, PageInfo PageInfo);
 
+/// <summary>How <c>GET /titles</c> orders titles: by name, or highest rated first.</summary>
+public enum TitleSort
+{
+    Name,
+    Rating,
+}
+
+public sealed record GenreCount(string Name, int TitleCount);
+
+public sealed record GenreList(IReadOnlyList<GenreCount> Items);
+
 public sealed record LibrarySearchResults(string Query, IReadOnlyList<TitleSummary> Titles);
 
 public sealed record TitleDetail(

@@ -724,6 +724,24 @@ export interface TitlePage {
   pageInfo: PageInfo;
 }
 
+export type TitleSort = typeof TitleSort[keyof typeof TitleSort];
+
+
+export const TitleSort = {
+  name: 'name',
+  rating: 'rating',
+} as const;
+
+export interface GenreCount {
+  name: string;
+  /** @minimum 1 */
+  titleCount: number;
+}
+
+export interface GenreList {
+  items: GenreCount[];
+}
+
 export interface HomeEpisode {
   /** @minimum 0 */
   seasonNumber: number;
@@ -1193,6 +1211,13 @@ year?: number;
 kind?: TitleKind;
 };
 
+export type ListGenresParams = {
+/**
+ * Only movies' or only shows' genres. Omit for both.
+ */
+kind?: TitleKind;
+};
+
 export type SearchLibraryParams = {
 /**
  * What the user typed.
@@ -1216,6 +1241,15 @@ kind?: TitleKind;
  * Only titles with a matched file in this library.
  */
 libraryId?: string;
+/**
+ * Only titles with this genre, matched exactly (a name from `listGenres`). Blank or omitted for all.
+ * @maxLength 200
+ */
+genre?: string;
+/**
+ * `name`: by name, then year. `rating`: highest rated first (unrated last), then by name and year.
+ */
+sort?: TitleSort;
 /**
  * Maximum number of items to return.
  * @minimum 1

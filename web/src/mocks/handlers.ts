@@ -3,6 +3,7 @@ import {
   getCompleteSetupMockHandler,
   getGetHomeMockHandler,
   getGetHealthMockHandler,
+  getListGenresMockHandler,
   getListTitlesMockHandler,
   getLoginMockHandler,
   getRefreshTokensMockHandler,
@@ -18,6 +19,7 @@ import { createMockWatched } from './watched';
 import type {
   AuthTokens,
   CreatePlaybackSessionRequest,
+  GenreCount,
   Home,
   PlaybackSession,
   TitleDetail,
@@ -290,6 +292,24 @@ const playableNotFound = {
   action: 'Go back to the title and try again.',
 };
 
+/** `mockTitles` of a kind and with a genre (null for any), by name, as `GET /titles` sorts them. */
+function mockTitlesOf(kind: string | null, genre: string | null): TitleSummary[] {
+  return mockTitles
+    .filter((t) => (kind === null || t.kind === kind) && (!genre || t.genres.includes(genre)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The genres of `mockTitles` of a kind (null for both), most titles first, then by name. */
+export function mockGenres(kind: string | null): GenreCount[] {
+  const counts = new Map<string, number>();
+  for (const genre of mockTitlesOf(kind, null).flatMap((t) => [...new Set(t.genres)])) {
+    counts.set(genre, (counts.get(genre) ?? 0) + 1);
+  }
+  return [...counts]
+    .map(([name, titleCount]) => ({ name, titleCount }))
+    .sort((a, b) => b.titleCount - a.titleCount || a.name.localeCompare(b.name));
+}
+
 /** Case-, accent- and punctuation-insensitive name search over `mockTitles`, sorted by name; a blank query finds nothing. */
 export function mockSearch(query: string): TitleSummary[] {
   const fold = (text: string) =>
@@ -326,12 +346,12 @@ export const handlers = [
   ...mockWatched.handlers,
   getGetHomeMockHandler(() => mockWatched.applyHome(mockHome)),
   getListTitlesMockHandler(({ request }) => {
-    const kind = new URL(request.url).searchParams.get('kind');
-    return {
-      items: mockTitles.filter((t) => kind === null || t.kind === kind).map(mockWatched.applySummary),
-      pageInfo: {},
-    };
+    const params = new URL(request.url).searchParams;
+    const items = mockTitlesOf(params.get('kind'), params.get('genre'));
+    if (params.get('sort') === 'rating') items.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+    return { items: items.map(mockWatched.applySummary), pageInfo: {} };
   }),
+  getListGenresMockHandler(({ request }) => ({ items: mockGenres(new URL(request.url).searchParams.get('kind')) })),
   getSearchLibraryMockHandler(({ request }) => {
     const query = new URL(request.url).searchParams.get('q') ?? '';
     return { query, titles: mockSearch(query).map(mockWatched.applySummary) };

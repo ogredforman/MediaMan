@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { TitleSummary } from '../api/mediaman.schemas';
 import { apiUrl } from '../lib/http';
 import { mockTitles } from '../mocks/handlers';
@@ -23,6 +23,11 @@ function grid() {
 }
 
 describe('PosterGrid', () => {
+  // With no genres, Movies and Shows open on the full grid (the genre rows are GenreBrowser's tests).
+  beforeEach(() => {
+    server.use(http.get('*/genres', () => HttpResponse.json({ items: [] })));
+  });
+
   it('lists only the kind it shows, with posters and stand-ins', async () => {
     let kind: string | null = null;
     server.use(

@@ -18,7 +18,7 @@ test('browses to a movie and plays it', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Movies' }).click();
   const title = titleResponse(page);
-  await page.getByRole('region', { name: 'Movies' }).getByRole('link', { name: /The Matrix/ }).click();
+  await page.getByRole('region', { name: 'All movies A–Z' }).getByRole('link', { name: /The Matrix/ }).click();
 
   await expect(page.getByRole('heading', { name: 'The Matrix', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
@@ -30,7 +30,7 @@ test('browses to a movie and plays it', async ({ page }) => {
 test('browses to a show and plays an episode from a multi-episode file', async ({ page }) => {
   await page.goto('/shows');
   const title = titleResponse(page);
-  await page.getByRole('region', { name: 'Shows' }).getByRole('link', { name: /Breaking Bad/ }).click();
+  await page.getByRole('region', { name: 'All shows A–Z' }).getByRole('link', { name: /Breaking Bad/ }).click();
 
   await expect(page.getByRole('heading', { name: 'Breaking Bad', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: "Play Cat's in the Bag..." }).click();
@@ -43,7 +43,7 @@ test('browses to a show and plays an episode from a multi-episode file', async (
 test('picks the version of a movie that Play uses, then resets to the best quality', async ({ page }) => {
   await page.goto('/movies');
   const title = titleResponse(page);
-  await page.getByRole('region', { name: 'Movies' }).getByRole('link', { name: /The Matrix/ }).click();
+  await page.getByRole('region', { name: 'All movies A–Z' }).getByRole('link', { name: /The Matrix/ }).click();
   const versions = page.getByRole('list', { name: 'Versions', exact: true });
   const version = (fileName: string) => versions.getByRole('listitem').filter({ hasText: fileName });
 

@@ -1,4 +1,4 @@
-import type { MediaVersion } from '../api/mediaman.schemas';
+import type { HomeEpisode, MediaVersion } from '../api/mediaman.schemas';
 
 /** `1h 56m`, or `48m` under an hour. */
 export function formatDuration(minutes: number): string {
@@ -66,4 +66,12 @@ export function versionTags(version: MediaVersion): string[] {
     version.releaseGroup,
   ];
   return tags.filter((tag): tag is string => tag !== undefined && tag !== '');
+}
+
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** `S01E02 · Pilot`, or `S01E02` when the episode has no name. */
+export function episodeLabel(episode: HomeEpisode): string {
+  const code = `S${pad(episode.seasonNumber)}E${pad(episode.number)}`;
+  return episode.name === undefined ? code : `${code} · ${episode.name}`;
 }

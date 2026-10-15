@@ -223,11 +223,51 @@ public sealed class LibraryApiTests : IAsyncLifetime
     }
 
     [Theory]
+    [InlineData("genre=Drama", new[] { "Brick", "Casablanca" })] // "Gone Movie" and "Orphan" are Drama too, but not available
+    [InlineData("genre=Drama&sort=rating", new[] { "Casablanca", "Brick" })]
+    [InlineData("genre=drama", new string[0])] // matched exactly
+    [InlineData("genre=", new[] { "alien", "Brick", "Casablanca", "Dune", "The Office" })]
+    [InlineData("genre=%20", new[] { "alien", "Brick", "Casablanca", "Dune", "The Office" })]
+    [InlineData("kind=show&genre=Comedy", new[] { "The Office" })]
+    [InlineData("kind=movie&genre=Comedy", new string[0])]
+    public async Task Titles_filter_by_genre(string query, string[] expected)
+    {
+        var page = await GetAsync<TitlePage>("/titles?" + query);
+
+        page.Items.Select(t => t.Name).Should().Equal(expected);
+    }
+
+    [Fact]
+    public async Task Titles_sort_by_rating_with_unrated_last_then_by_name_across_pages()
+    {
+        var first = await GetAsync<TitlePage>("/titles?sort=rating&limit=3");
+        var second = await GetAsync<TitlePage>($"/titles?sort=rating&limit=3&cursor={first.PageInfo.NextCursor}");
+
+        // The Office and Casablanca tie on rating, so they sort by name; Dune has no rating.
+        first.Items.Select(t => t.Name).Should().Equal("Casablanca", "The Office", "alien");
+        second.Items.Select(t => t.Name).Should().Equal("Brick", "Dune");
+        second.PageInfo.NextCursor.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("", new[] { "Drama:2", "Science Fiction:2", "Comedy:1", "Horror:1", "Mystery:1", "Romance:1" })]
+    [InlineData("?kind=movie", new[] { "Drama:2", "Science Fiction:2", "Horror:1", "Mystery:1", "Romance:1" })]
+    [InlineData("?kind=show", new[] { "Comedy:1" })]
+    public async Task Genres_count_available_titles_once_each_most_titles_first(string query, string[] expected)
+    {
+        var genres = await GetAsync<GenreList>("/genres" + query);
+
+        genres.Items.Select(g => $"{g.Name}:{g.TitleCount}").Should().Equal(expected);
+    }
+
+    [Theory]
     [InlineData("/titles?cursor=not-a-cursor", "pagination.invalid")]
     [InlineData("/titles?cursor=eDox", "pagination.invalid")] // base64url of "x:1"
     [InlineData("/titles?limit=0", "pagination.invalid")]
     [InlineData("/libraries?limit=201", "pagination.invalid")]
     [InlineData("/titles?kind=Movie", "titles.invalid_kind")]
+    [InlineData("/titles?sort=year", "titles.invalid_sort")]
+    [InlineData("/genres?kind=films", "titles.invalid_kind")]
     [InlineData("/search", "search.invalid")]
     [InlineData("/search?q=a&limit=0", "search.invalid")]
     [InlineData("/search?q=a&limit=51", "search.invalid")]
@@ -261,6 +301,8 @@ public sealed class LibraryApiTests : IAsyncLifetime
 
     /// <summary>
     /// Films: alien (3 versions, one Missing), Brick, Casablanca, Dune, Gone Movie (only a Missing file), Orphan (no files).
+    /// Genres and ratings: alien Horror/Science Fiction 8.2, Casablanca Drama/Romance 8.6, Brick Drama/Mystery 7.3, Dune
+    /// Science Fiction unrated, The Office Comedy 8.6; Gone Movie and Orphan are Drama.
     /// TV: The Office with specials, episodes 1–2 in one file and episode 3 without a file.
     /// </summary>
     private sealed class Seed
@@ -297,15 +339,23 @@ public sealed class LibraryApiTests : IAsyncLifetime
             seed.AddVersion(db, alien.PlayableId, "Alien.1979.2160p.UHD.BluRay.x265-GRP.mkv", Probe(3840, 2160, "HDR10"),
                 new ParsedRelease { Source = "BluRay", Group = "GRP" });
 
-            seed.Movie(db, "Casablanca", 1942, MediaFileStatus.Matched);
-            seed.Movie(db, "Brick", 2005, MediaFileStatus.Matched);
-            seed.Movie(db, "Dune", 2021, MediaFileStatus.Matched);
-            seed.Movie(db, "Gone Movie", 2000, MediaFileStatus.Missing);
-            db.Titles.Add(new Title { Id = Guid.CreateVersion7(), Kind = TitleKind.Movie, Name = "Orphan", Year = 2009 });
+            Describe(db, seed.Movie(db, "Casablanca", 1942, MediaFileStatus.Matched).TitleId, 8.6, "Drama", "Romance", "Drama");
+            Describe(db, seed.Movie(db, "Brick", 2005, MediaFileStatus.Matched).TitleId, 7.3, "Drama", "Mystery");
+            Describe(db, seed.Movie(db, "Dune", 2021, MediaFileStatus.Matched).TitleId, null, "Science Fiction");
+            Describe(db, seed.Movie(db, "Gone Movie", 2000, MediaFileStatus.Missing).TitleId, 9.9, "Drama");
+            db.Titles.Add(new Title { Id = Guid.CreateVersion7(), Kind = TitleKind.Movie, Name = "Orphan", Year = 2009, Genres = ["Drama"] });
 
             seed.AddOffice(db);
+            Describe(db, seed.OfficeId, 8.6, "Comedy");
             await db.SaveChangesAsync(ct);
             return seed;
+        }
+
+        private static void Describe(MediaManDbContext db, Guid titleId, double? rating, params string[] genres)
+        {
+            var title = db.Titles.Local.Single(t => t.Id == titleId);
+            title.Rating = rating;
+            title.Genres = [.. genres];
         }
 
         private (Guid TitleId, Guid PlayableId, Guid FileId) Movie(MediaManDbContext db, string name, int year, MediaFileStatus status)

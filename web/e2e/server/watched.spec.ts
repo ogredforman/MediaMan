@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 // The setup spec has signed in and scanned the placeholder library, which holds Breaking Bad's first four episodes.
 test('marks a season watched on the detail page, then the show unwatched from its card', async ({ page }) => {
   await page.goto('/shows');
-  const shows = page.getByRole('region', { name: 'Shows' });
+  const shows = page.getByRole('region', { name: 'All shows A–Z' });
   await shows.getByRole('link', { name: /Breaking Bad/ }).click();
   await expect(page.getByRole('heading', { name: 'Breaking Bad', level: 1 })).toBeVisible();
 

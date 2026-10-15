@@ -60,6 +60,7 @@ import {
   getGetSubtitleResponseMock,
   getGetTitleResponseMock,
   getListAttentionFilesResponseMock,
+  getListGenresResponseMock,
   getListLibrariesResponseMock,
   getListProfilesResponseMock,
   getListTitlesResponseMock,
@@ -84,6 +85,7 @@ import type {
   AuthTokens,
   CatalogSearchResult,
   EventEnvelope,
+  GenreList,
   Health,
   Home,
   Library,
@@ -100,7 +102,7 @@ import type {
   WatchProgress
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getGetServerModeResponseMock, getSetServerModeResponseMock, getGetMetadataSettingsResponseMock, getSetMetadataSettingsResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getGetAccountResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getGetHomeResponseMock, getSearchLibraryResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getGetServerModeResponseMock, getSetServerModeResponseMock, getGetMetadataSettingsResponseMock, getSetMetadataSettingsResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getGetAccountResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListGenresResponseMock, getGetHomeResponseMock, getSearchLibraryResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -397,6 +399,18 @@ export const getRelinkMediaFileMockHandler = (overrideResponse?: MediaFileMatch 
   }, options)
 }
 
+export const getListGenresMockHandler = (overrideResponse?: GenreList | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GenreList> | GenreList), options?: RequestHandlerOptions) => {
+  return http.get('*/genres', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getListGenresResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getGetHomeMockHandler = (overrideResponse?: Home | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Home> | Home), options?: RequestHandlerOptions) => {
   return http.get('*/home', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -573,6 +587,7 @@ export const getMediaManAPIMock = () => [
   getListAttentionFilesMockHandler(),
   getSearchCatalogMockHandler(),
   getRelinkMediaFileMockHandler(),
+  getListGenresMockHandler(),
   getGetHomeMockHandler(),
   getSearchLibraryMockHandler(),
   getListTitlesMockHandler(),

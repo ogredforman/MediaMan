@@ -614,7 +614,7 @@ soft shadows, subtle motion (150–250 ms). Every interactive element is reachab
 - **Setup wizard:** Superadmin, mode, first library, optional VPN and indexer import. One step per screen, with a progress indicator.
 - **Profile picker:** avatars in a grid; PIN entry if a PIN is set.
 - **Home:** hero banner (backdrop, logo or title, overview, Play and More info), then rows: Continue Watching, Next Up, Recently Added, genres.
-- **Movies / Shows:** poster grid with filters (genre, year, watched, resolution) and sort options.
+- **Movies / Shows:** a genre chip bar (All, then each genre, most titles first) over a row per genre (its best-rated titles, with See all), then every title A–Z; a picked genre opens its full poster grid, with the genre in the URL so Back works. Filters (year, watched, resolution) and sort options to come.
 - **Title detail:** backdrop hero, metadata, Play/Resume, version picker, season tabs with an episode list (stills, progress bars), Fix match, Get (for missing episodes or titles).
 - **Search:** instant results from the library; a "Not in library" section from the catalog.
 - **Get dialog:** quality chips across the top, a live-ranked result list (quality badges, size, seeders, indexer), dangerous-release flags, failed-source notice.

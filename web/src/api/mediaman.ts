@@ -63,6 +63,7 @@ import type {
   CreatePlaybackSessionRequest,
   CreateProfileRequest,
   EventEnvelope,
+  GenreList,
   GetArtworkParams,
   GetSubtitleParams,
   Health,
@@ -73,6 +74,7 @@ import type {
   LibrarySearchResults,
   LibraryUpdateRequest,
   ListAttentionFilesParams,
+  ListGenresParams,
   ListLibrariesParams,
   ListTitlesParams,
   LoginRequest,
@@ -2473,6 +2475,116 @@ export const useRelinkMediaFile = <TError = ErrorType<Problem | ProblemResponse>
       return useMutation(getRelinkMediaFileMutationOptions(options), queryClient);
     }
 
+export const getListGenresUrl = (params?: ListGenresParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/genres?${stringifiedParams}` : `/genres`
+}
+
+/**
+ * Only titles with a matched file count, as in `listTitles`, and a title counts once per genre. Ties sort by name.
+ * Not paged: a library has a few dozen genres at most.
+ * @summary The genres of the library's movies and shows, with how many titles each has, most titles first (SPEC §11).
+ */
+export const listGenres = async (params?: ListGenresParams, options?: Parameters<typeof apiFetch>[1]): Promise<GenreList> => {
+
+  return apiFetch<GenreList>(getListGenresUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGenresQueryKey = (params?: ListGenresParams,) => {
+    return [
+    `/genres`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListGenresQueryOptions = <TData = Awaited<ReturnType<typeof listGenres>>, TError = ErrorType<ProblemResponse>>(params?: ListGenresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGenres>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGenresQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGenres>>> = ({ signal }) => listGenres(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGenres>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListGenresQueryResult = NonNullable<Awaited<ReturnType<typeof listGenres>>>
+export type ListGenresQueryError = ErrorType<ProblemResponse>
+
+
+export function useListGenres<TData = Awaited<ReturnType<typeof listGenres>>, TError = ErrorType<ProblemResponse>>(
+ params: undefined |  ListGenresParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGenres>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGenres>>,
+          TError,
+          Awaited<ReturnType<typeof listGenres>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListGenres<TData = Awaited<ReturnType<typeof listGenres>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListGenresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGenres>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGenres>>,
+          TError,
+          Awaited<ReturnType<typeof listGenres>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListGenres<TData = Awaited<ReturnType<typeof listGenres>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListGenresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGenres>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The genres of the library's movies and shows, with how many titles each has, most titles first (SPEC §11).
+ */
+
+export function useListGenres<TData = Awaited<ReturnType<typeof listGenres>>, TError = ErrorType<ProblemResponse>>(
+ params?: ListGenresParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGenres>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListGenresQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetHomeUrl = () => {
 
 
@@ -2705,7 +2817,7 @@ export const getListTitlesUrl = (params?: ListTitlesParams,) => {
 }
 
 /**
- * @summary Browses the movies and shows that have at least one matched file, sorted by name.
+ * @summary Browses the movies and shows that have at least one matched file, sorted by name or by rating.
  */
 export const listTitles = async (params?: ListTitlesParams, options?: Parameters<typeof apiFetch>[1]): Promise<TitlePage> => {
 
@@ -2776,7 +2888,7 @@ export function useListTitles<TData = Awaited<ReturnType<typeof listTitles>>, TE
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Browses the movies and shows that have at least one matched file, sorted by name.
+ * @summary Browses the movies and shows that have at least one matched file, sorted by name or by rating.
  */
 
 export function useListTitles<TData = Awaited<ReturnType<typeof listTitles>>, TError = ErrorType<ProblemResponse>>(

@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using MediaMan.Core;
 using MediaMan.Core.Domain;
 using MediaMan.Server.Endpoints;
@@ -7,9 +8,12 @@ using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace MediaMan.Server.LibraryApi;
 
-/// <summary>Library management and browsing (libraries, the title grid, search, title detail), scanning and the attention list (SPEC §7.2, §8).</summary>
+/// <summary>Library management and browsing (libraries, the title grid, genres, search, title detail), scanning and the attention list (SPEC §7.2, §8).</summary>
 public static class LibraryEndpoints
 {
+    // The contract's maxLength on the genre filter.
+    private const int MaxGenreLength = 200;
+
     public static IEndpointRouteBuilder MapLibraryEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/libraries", ListLibrariesAsync).RequiresPermission(Permissions.LibraryView);
@@ -23,6 +27,7 @@ public static class LibraryEndpoints
         app.MapGet("/libraries/{libraryId}/attention", ListAttentionAsync).RequiresPermission(Permissions.LibraryManage);
         app.MapGet("/search", SearchAsync).RequiresPermission(Permissions.LibraryView);
         app.MapGet("/titles", ListTitlesAsync).RequiresPermission(Permissions.LibraryView);
+        app.MapGet("/genres", ListGenresAsync).RequiresPermission(Permissions.LibraryView);
         app.MapGet("/titles/{titleId}", GetTitleAsync).RequiresPermission(Permissions.LibraryView);
         return app;
     }
@@ -148,18 +153,25 @@ public static class LibraryEndpoints
     }
 
     private static async Task<Results<Ok<TitlePage>, ProblemHttpResult>> ListTitlesAsync(
-        string? kind, Guid? libraryId, int? limit, string? cursor, HttpContext http, LibraryQueries queries, CancellationToken ct)
+        string? kind, Guid? libraryId, string? genre, string? sort, int? limit, string? cursor, HttpContext http, LibraryQueries queries,
+        CancellationToken ct)
     {
-        TitleKind? titleKind = null;
-        if (kind is not null)
+        if (!TryReadKind(kind, out var titleKind, out var kindProblem))
         {
-            if (!Wire.TryParse<TitleKind>(kind, out var parsed))
-            {
-                return Problems.Result(StatusCodes.Status400BadRequest, "titles.invalid_kind", "Unknown title kind.",
-                    $"'{kind}' isn't a title kind.", "Use kind=movie or kind=show, or leave it out for both.");
-            }
+            return kindProblem;
+        }
 
-            titleKind = parsed;
+        if (genre is { Length: > MaxGenreLength })
+        {
+            return Problems.Result(StatusCodes.Status400BadRequest, "titles.invalid_genre", "Genre too long.",
+                $"A genre is at most {MaxGenreLength} characters.", "Pick a genre from the list, or leave it out for every title.");
+        }
+
+        var titleSort = TitleSort.Name;
+        if (sort is not null && !Wire.TryParse(sort, out titleSort))
+        {
+            return Problems.Result(StatusCodes.Status400BadRequest, "titles.invalid_sort", "Unknown sort order.",
+                $"'{sort}' isn't a sort order.", "Use sort=name or sort=rating, or leave it out to sort by name.");
         }
 
         if (!Paging.TryRead(limit, cursor, out var page, out var problem))
@@ -167,7 +179,38 @@ public static class LibraryEndpoints
             return problem;
         }
 
-        return TypedResults.Ok(await queries.ListTitlesAsync(titleKind, libraryId, page, http.Features.Get<CurrentUser>()?.ProfileId, ct));
+        return TypedResults.Ok(await queries.ListTitlesAsync(
+            titleKind, libraryId, genre, titleSort, page, http.Features.Get<CurrentUser>()?.ProfileId, ct));
+    }
+
+    private static async Task<Results<Ok<GenreList>, ProblemHttpResult>> ListGenresAsync(string? kind, LibraryQueries queries, CancellationToken ct)
+    {
+        if (!TryReadKind(kind, out var titleKind, out var problem))
+        {
+            return problem;
+        }
+
+        return TypedResults.Ok(await queries.ListGenresAsync(titleKind, ct));
+    }
+
+    private static bool TryReadKind(string? kind, out TitleKind? titleKind, [NotNullWhen(false)] out ProblemHttpResult? problem)
+    {
+        titleKind = null;
+        problem = null;
+        if (kind is null)
+        {
+            return true;
+        }
+
+        if (!Wire.TryParse<TitleKind>(kind, out var parsed))
+        {
+            problem = Problems.Result(StatusCodes.Status400BadRequest, "titles.invalid_kind", "Unknown title kind.",
+                $"'{kind}' isn't a title kind.", "Use kind=movie or kind=show, or leave it out for both.");
+            return false;
+        }
+
+        titleKind = parsed;
+        return true;
     }
 
     private static async Task<Results<Ok<TitleDetail>, ProblemHttpResult>> GetTitleAsync(

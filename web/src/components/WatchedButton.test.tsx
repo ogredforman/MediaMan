@@ -21,7 +21,7 @@ function cardOf(container: HTMLElement, name: RegExp): HTMLElement {
 describe('Mark watched', () => {
   it('marks a title watched from its poster in a grid, then unwatched', async () => {
     const user = userEvent.setup();
-    renderApp('/movies');
+    renderApp('/movies?genre=Drama');
     const region = await screen.findByRole('region', { name: 'Movies' });
     await within(region).findByRole('link', { name: /Arrival/ });
     expect(cardOf(region, /Arrival/)).not.toHaveTextContent('Watched');

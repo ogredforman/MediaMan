@@ -782,6 +782,34 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /genres:
+    get:
+      operationId: listGenres
+      summary: The genres of the library's movies and shows, with how many titles each has, most titles first (SPEC §11).
+      description: |
+        Only titles with a matched file count, as in `listTitles`, and a title counts once per genre. Ties sort by name.
+        Not paged: a library has a few dozen genres at most.
+      tags: [library]
+      x-permission: library.view
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Only movies' or only shows' genres. Omit for both.
+          schema:
+            $ref: '#/components/schemas/TitleKind'
+      responses:
+        '200':
+          description: The genres.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenreList'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /home:
     get:
       operationId: getHome
@@ -845,7 +873,7 @@ paths:
   /titles:
     get:
       operationId: listTitles
-      summary: Browses the movies and shows that have at least one matched file, sorted by name.
+      summary: Browses the movies and shows that have at least one matched file, sorted by name or by rating.
       tags: [library]
       x-permission: library.view
       parameters:
@@ -862,6 +890,20 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: genre
+          in: query
+          required: false
+          description: Only titles with this genre, matched exactly (a name from `listGenres`). Blank or omitted for all.
+          schema:
+            type: string
+            maxLength: 200
+        - name: sort
+          in: query
+          required: false
+          description: |
+            `name`: by name, then year. `rating`: highest rated first (unrated last), then by name and year.
+          schema:
+            $ref: '#/components/schemas/TitleSort'
         - $ref: '#/components/parameters/Limit'
         - $ref: '#/components/parameters/Cursor'
       responses:
@@ -2209,6 +2251,32 @@ components:
             $ref: '#/components/schemas/TitleSummary'
         pageInfo:
           $ref: '#/components/schemas/PageInfo'
+
+    TitleSort:
+      type: string
+      enum: [name, rating]
+      default: name
+
+    GenreList:
+      type: object
+      required: [items]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GenreCount'
+
+    GenreCount:
+      type: object
+      required: [name, titleCount]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        titleCount:
+          type: integer
+          minimum: 1
 
     Home:
       type: object

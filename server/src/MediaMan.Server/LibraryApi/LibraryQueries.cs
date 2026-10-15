@@ -97,8 +97,12 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
         : new MatchReviewDto(review.Id, review.Reason, [.. review.Candidates.Select(c => new MatchCandidateDto(
             c.TitleRef.ToString(), c.Score, c.Kind is { } k ? Wire.Name(k) : null, c.Name, c.Year, c.PosterUrl))]);
 
-    /// <summary>Titles with at least one Matched file (optionally in <paramref name="libraryId"/>), sorted by name.</summary>
-    public async Task<TitlePage> ListTitlesAsync(TitleKind? kind, Guid? libraryId, PageRequest page, Guid? profileId, CancellationToken ct)
+    /// <summary>
+    /// Titles with at least one Matched file (optionally in <paramref name="libraryId"/> and with <paramref name="genre"/>),
+    /// by name or highest rated first (unrated last), then name and year.
+    /// </summary>
+    public async Task<TitlePage> ListTitlesAsync(
+        TitleKind? kind, Guid? libraryId, string? genre, TitleSort sort, PageRequest page, Guid? profileId, CancellationToken ct)
     {
         var titles = AvailableTitles(libraryId);
         if (kind is { } k)
@@ -106,8 +110,15 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
             titles = titles.Where(t => t.Kind == k);
         }
 
-        var rows = await titles
-            .OrderBy(t => EF.Functions.Collate(t.Name, NameCollation))
+        if (!string.IsNullOrWhiteSpace(genre))
+        {
+            titles = titles.Where(t => t.Genres.Contains(genre));
+        }
+
+        var ordered = sort == TitleSort.Rating
+            ? titles.OrderByDescending(t => t.Rating ?? -1).ThenBy(t => EF.Functions.Collate(t.Name, NameCollation))
+            : titles.OrderBy(t => EF.Functions.Collate(t.Name, NameCollation));
+        var rows = await ordered
             .ThenBy(t => t.Year)
             .ThenBy(t => t.Id)
             .Skip(page.Offset)
@@ -116,6 +127,28 @@ public sealed class LibraryQueries(MediaManDbContext db, ScanCoordinator scans, 
 
         var (items, info) = Paging.Page(rows, page);
         return new TitlePage(await SummariesAsync(items, profileId, ct), info);
+    }
+
+    /// <summary>
+    /// The genres of titles with at least one Matched file, each title counted once per genre: most titles first, then
+    /// by name (case-insensitively, then exactly, so the order is stable).
+    /// </summary>
+    public async Task<GenreList> ListGenresAsync(TitleKind? kind, CancellationToken ct)
+    {
+        var titles = AvailableTitles(libraryId: null);
+        if (kind is { } k)
+        {
+            titles = titles.Where(t => t.Kind == k);
+        }
+
+        var genres = await titles.Select(t => t.Genres).ToListAsync(ct);
+        return new GenreList([.. genres
+            .SelectMany(g => g.Distinct())
+            .GroupBy(g => g)
+            .Select(g => new GenreCount(g.Key, g.Count()))
+            .OrderByDescending(g => g.TitleCount)
+            .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(g => g.Name, StringComparer.Ordinal)]);
     }
 
     /// <summary>

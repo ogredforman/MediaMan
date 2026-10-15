@@ -3,13 +3,9 @@ import { Link } from '@tanstack/react-router';
 import { getListTitlesQueryKey, listTitles, useListLibraries } from '../api/mediaman';
 import type { TitleKind, TitlePage, TitleSummary } from '../api/mediaman.schemas';
 import { artworkSrc, type ApiError } from '../lib/http';
+import { kindLabels } from '../lib/titleKinds';
 import { ScanLibraryButton } from './ScanStatus';
 import { WatchedBadge, WatchedButton } from './WatchedButton';
-
-const labels: Record<TitleKind, { heading: string; plural: string }> = {
-  movie: { heading: 'Movies', plural: 'movies' },
-  show: { heading: 'Shows', plural: 'shows' },
-};
 
 /** A poster that opens the title, with its watched marker and a Mark watched action over the poster. */
 export function PosterCard({ title }: { title: TitleSummary }) {
@@ -73,36 +69,46 @@ export function EmptyLibrary({ plural }: { plural: string }) {
   );
 }
 
-/** The Movies or Shows poster grid, a page at a time (SPEC §11). */
-export function PosterGrid({ kind }: { kind: TitleKind }) {
-  const { heading, plural } = labels[kind];
+/**
+ * Every movie or show by name, or only one genre's, a page at a time (SPEC §11). The page around it (`GenreBrowser`)
+ * carries the heading.
+ */
+export function PosterGrid({ kind, genre }: { kind: TitleKind; genre?: string }) {
+  const { plural, to } = kindLabels[kind];
+  const params = genre === undefined ? { kind } : { kind, genre };
   const titles = useInfiniteQuery<TitlePage, ApiError, InfiniteData<TitlePage>, readonly unknown[], string | undefined>(
     {
-      queryKey: [...getListTitlesQueryKey({ kind }), 'infinite'],
+      queryKey: [...getListTitlesQueryKey(params), 'infinite'],
       queryFn: ({ pageParam, signal }) =>
-        listTitles(pageParam === undefined ? { kind } : { kind, cursor: pageParam }, { signal }),
+        listTitles(pageParam === undefined ? params : { ...params, cursor: pageParam }, { signal }),
       initialPageParam: undefined,
       getNextPageParam: (last) => last.pageInfo.nextCursor,
     },
   );
   const items = titles.data?.pages.flatMap((page) => page.items) ?? [];
-  const headingId = `${kind}-heading`;
 
   return (
-    <section aria-labelledby={headingId} className="p-8">
-      <h1 id={headingId} className="text-2xl font-semibold">
-        {heading}
-      </h1>
-
+    <div className="px-8">
       {titles.isPending && (
-        <p role="status" className="mt-6 text-fg-muted">
+        <p role="status" className="text-fg-muted">
           Loading {plural}…
         </p>
       )}
-      {titles.isSuccess && items.length === 0 && <EmptyLibrary plural={plural} />}
+      {titles.isSuccess &&
+        items.length === 0 &&
+        (genre === undefined ? (
+          <EmptyLibrary plural={plural} />
+        ) : (
+          <p className="text-fg-muted">
+            No {plural} in {genre} any more.{' '}
+            <Link to={to} className="text-highlight underline-offset-2 hover:underline">
+              Browse all {plural}
+            </Link>
+          </p>
+        ))}
 
       {items.length > 0 && (
-        <ul className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-6">
+        <ul className="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-6">
           {items.map((title) => (
             <li key={title.id}>
               <PosterCard title={title} />
@@ -112,7 +118,7 @@ export function PosterGrid({ kind }: { kind: TitleKind }) {
       )}
 
       {titles.isError && (
-        <div role="alert" className="mt-6 flex flex-col items-start gap-2">
+        <div role="alert" className="flex flex-col items-start gap-2">
           <p>{titles.error.problem.title}</p>
           <p className="text-fg-muted">{titles.error.problem.action}</p>
           <button
@@ -135,6 +141,6 @@ export function PosterGrid({ kind }: { kind: TitleKind }) {
           {titles.isFetchingNextPage ? `Loading more ${plural}…` : 'Load more'}
         </button>
       )}
-    </section>
+    </div>
   );
 }

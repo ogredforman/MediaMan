@@ -50,6 +50,8 @@ describe('ScanStatus', () => {
     let titleRequests = 0;
     server.use(
       stream.handler,
+      // An empty library has no genres, so Movies is the full grid, which waits for the scan.
+      http.get('*/genres', () => HttpResponse.json({ items: [] })),
       http.get('*/titles', () => {
         titleRequests += 1;
         return HttpResponse.json({ items: titleRequests > 1 ? mockTitles.slice(0, 1) : [], pageInfo: {} });
