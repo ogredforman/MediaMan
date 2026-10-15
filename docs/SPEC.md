@@ -49,7 +49,6 @@ Elsewhere, the server direct-plays, remuxes or transcodes as each client needs. 
 - Auto-downloading followed shows or watchlists. Late stage.
 - Built-in WireGuard tunnel management.
 - Native TV apps, native mobile apps, a 10-foot UI.
-- Embedding MPV inside the app window. v1 uses a separate MPV window.
 - Signed or notarized macOS builds.
 - Exposing the server to the internet directly. Remote access is off by default and goes through Tailscale, Cloudflare Tunnel or a reverse proxy (7.12).
 - Bundling torrent site definitions in the repo.
@@ -59,7 +58,7 @@ The design must not preclude:
 - Streaming while downloading (the torrent engine interface exposes piece priority).
 - Automation (search and grab run as services, not UI code).
 - TV and native mobile clients (all playback goes through the client-capability negotiation API).
-- Embedding MPV later (player control sits behind an interface).
+- Swapping the desktop player's embedding per platform (player control sits behind an interface; ADR 0011).
 
 ## 5. Product principles
 
@@ -192,14 +191,14 @@ User 1─* SavedQualityProfile
 2. The server picks a version (the profile's preferred version if set, otherwise the highest quality), and returns
    a direct-stream URL, the resume position, and the external subtitle URLs.
 3. The desktop app launches MPV via `IPlayer` with the stream URL, start position and subtitles, and the profile's audio and
-   subtitle languages (`--alang`/`--slang`; the best-matching non-forced external subtitle is turned on). The purple Lua OSC is loaded.
+   subtitle languages (`--alang`/`--slang`; the best-matching non-forced external subtitle is turned on). MPV draws inside the app window (ADR 0011), and the player controls are a React OSD in a transparent overlay window above it.
 4. The desktop app reports progress to the server every 10 s and on pause, seek and quit.
 5. At 90% or more, the Playable is marked watched. If the next episode exists, an "Up next" countdown (10 s, cancellable) starts it.
    The countdown shows over the final credits: the run of named credits chapters that ends the file. When a post-credits
    scene or preview follows the credits, or no chapter names them, it shows at the end of the file, where MPV holds the
-   last frame. The next episode loads into the same MPV window. Without a next episode, or after a cancel, MPV closes at the end of the file.
+   last frame. The next episode loads into the same player. Without a next episode, or after a cancel, playback ends at the end of the file and the title's page shows again.
 6. If MPV fails to start, the UI shows the error with "Open MPV settings". If the stream URL fails, the server is re-queried once before an error is shown.
-   While progress reports can't reach the server, MPV itself shows that on screen and what to do, not only the app window.
+   While progress reports can't reach the server, the player shows that on screen and what to do.
 
 ### 7.5 Play in a browser
 
@@ -328,7 +327,7 @@ User 1─* SavedQualityProfile
 **Playback**
 - [P] Pressing Play launches MPV on the local file. Prototype only: the server launched MPV on its own host through a dev-only endpoint, removed once the desktop app played (PLAN 2.14c); in a plain browser Play now says to use the desktop app until browser playback (Stage 5).
 - [M] The Electron desktop app launches MPV via `IPlayer` with the stream URL, resume position and subtitles (7.4).
-- [M] Custom purple Lua OSC for MPV.
+- [M] Custom purple player controls over MPV: a Lua OSC until 2.5.14, then the React OSD in the overlay window (ADR 0011).
 - [M] Resume after 2 minutes; watched at 90%; "Up next" with a 10 s countdown.
 - [M] Per-profile audio and subtitle language preferences applied at playback.
 - [M] Browser playback with direct play, remux and transcode decision (7.5), including hardware encoders (NVENC, QSV, VAAPI, AMF, VideoToolbox) with software fallback.
@@ -447,7 +446,7 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
 | API contract | OpenAPI 3.1 in `contracts/openapi.yaml` | TS client generated; server conformance tested |
 | Web UI | React + Vite + TypeScript, TanStack Query, TanStack Router, Tailwind | Installable as a PWA; the server serves the built UI under `/app/`, the API stays at the root (ADR 0009) |
 | Desktop | Electron (TypeScript) | Local mode spawns the server; MPV over JSON IPC |
-| Player | MPV + custom Lua OSC, run as a separate process | Bundled per platform with the desktop app; separate window in v1 |
+| Player | MPV drawn inside the app window, controls in a React overlay window | Separate process embedded with `--wid` on Windows and Linux (Linux on X11/XWayland); libmpv through a small N-API addon on macOS; bundled per platform (ADR 0011) |
 | Indexers | Cardigann YAML engine + Torznab client | Optional FlareSolverr |
 | Metadata | TMDB (primary), AniList (anime), fanart.tv (logos), OpenSubtitles (subs) | |
 | Auth | Argon2id, JWT access + rotating refresh tokens, TOTP | |
@@ -561,7 +560,8 @@ interface IQualityClassifier { ReleaseQuality Classify(ParsedRelease r, long siz
 ```ts
 // Desktop (Electron main process)
 interface IPlayer {
-  play(opts: { url: string; startSeconds: number; subtitles: SubtitleTrack[]; title: string }): Promise<void>;
+  // Draws into the app window: embedIn is its native handle (--wid on Windows and Linux; ADR 0011).
+  play(opts: { url: string; startSeconds: number; subtitles: SubtitleTrack[]; title: string; embedIn?: Buffer }): Promise<void>;
   onProgress(cb: (p: { positionSeconds: number; durationSeconds: number; paused: boolean }) => void): void;
   onEnded(cb: (reason: 'eof' | 'quit' | 'error', detail?: string) => void): void;
   onCredits(cb: () => void): void;                      // the final credits started (7.4 step 5); once per launch
@@ -620,8 +620,8 @@ soft shadows, subtle motion (150–250 ms). Every interactive element is reachab
 - **Get dialog:** quality chips across the top, a live-ranked result list (quality badges, size, seeders, indexer), dangerous-release flags, failed-source notice.
 - **Downloads:** active, seeding and completed lists; VPN status badge always visible; requests tab for approvers ([L], with multiple users).
 - **Needs attention:** cards with the file name, parsed guess and candidate posters; one-click confirm or search.
-- **Player (desktop):** MPV with the purple Lua OSC on a dark gradient (title, progress bar with chapters, skip back 10 s and forward 30 s, previous and next episode, audio and subtitle menus, Up next).
-- **Player (browser):** custom HTML5 player matching the OSC look.
+- **Player (desktop):** MPV inside the app window under a React OSD on a dark gradient, in a transparent overlay window (title, progress bar with chapters, skip back 10 s and forward 30 s, previous and next episode, volume, audio and subtitle menus, fullscreen, Up next; ADR 0011). The browser player reuses the OSD.
+- **Player (browser):** an HTML5 video element under the same OSD.
 - **Settings:** Libraries, Playback, Torrents and VPN, Indexers, Quality (tier table, saved profiles), Users and roles, Remote access (the switch and guided setup, trusted proxies, the ban list), About and licences.
 - **Remote access badge:** while remote access is on, admins see a "Remote access on" badge in the shell (7.12).
 
@@ -685,7 +685,7 @@ rules in `.claude/rules/`. If a rule there contradicts this spec, the spec wins 
 - **Torznab:** a standard torrent search API exposed by Jackett and Prowlarr.
 - **FlareSolverr:** an optional proxy that solves Cloudflare challenges for indexers.
 - **VPN gate / kill switch:** the rule that torrents run only while the VPN path is healthy.
-- **OSC:** MPV's on-screen controller (the player UI), customized in Lua.
+- **OSC:** the player's on-screen controls: MPV's Lua controller until 2.5.14, then the React OSD in an overlay window (ADR 0011).
 - **Superadmin:** the single protected owner account.
 - **Local mode / Server mode:** server bound to localhost for one PC / bound to the LAN for other devices.
 - **Local network:** loopback, private LAN addresses and the Tailscale tailnet (7.12).

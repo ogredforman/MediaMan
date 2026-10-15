@@ -22,7 +22,7 @@ People with local media collections want the polished experience of Netflix or P
 - Auto-downloading followed shows or a watchlist (Sonarr/Radarr-style automation). Late stage.
 - Built-in WireGuard tunnel management. Parked.
 - TV apps (Android TV, webOS, Tizen), native mobile apps, a 10-foot UI. Later.
-- Embedding MPV inside the app window (v1 uses a separate MPV window). Parked.
+- Embedding MPV inside the app window (v1 uses a separate MPV window). Parked. (Since taken up: ADR 0011, PLAN 2.5.11.)
 - Signed or notarized macOS builds (needs a paid Apple developer account).
 - Built-in public exposure of the server: remote access goes through Tailscale, Cloudflare Tunnel or a reverse proxy.
 - Anything reused from MediaMan2.

@@ -14,7 +14,7 @@ Signatures here are summaries; `grep -n "public " <file>` (C#) or `grep -n "expo
   §5 principles, §6.1 entities, §7 core flows, §9 non-functional, §10.2 layout, §10.3 interfaces, §10.4 fakes, §11 UI, §12 testing.
 - PLAN: `grep -n '\[ \]' docs/PLAN.md | head` for the next tasks; read only the current stage's section.
 - ADRs: 0001 server test stack (xUnit v3, MTP, AwesomeAssertions) · 0002 UUIDv7 ids, Playable/Artwork owner FKs ·
-  0003 SQLite conventions and secrets at rest · 0004 web stack and Orval codegen · 0005 desktop build with plain tsc · 0006 TMDB ids carry the kind (`tmdb:movie/603`, `tmdb:tv/1396`) and the shipped token · 0007 artwork cache, `IImageDownloader`, StbImageSharp · 0008 per-install key, HKDF subkeys, Argon2id, Superadmin guard, tokens, signed artwork URLs · 0009 the server serves the web UI under `/app/`, API at the root.
+  0003 SQLite conventions and secrets at rest · 0004 web stack and Orval codegen · 0005 desktop build with plain tsc · 0006 TMDB ids carry the kind (`tmdb:movie/603`, `tmdb:tv/1396`) and the shipped token · 0007 artwork cache, `IImageDownloader`, StbImageSharp · 0008 per-install key, HKDF subkeys, Argon2id, Superadmin guard, tokens, signed artwork URLs · 0009 the server serves the web UI under `/app/`, API at the root · 0010 Windows installer · 0011 MPV inside the app window (`--wid`, overlay window, `disable-direct-composition` on Windows; libmpv addon on macOS).
 - Area rules: `.claude/rules/<area>.md` (contracts, data, desktop, library, server, server-tests, web).
 
 ## Wiring

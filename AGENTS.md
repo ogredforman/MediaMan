@@ -49,7 +49,7 @@ These are created in Stage 0 task 0.1 (web and desktop join them in 0.5 and 0.6)
 - Never execute, open or auto-run a downloaded file; files with the dangerous extensions in SPEC §5 are flagged and skipped (SPEC §5).
 - No torrent traffic leaves except through the configured VPN interface or SOCKS5 proxy; the engine doesn't start without a VPN path or a Superadmin-recorded opt-out, and torrents pause when the path fails (SPEC §5, §7.8).
 - Dev-only code (`MediaMan.Server/Dev`, the dev configuration) compiles only into Debug builds and never ships (SPEC §8 setup [P]).
-- ffmpeg, ffprobe and MPV run as separate processes; never link them natively (SPEC §10.1).
+- ffmpeg and ffprobe always run as separate processes. MPV runs as a separate process on Windows and Linux (embedded with `--wid`); libmpv is loaded only through the macOS player addon (SPEC §10.1, ADR 0011). Never link them natively otherwise.
 - Server and desktop code stays cross-platform (Windows, Linux, macOS): no OS-specific APIs without a fallback, paths built with `Path.Combine`/`path.join`, no hard-coded separators or drive letters (SPEC §9).
 - Product principles in SPEC §5 are requirements, not style.
 - New dependencies need a one-line reason in the commit message. Significant ones get an ADR.

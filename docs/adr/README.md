@@ -19,3 +19,4 @@ old one's status is changed to `Superseded by NNNN`.
 | 0008 | [Per-install key, derived subkeys and Argon2id password hashing](0008-install-key-and-password-hashing.md) | Accepted |
 | 0009 | [The server serves the web UI under /app/; the API stays at the root](0009-web-ui-served-under-app.md) | Accepted |
 | 0010 | [Windows installer: electron-builder NSIS, pinned official MPV, source archives with each release](0010-windows-installer.md) | Accepted |
+| 0011 | [Play inside the app window: MPV embedded with --wid under a React overlay window](0011-in-window-playback.md) | Accepted |
