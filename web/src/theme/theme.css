@@ -39,6 +39,12 @@
     @apply bg-bg text-fg antialiased;
   }
 
+  /* The player page (routes/player.tsx) sits over the video. */
+  html.player-page,
+  html.player-page body {
+    @apply bg-bg/0;
+  }
+
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-highlight;
   }
