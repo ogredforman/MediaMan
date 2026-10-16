@@ -1,12 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FakePlayer } from '../fakes/fakePlayer.js';
 import { PlayerStartError } from './mpvPlayer.js';
 import type { PlayOptions } from './player.js';
-import { PlayerHost, type PlayerEvent } from './playerHost.js';
+import { noticeMs, PlayerHost, type HostState, type PlayerEvent } from './playerHost.js';
 
 const opts: PlayOptions = { url: 'http://127.0.0.1:8420/media-files/1/stream?sig=x', startSeconds: 0, subtitles: [], title: 'Alien (1979)' };
 
-function setUp(initialPath = 'mpv') {
+function setUp(initialPath = 'mpv', embedIn?: () => Buffer | undefined) {
   let mpvPath = initialPath;
   const players: FakePlayer[] = [];
   const paths: string[] = [];
@@ -19,17 +19,26 @@ function setUp(initialPath = 'mpv') {
       return player;
     },
     () => Promise.resolve(mpvPath),
+    embedIn ? { embedIn } : {},
   );
+  const states: HostState[] = [];
+  host.onState((state) => states.push(state));
+  const active: boolean[] = [];
+  host.onActive((a) => active.push(a));
   const send = (event: PlayerEvent) => {
     events.push(event);
   };
   const pick = (path: string) => {
     mpvPath = path;
   };
-  return { host, players, paths, events, send, pick };
+  return { host, players, paths, events, send, pick, states, active };
 }
 
 describe('PlayerHost', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('plays with the current MPV and tags its events with the launch id', async () => {
     const { host, players, paths, events, send } = setUp('/opt/mpv');
 
@@ -117,28 +126,114 @@ describe('PlayerHost', () => {
     await expect(host.play('b', opts, send)).resolves.toEqual({ ok: true });
   });
 
-  it('forwards the credits, the end of the file, the Up next and episode choices, and shows Up next and notices only on the current launch', async () => {
+  it('forwards the credits, the end of the file and the episode choices', async () => {
     const { host, players, events, send } = setUp();
-    await host.play('a', opts, send);
-    const offer = { title: 'Show S01E02 · Two', seconds: 10 };
+    await host.play('a', { ...opts, episodes: { previous: 'Show S01E01 · One' } }, send);
 
     players[0]?.emitCredits();
     players[0]?.emitEndReached();
-    host.upNext('old', offer);
-    host.upNext('a', offer);
-    host.notice('old', 'Old');
-    host.notice('a', "Can't reach the MediaMan server.");
-    players[0]?.emitUpNextChoice('play');
-    players[0]?.emitEpisodeChoice('previous');
+    host.command({ type: 'episode', choice: 'previous' });
 
-    expect(players[0]?.upNexts).toEqual([offer]);
-    expect(players[0]?.notices).toEqual(["Can't reach the MediaMan server."]);
     expect(events).toEqual([
       { launchId: 'a', type: 'credits' },
       { launchId: 'a', type: 'endReached' },
-      { launchId: 'a', type: 'upNext', choice: 'play' },
       { launchId: 'a', type: 'episode', choice: 'previous' },
     ]);
+  });
+
+  it("puts Up next in the current launch's state, sends the overlay's answer to it and clears the offer", async () => {
+    const { host, events, send, states } = setUp();
+    const offer = { title: 'Show S01E02 · Two', seconds: 10 };
+    host.answerUpNext('play');
+    await host.play('a', opts, send);
+
+    host.upNext('old', offer);
+    expect(states.at(-1)?.upNext).toBeUndefined();
+    host.upNext('a', offer);
+    expect(states.at(-1)?.upNext).toEqual(offer);
+    host.answerUpNext('cancel');
+    host.answerUpNext('play');
+
+    expect(states.at(-1)?.upNext).toBeUndefined();
+    expect(events).toEqual([{ launchId: 'a', type: 'upNext', choice: 'cancel' }]);
+  });
+
+  it("drops the Up next and notice with the file they were for", async () => {
+    const { host, players, send, states } = setUp();
+    await host.play('a', opts, send);
+    host.upNext('a', { title: 'Next', seconds: 10 });
+    host.notice('a', 'Lost');
+
+    await host.play('b', { ...opts, title: 'Next' }, send);
+    players[0]?.emitState({ positionSeconds: 3 });
+
+    expect(states.at(-1)).toMatchObject({ title: 'Next', positionSeconds: 3 });
+    expect(states.at(-1)?.upNext).toBeUndefined();
+    expect(states.at(-1)?.notice).toBeUndefined();
+  });
+
+  it('shows a notice on the current launch for noticeMs, longer when it is repeated', async () => {
+    vi.useFakeTimers();
+    const { host, send, states } = setUp();
+    await host.play('a', opts, send);
+
+    host.notice('old', 'Old');
+    host.notice('a', "Can't reach the MediaMan server.");
+    expect(states.at(-1)?.notice).toBe("Can't reach the MediaMan server.");
+    vi.advanceTimersByTime(noticeMs - 2000);
+    host.notice('a', "Can't reach the MediaMan server.");
+    vi.advanceTimersByTime(noticeMs - 1);
+    expect(states.at(-1)?.notice).toBe("Can't reach the MediaMan server.");
+    vi.advanceTimersByTime(1);
+
+    expect(states.at(-1)?.notice).toBeUndefined();
+    expect(states.some((s) => s.notice === 'Old')).toBe(false);
+  });
+
+  it('plays into the window it is given', async () => {
+    const handle = Buffer.from([1, 2, 3, 4, 0, 0, 0, 0]);
+    const { host, players, send } = setUp('mpv', () => handle);
+
+    await host.play('a', opts, send);
+
+    expect(players[0]?.plays).toEqual([{ ...opts, embedIn: handle }]);
+  });
+
+  it('is active from a play until the last launch ends, through replaces, and not after a failed start', async () => {
+    const { host, players, send, active, pick } = setUp('/opt/mpv');
+
+    await host.play('a', opts, send);
+    await host.play('b', opts, send);
+    players[0]?.emitEnded('eof');
+    await host.play('c', opts, send);
+    await host.stop();
+    players[0]?.failNextPlay();
+    await host.play('d', opts, send);
+    await host.play('e', opts, send);
+    pick('/usr/bin/mpv');
+    await host.play('f', opts, send);
+
+    // A newly picked MPV stops the old one first, so the overlay hides and shows again around it.
+    expect(active).toEqual([true, false, true, false, true, false, true]);
+  });
+
+  it('stays inactive when the file ends while it is still starting', async () => {
+    class EndsAtOnce extends FakePlayer {
+      override async play(o: PlayOptions): Promise<void> {
+        await super.play(o);
+        this.emitEnded('error', 'MPV quit');
+      }
+    }
+    const host = new PlayerHost(
+      () => new EndsAtOnce(),
+      () => Promise.resolve('mpv'),
+    );
+    const active: boolean[] = [];
+    host.onActive((a) => active.push(a));
+
+    await expect(host.play('a', opts, () => undefined)).resolves.toEqual({ ok: true });
+
+    expect(active).toEqual([]);
   });
 
   it("sends the current file's state to its listeners and its commands to the player, across a newly picked MPV", async () => {

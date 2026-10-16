@@ -9,7 +9,7 @@ describe('bundledTools', () => {
     expect(bundledTools(resources, 'win32')).toEqual({
       serverPath: path.join(resources, 'server', 'MediaMan.Server.exe'),
       mpvPath: path.join(resources, 'mpv', 'mpv.exe'),
-      mpvAssets: { config: path.join(resources, 'mpv', 'mpv.conf'), script: path.join(resources, 'mpv', 'osc.lua') },
+      mpvAssets: { config: path.join(resources, 'mpv', 'mpv.conf') },
     });
   });
 

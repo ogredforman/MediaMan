@@ -69,6 +69,56 @@ export function mainWindowOptions(preloadPath: string, iconPath?: string): Brows
 }
 
 /**
+ * Whether MPV draws inside the app window under the player overlay (ADR 0011). Only Windows for now: Linux needs
+ * Electron on X11 and macOS the libmpv addon (Stage 8), so there MPV keeps a window of its own.
+ */
+export function embedsPlayer(platform: NodeJS.Platform): boolean {
+  return platform === 'win32';
+}
+
+/**
+ * Chromium switches to set before the app is ready. On Windows, DirectComposition puts a surface above MPV's child
+ * window and the page would cover the video (ADR 0011).
+ */
+export function chromiumSwitches(platform: NodeJS.Platform): string[] {
+  return platform === 'win32' ? ['disable-direct-composition'] : [];
+}
+
+/** The player overlay's page: the web UI's `/player` route, under the UI's base path (ADR 0009). */
+export function overlayUrl(uiUrl: URL): URL {
+  const base = uiUrl.pathname.endsWith('/') ? uiUrl : new URL(`${uiUrl.pathname}/`, uiUrl);
+  return new URL('player', base);
+}
+
+/**
+ * The player overlay (ADR 0011): frameless and transparent over the video, out of the taskbar and Alt-Tab (it is owned
+ * by the main window, set as `parent` by the caller), and sandboxed like the main window.
+ */
+export function overlayWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
+  return {
+    show: false,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    title: 'MediaMan player',
+    webPreferences: {
+      preload: preloadPath,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+    },
+  };
+}
+
+/**
  * The application menu (SPEC §11): none on Windows and Linux, so the window has no menu bar; on macOS a minimal
  * role-based menu so Cmd+Q, Cmd+H and the clipboard shortcuts keep working.
  */

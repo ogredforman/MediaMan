@@ -1,6 +1,6 @@
 // A stand-in for the desktop bridge's `player` (desktop/src/preload/index.cts): records launches and lets tests
 // send MPV's events. Never starts MPV.
-import type { DesktopMpvChoice, DesktopMpvSetting, DesktopPlayerBridge, DesktopPlayerCommand, DesktopPlayerState, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
+import type { DesktopMpvChoice, DesktopMpvSetting, DesktopPlayerBridge, DesktopOverlayAction, DesktopOverlayState, DesktopPlayerCommand, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
 
 export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   readonly plays: { launchId: string; options: DesktopPlayOptions }[];
@@ -21,14 +21,16 @@ export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   emit(event: DesktopPlayerEvent): void;
   /** Every command the overlay sent, in order. */
   readonly commands: DesktopPlayerCommand[];
-  /** Sends a player state to `onState` listeners, as the desktop does to the overlay. */
-  emitState(state: DesktopPlayerState): void;
+  /** Every overlay action sent, in order. */
+  readonly overlayActions: DesktopOverlayAction[];
+  /** Sends an overlay state to `onState` listeners, as the desktop does to the overlay. */
+  emitState(state: DesktopOverlayState): void;
   stopCalls: number;
 }
 
 export function createFakeDesktopPlayer(): FakeDesktopPlayer {
   const listeners = new Set<(event: DesktopPlayerEvent) => void>();
-  const stateListeners = new Set<(state: DesktopPlayerState) => void>();
+  const stateListeners = new Set<(state: DesktopOverlayState) => void>();
   let failure: string | undefined;
   let picked: string | null = null;
   let refusal: string | undefined;
@@ -38,6 +40,7 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     upNexts: [],
     notices: [],
     commands: [],
+    overlayActions: [],
     stopCalls: 0,
     play(launchId, options): Promise<DesktopPlayResult> {
       if (failure !== undefined) {
@@ -83,6 +86,10 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     },
     command(command) {
       fake.commands.push(command);
+      return Promise.resolve();
+    },
+    overlay(action) {
+      fake.overlayActions.push(action);
       return Promise.resolve();
     },
     onState(callback) {

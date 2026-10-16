@@ -41,7 +41,7 @@ function shipped(): string[] {
 describe('Windows installer config', () => {
   it('ships the server, MPV and its config and OSC where the packaged app looks for them', () => {
     expect(shipped()).toEqual(
-      expect.arrayContaining([tools.serverPath, tools.mpvPath, tools.mpvAssets.config, tools.mpvAssets.script]),
+      expect.arrayContaining([tools.serverPath, tools.mpvPath, tools.mpvAssets.config]),
     );
   });
 

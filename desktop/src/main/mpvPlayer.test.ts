@@ -3,16 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { contractPlay, describePlayerContract, settle } from '../fakes/playerContract.js';
 import {
-  episodeMessages,
   ipcPathFor,
   mpvArgs,
   mpvAssetsIn,
   MpvPlayer,
-  noticeMs,
   PlayerStartError,
   redactUrls,
   resolveMpvPath,
-  upNextMessages,
   windowIdOf,
   type MpvChild,
   type MpvConnection,
@@ -191,19 +188,6 @@ describePlayerContract('MpvPlayer', () => {
       mpv.send({ event: 'property-change', id: 4, name: 'eof-reached', data: true });
       await settle();
     },
-    upNexts: () =>
-      mpv.commands
-        .filter(([name, message]) => name === 'script-message' && message === upNextMessages.show)
-        .map(([, , seconds, title]) => ({ title: String(title), seconds: Number(seconds) })),
-    chooseUpNext: async (choice) => {
-      mpv.send({ event: 'client-message', args: [upNextMessages.choice, choice] });
-      await settle();
-    },
-    chooseEpisode: async (choice) => {
-      mpv.send({ event: 'client-message', args: [episodeMessages.choice, choice] });
-      await settle();
-    },
-    notices: () => mpv.commands.filter(([name]) => name === 'show-text').map(([, text]) => String(text)),
     failNextStart: () => {
       mpv.failSpawn = new Error('spawn mpv ENOENT');
     },
@@ -227,6 +211,8 @@ describe('MpvPlayer', () => {
         args: [
           `--input-ipc-server=ipc-${String(process.pid)}-1`,
           '--force-window=yes',
+          '--osc=yes',
+          '--osd-bar=yes',
           '--idle=no',
           '--keep-open=yes',
           '--force-media-title=Alien (1979)',
@@ -374,18 +360,6 @@ describe('MpvPlayer', () => {
     ]);
   });
 
-  it("names an episode's neighbours to the OSC once the file has loaded, and nothing for a movie", async () => {
-    const { mpv, player } = setUp();
-    await player.play({ ...contractPlay, episodes: { next: 'Show S01E02 · Two' } });
-    mpv.send({ event: 'file-loaded' });
-    await player.play(contractPlay);
-    mpv.send({ event: 'file-loaded' });
-
-    expect(mpv.commands.filter(([name, message]) => name === 'script-message' && message === episodeMessages.show)).toEqual([
-      ['script-message', 'mediaman-episodes', '', 'Show S01E02 · Two'],
-    ]);
-  });
-
   it('loads the next file into the running MPV with its launch options, unpaused, instead of spawning again', async () => {
     const { mpv, player, progress, ended } = setUp();
     await player.play(contractPlay);
@@ -418,7 +392,6 @@ describe('MpvPlayer', () => {
     mpv.send({ event: 'file-loaded' });
     expect(mpv.commands.slice(before + 6)).toEqual([
       ['sub-add', 'http://s/en.srt', 'auto', 'en', 'en'],
-      ['script-message', 'mediaman-episodes', 'Show S01E01 · One', ''],
     ]);
   });
 
@@ -432,8 +405,8 @@ describe('MpvPlayer', () => {
     expect(mpv.commands).toContainEqual(['set_property', 'start', '95']);
     expect(ended).toEqual([['quit', undefined]]);
     expect(progress.map((p) => p.positionSeconds)).not.toContain(9999);
-    player.showUpNext({ title: 'Next', seconds: 10 });
-    expect(mpv.commands.at(-1)).toEqual(['script-message', upNextMessages.show, '10', 'Next']);
+    player.command({ type: 'togglePause' });
+    expect(mpv.commands.at(-1)).toEqual(['cycle', 'pause']);
   });
 
   it('keeps the newest file when two replaces come before MPV starts either', async () => {
@@ -443,11 +416,11 @@ describe('MpvPlayer', () => {
     await player.play({ ...contractPlay, title: 'Three' });
     await settle();
     mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 7 });
-    player.showNotice('Still here');
+    player.command({ type: 'toggleMute' });
 
     expect(ended).toEqual([['quit', undefined], ['quit', undefined]]);
     expect(mpv.closed).toBe(false);
-    expect(mpv.commands.at(-1)).toEqual(['show-text', 'Still here', String(noticeMs)]);
+    expect(mpv.commands.at(-1)).toEqual(['cycle', 'mute']);
   });
 
   it('spawns a new MPV once the current one has ended', async () => {
@@ -460,27 +433,6 @@ describe('MpvPlayer', () => {
     await player.play(contractPlay);
 
     expect(mpv.spawned).toHaveLength(2);
-  });
-
-  it('shows a notice on the OSD, keeping dollar signs literal', async () => {
-    const { mpv, player } = setUp();
-    await player.play(contractPlay);
-
-    player.showNotice('Costs $5 ${path}');
-
-    expect(mpv.commands.at(-1)).toEqual(['show-text', 'Costs $$5 $${path}', String(noticeMs)]);
-  });
-
-  it('ignores episode choices it does not know', async () => {
-    const { mpv, player } = setUp();
-    const choices: string[] = [];
-    player.onEpisodeChoice((choice) => choices.push(choice));
-    await player.play(contractPlay);
-
-    mpv.send({ event: 'client-message', args: [episodeMessages.choice, 'first'] });
-    mpv.send({ event: 'client-message', args: [episodeMessages.choice] });
-
-    expect(choices).toEqual([]);
   });
 
   it('reports progress every 10 s', async () => {
@@ -593,21 +545,6 @@ describe('MpvPlayer', () => {
     expect(ended).toEqual([]);
   });
 
-  it('sends Up next to the OSC as a script message and ignores other client messages', async () => {
-    const { mpv, player } = setUp();
-    const choices: string[] = [];
-    player.onUpNextChoice((choice) => choices.push(choice));
-    await player.play(contractPlay);
-
-    player.showUpNext({ title: 'Show S01E02 · Two', seconds: 10 });
-    mpv.send({ event: 'client-message', args: [upNextMessages.choice, 'later'] });
-    mpv.send({ event: 'client-message', args: ['other-script', 'play'] });
-    mpv.send({ event: 'client-message' });
-
-    expect(mpv.commands.at(-1)).toEqual(['script-message', 'mediaman-up-next', '10', 'Show S01E02 · Two']);
-    expect(choices).toEqual([]);
-  });
-
   it('retries the IPC connection until MPV has opened it', async () => {
     const { mpv, player } = setUp();
     mpv.refuseConnects = 3;
@@ -713,6 +650,8 @@ describe('mpvArgs', () => {
     expect(mpvArgs({ ...contractPlay, url: '-weird' }, 'p')).toEqual([
       '--input-ipc-server=p',
       '--force-window=yes',
+      '--osc=yes',
+      '--osd-bar=yes',
       '--idle=no',
       '--keep-open=yes',
       '--force-media-title=Alien (1979)',
@@ -726,18 +665,19 @@ describe('mpvArgs', () => {
     expect(args.slice(args.indexOf('--force-media-title=Alien (1979)') + 1)).toEqual(['--alang=de,ger,deu,en,eng', '--', contractPlay.url]);
   });
 
-  it('draws into the window it is given instead of opening one, leaving the keyboard to the app', () => {
+  it('draws into the window it is given instead of opening one, leaving the keyboard and controls to the app', () => {
     const handle = Buffer.alloc(8);
     handle.writeBigUInt64LE(0x2_0a3cn);
     const args = mpvArgs({ ...contractPlay, embedIn: handle }, 'p');
 
-    expect(args.slice(0, 3)).toEqual(['--input-ipc-server=p', '--wid=133692', '--input-vo-keyboard=no']);
+    expect(args.slice(0, 5)).toEqual(['--input-ipc-server=p', '--wid=133692', '--input-vo-keyboard=no', '--osc=no', '--osd-bar=no']);
     expect(args).not.toContain('--force-window=yes');
   });
 
-  it('loads the MediaMan config and OSC after the launch options, with the built-in OSC off', () => {
-    const args = mpvArgs(contractPlay, 'p', { config: 'conf', script: 'osc' });
-    expect(args.slice(args.indexOf('--osc=no'), args.indexOf('--'))).toEqual(['--osc=no', '--include=conf', '--script=osc']);
+  it('loads the MediaMan config after the launch options, and no script', () => {
+    const args = mpvArgs(contractPlay, 'p', { config: 'conf' });
+    expect(args.slice(args.indexOf('--force-media-title=Alien (1979)') + 1, args.indexOf('--'))).toEqual(['--include=conf']);
+    expect(args.some((arg) => arg.startsWith('--script'))).toBe(false);
   });
 });
 
@@ -754,9 +694,8 @@ describe('windowIdOf', () => {
 });
 
 describe('mpvAssetsIn', () => {
-  it('points at the config and OSC shipped in desktop/mpv', () => {
+  it('points at the config shipped in desktop/mpv', () => {
     const assets = mpvAssetsIn(fileURLToPath(new URL('../../', import.meta.url)));
     expect(existsSync(assets.config)).toBe(true);
-    expect(existsSync(assets.script)).toBe(true);
   });
 });

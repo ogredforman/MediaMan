@@ -17,11 +17,11 @@ export interface DesktopPlayOptions {
   subtitles: { url: string; language?: string; title?: string; isDefault?: boolean }[];
   audioLanguages: string[];
   subtitleLanguages: string[];
-  /** An episode's neighbours by display title, offered as Previous and Next episode in MPV. */
+  /** An episode's neighbours by display title, offered as Previous and Next episode in the player. */
   episodes?: { previous?: string; next?: string };
 }
 
-/** The "Up next" countdown MPV shows: the next episode's title and the seconds before it starts. */
+/** The "Up next" countdown the player overlay shows: the next episode's title and the seconds before it starts. */
 export interface DesktopUpNextOffer {
   title: string;
   seconds: number;
@@ -77,6 +77,23 @@ export interface DesktopPlayerState {
   episodes?: { previous?: string; next?: string };
 }
 
+/** What the overlay draws: the player state, the main window's fullscreen, the Up next on offer and a notice. */
+export interface DesktopOverlayState extends DesktopPlayerState {
+  fullscreen: boolean;
+  upNext?: DesktopUpNextOffer;
+  notice?: string;
+}
+
+/**
+ * What the overlay asks of the main process besides player commands: `ready` once it listens (the latest state is
+ * sent again), Back (stops playback), fullscreen on the main window, and the answer to Up next.
+ */
+export type DesktopOverlayAction =
+  | { type: 'ready' }
+  | { type: 'back' }
+  | { type: 'toggleFullscreen' }
+  | { type: 'upNext'; choice: 'play' | 'cancel' };
+
 /** What the overlay asks of the player. Mirrors the desktop's `PlayerCommand`. */
 export type DesktopPlayerCommand =
   | { type: 'togglePause' }
@@ -95,9 +112,9 @@ export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; m
 export interface DesktopPlayerBridge {
   play(launchId: string, options: DesktopPlayOptions): Promise<DesktopPlayResult>;
   stop(): Promise<void>;
-  /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
+  /** Offers the "Up next" countdown in the player overlay, if `launchId` is still what plays. */
   upNext(launchId: string, offer: DesktopUpNextOffer): Promise<void>;
-  /** Shows a message over the playback in MPV (e.g. a lost server), if `launchId` is still what plays. */
+  /** Shows a message over the playback (e.g. a lost server), if `launchId` is still what plays. */
   notice(launchId: string, text: string): Promise<void>;
   /** The native picker for the MPV executable; saves the pick only when it is MPV. */
   chooseMpv(): Promise<DesktopMpvChoice>;
@@ -109,8 +126,10 @@ export interface DesktopPlayerBridge {
   onEvent(callback: (event: DesktopPlayerEvent) => void): () => void;
   /** Overlay window only (refused from any other): acts on the file that plays. */
   command(command: DesktopPlayerCommand): Promise<void>;
-  /** Overlay window only (no other receives it): the whole player state on every change. Returns the unsubscribe. */
-  onState(callback: (state: DesktopPlayerState) => void): () => void;
+  /** Overlay window only (refused from any other): Back, fullscreen, Up next's answer, or `ready`. */
+  overlay(action: DesktopOverlayAction): Promise<void>;
+  /** Overlay window only (no other receives it): the whole overlay state on every change. Returns the unsubscribe. */
+  onState(callback: (state: DesktopOverlayState) => void): () => void;
 }
 
 /** `window.mediamanDesktop`; keep in step with the preload. */

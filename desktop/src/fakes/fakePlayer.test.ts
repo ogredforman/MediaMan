@@ -28,19 +28,9 @@ describePlayerContract('FakePlayer', () => {
       player.emitEndReached();
       return Promise.resolve();
     },
-    upNexts: () => player.upNexts,
-    chooseUpNext: (choice) => {
-      player.emitUpNextChoice(choice);
-      return Promise.resolve();
-    },
-    chooseEpisode: (choice) => {
-      player.emitEpisodeChoice(choice);
-      return Promise.resolve();
-    },
     failNextStart: () => {
       player.failNextPlay();
     },
-    notices: () => player.notices,
     launches: () => player.launches,
   };
 });

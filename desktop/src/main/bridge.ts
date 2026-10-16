@@ -1,7 +1,7 @@
 // The main-process side of the preload bridge (src/preload/index.cts): the current server, its tokens and the player.
 // Only the web UI's origin may call it, and it only ever acts on the current server.
 import type { MpvSetting } from './desktopSettings.js';
-import type { EpisodeNeighbours, PlayerCommand, PlayerState, PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
+import type { EpisodeNeighbours, PlayerCommand, PlayOptions, SubtitleTrack, UpNextChoice, UpNextOffer } from './player.js';
 import type { PlayerEvent, PlayerHost, PlayResult } from './playerHost.js';
 import { parseStoredTokens, type StoredTokens, type TokenStore } from './tokenStore.js';
 
@@ -20,12 +20,14 @@ export const bridgeChannels = {
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
   /** Overlay only: a `PlayerCommand` for the file that plays. */
   playerCommand: 'mediaman:player-command',
+  /** Overlay only: an `OverlayAction` (Back, fullscreen, Up next's answer, ready). */
+  playerOverlay: 'mediaman:player-overlay',
 } as const;
 
 /** Channels the main process sends on; the preload repeats these too. */
 export const bridgeEvents = {
   player: 'mediaman:player-event',
-  /** Overlay only: the whole `PlayerState` on every change. */
+  /** Overlay only: the whole `OverlayState` on every change (`OverlayWindow` sends it). */
   playerState: 'mediaman:player-state',
 } as const;
 
@@ -41,6 +43,18 @@ export interface BridgeSender {
   isDestroyed(): boolean;
 }
 
+/** The player overlay window as the bridge sees it (`OverlayWindow`). */
+export interface OverlayLink {
+  /** The overlay's contents; undefined while there is none. */
+  contents(): BridgeSender | undefined;
+  toggleFullscreen(): void;
+  /** Sends the latest state again, for a page that has just started listening. */
+  resend(): void;
+}
+
+/** What the overlay asks of the main process besides player commands. */
+export type OverlayAction = { type: 'ready' } | { type: 'back' } | { type: 'toggleFullscreen' } | { type: 'upNext'; choice: UpNextChoice };
+
 export interface IpcMainLike {
   handle(channel: string, listener: (event: BridgeEvent, ...args: unknown[]) => unknown): void;
 }
@@ -53,12 +67,12 @@ export interface BridgeOptions {
   /** The server the desktop app started or connected to; undefined when the UI reaches the API on its own origin. */
   serverUrl: () => string | undefined;
   tokens: Pick<TokenStore, 'get' | 'set' | 'clear'>;
-  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext' | 'notice' | 'command' | 'onState'>;
+  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext' | 'notice' | 'command' | 'answerUpNext'>;
   /**
-   * The player overlay window's contents (ADR 0011), the only sender whose commands are taken and the only receiver
-   * of the player state; undefined while there is none.
+   * The player overlay window (ADR 0011), the only sender whose commands and overlay actions are taken; undefined
+   * where MPV isn't embedded.
    */
-  overlay?: () => BridgeSender | undefined;
+  overlay?: OverlayLink;
   /** Shows the native picker for the MPV executable and saves the choice if it is MPV. */
   chooseMpv: () => Promise<MpvChoice>;
   /** The MPV the next Play uses and where it comes from. */
@@ -119,18 +133,42 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
       options.player.notice(launchId, text);
     }),
   );
-  options.player.onState((state: PlayerState) => {
-    const overlay = options.overlay?.();
-    if (overlay && !overlay.isDestroyed()) overlay.send(bridgeEvents.playerState, state);
-  });
+  const fromOverlay = (event: BridgeEvent): OverlayLink => {
+    const overlay = options.overlay;
+    const contents = overlay?.contents();
+    if (!overlay || !contents || event.sender !== contents) throw new Error('Only the player overlay can control playback.');
+    return overlay;
+  };
   ipc.handle(
     bridgeChannels.playerCommand,
     guard((event, value: unknown) => {
-      const overlay = options.overlay?.();
-      if (!overlay || event.sender !== overlay) throw new Error('Only the player overlay can control playback.');
+      fromOverlay(event);
       const cmd = parsePlayerCommand(value);
       if (!cmd) throw new Error("This player command isn't valid.");
       options.player.command(cmd);
+    }),
+  );
+  ipc.handle(
+    bridgeChannels.playerOverlay,
+    guard(async (event, value: unknown) => {
+      const overlay = fromOverlay(event);
+      const action = parseOverlayAction(value);
+      if (!action) throw new Error("This player overlay request isn't valid.");
+      switch (action.type) {
+        case 'ready':
+          overlay.resend();
+          return;
+        case 'back':
+          // Stopping ends the launch, which hides the overlay over the title's page it was played from.
+          await options.player.stop();
+          return;
+        case 'toggleFullscreen':
+          overlay.toggleFullscreen();
+          return;
+        case 'upNext':
+          options.player.answerUpNext(action.choice);
+          return;
+      }
     }),
   );
   ipc.handle(bridgeChannels.playerChooseMpv, guard(() => options.chooseMpv()));
@@ -228,6 +266,22 @@ export function parsePlayerCommand(value: unknown): PlayerCommand | undefined {
   }
 }
 
+/** The overlay's request, checked: one of the known actions, with Up next's answer play or cancel. */
+export function parseOverlayAction(value: unknown): OverlayAction | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  switch (v.type) {
+    case 'ready':
+    case 'back':
+    case 'toggleFullscreen':
+      return { type: v.type };
+    case 'upNext':
+      return v.choice === 'play' || v.choice === 'cancel' ? { type: 'upNext', choice: v.choice } : undefined;
+    default:
+      return undefined;
+  }
+}
+
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
@@ -247,7 +301,7 @@ export function parseUpNextOffer(value: unknown): UpNextOffer | undefined {
 
 const maxUpNextTitle = 500;
 
-/** A message for MPV's OSD: one line of display text, nothing that could read as an MPV command or option. */
+/** A message for the overlay: one line of display text, short enough to show whole. */
 function isNoticeText(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '' && value.length <= maxUpNextTitle;
 }

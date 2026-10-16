@@ -14,8 +14,6 @@ import type {
   PlayerState,
   PlayerTrack,
   PlayOptions,
-  UpNextChoice,
-  UpNextOffer,
 } from './player.js';
 import { upNextAt, type Chapter } from './upNext.js';
 
@@ -53,21 +51,20 @@ export interface MpvPlayerOptions {
   connect?: ConnectMpv;
   /** Builds the IPC endpoint for one launch; defaults to `ipcPathFor` on this platform. */
   ipcPath?: (id: string) => string;
-  /** MediaMan's `mpv.conf` and purple OSC, loaded on every launch; left out, MPV runs with its own OSC. */
+  /** MediaMan's `mpv.conf`, loaded on every launch after the user's own config. */
   assets?: MpvAssets;
   log?: (line: string) => void;
 }
 
-/** The config and OSC script in `desktop/mpv/` (SPEC §7.4 step 3, §11). */
+/** The config in `desktop/mpv/` (SPEC §7.4 step 3, §11). */
 export interface MpvAssets {
   config: string;
-  script: string;
 }
 
 /** The `mpv/` folder under the app's path, or under the resources folder when packaged (`bundledTools`). */
 export function mpvAssetsIn(appPath: string): MpvAssets {
   const dir = path.join(appPath, 'mpv');
-  return { config: path.join(dir, 'mpv.conf'), script: path.join(dir, 'osc.lua') };
+  return { config: path.join(dir, 'mpv.conf') };
 }
 
 /** Thrown by `play()` when MPV can't be started; the UI offers "Open MPV settings" (SPEC §7.4 step 6). */
@@ -89,12 +86,13 @@ export function ipcPathFor(platform: NodeJS.Platform, tempDir: string, id: strin
 /** MPV's command line for one launch. The URL comes after `--`, so it is never read as an option. */
 export function mpvArgs(opts: PlayOptions, ipcPath: string, assets?: MpvAssets): string[] {
   const args = [`--input-ipc-server=${ipcPath}`];
-  // Embedded, MPV draws into the app window and leaves the keyboard to the overlay above it (ADR 0011).
-  if (opts.embedIn) args.push(`--wid=${windowIdOf(opts.embedIn)}`, '--input-vo-keyboard=no');
-  else args.push('--force-window=yes');
+  // Embedded, MPV draws into the app window and leaves the keyboard and the controls to the overlay above it (ADR 0011).
+  // In a window of its own (macOS and Linux until Stage 8) MPV keeps its built-in controller.
+  if (opts.embedIn) args.push(`--wid=${windowIdOf(opts.embedIn)}`, '--input-vo-keyboard=no', '--osc=no', '--osd-bar=no');
+  else args.push('--force-window=yes', '--osc=yes', '--osd-bar=yes');
   args.push('--idle=no', '--keep-open=yes', `--force-media-title=${opts.title}`);
   // The user's own mpv.conf and scripts still load; ours comes after, so it wins where both set an option.
-  if (assets) args.push('--osc=no', `--include=${assets.config}`, `--script=${assets.script}`);
+  if (assets) args.push(`--include=${assets.config}`);
   if (opts.startSeconds > 0) args.push(`--start=${String(opts.startSeconds)}`);
   if (opts.audioLanguages?.length) args.push(`--alang=${opts.audioLanguages.join(',')}`);
   if (opts.subtitleLanguages?.length) args.push(`--slang=${opts.subtitleLanguages.join(',')}`);
@@ -122,18 +120,6 @@ const observed = {
   9: 'paused-for-cache',
   10: 'demuxer-cache-time',
 } as const;
-
-/** The script messages between the OSC (mpv/osc.lua) and the main process for "Up next". */
-export const upNextMessages = { show: 'mediaman-up-next', choice: 'mediaman-up-next-choice' } as const;
-
-/**
- * The script messages for the OSC's Previous and Next episode buttons: `show` names the neighbours' titles (empty for
- * none) once the file loads; `choice` comes back with `previous` or `next`.
- */
-export const episodeMessages = { show: 'mediaman-episodes', choice: 'mediaman-episode' } as const;
-
-/** How long a notice (`showNotice`) stays on screen; the web UI repeats it while the problem lasts. */
-export const noticeMs = 12_000;
 
 /** One MPV launch, from spawn to exit; it plays one file after another (`item`) in the same window. */
 interface Session {
@@ -201,7 +187,6 @@ interface MpvMessage {
   file_error?: string;
   request_id?: number;
   error?: string;
-  args?: unknown[];
 }
 
 /**
@@ -226,7 +211,6 @@ export class MpvPlayer implements IPlayer {
   private readonly endedListeners: ((reason: PlayerEndReason, detail?: string) => void)[] = [];
   private readonly creditsListeners: (() => void)[] = [];
   private readonly endReachedListeners: (() => void)[] = [];
-  private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
   private readonly episodeListeners: ((choice: EpisodeChoice) => void)[] = [];
   private readonly stateListeners: ((state: PlayerState) => void)[] = [];
   private session: Session | undefined;
@@ -263,10 +247,6 @@ export class MpvPlayer implements IPlayer {
 
   onEndReached(cb: () => void): void {
     this.endReachedListeners.push(cb);
-  }
-
-  onUpNextChoice(cb: (choice: UpNextChoice) => void): void {
-    this.upNextListeners.push(cb);
   }
 
   onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void {
@@ -309,19 +289,6 @@ export class MpvPlayer implements IPlayer {
         for (const listener of this.episodeListeners) listener(cmd.choice);
         break;
     }
-  }
-
-  showUpNext(offer: UpNextOffer): void {
-    const session = this.session;
-    if (!session || session.item.ended) return;
-    send(session.connection, ['script-message', upNextMessages.show, String(offer.seconds), offer.title]);
-  }
-
-  showNotice(text: string): void {
-    const session = this.session;
-    if (!session || session.item.ended) return;
-    // show-text expands `${property}`; `$$` keeps a dollar sign literal.
-    send(session.connection, ['show-text', text.replaceAll('$', () => '$$'), String(noticeMs)]);
   }
 
   async play(opts: PlayOptions): Promise<void> {
@@ -476,7 +443,7 @@ export class MpvPlayer implements IPlayer {
     // A replaced file's last events (its end-file, its final position) arrive before the new file starts; pause, volume
     // and mute belong to the whole session.
     const sessionWide = message.event === 'property-change' && (message.name === 'pause' || message.name === 'volume' || message.name === 'mute');
-    if (!item.started && message.event !== 'client-message' && !sessionWide) return;
+    if (!item.started && !sessionWide) return;
 
     switch (message.event) {
       case 'property-change':
@@ -522,21 +489,9 @@ export class MpvPlayer implements IPlayer {
           this.emitState(session);
         }
         break;
-      case 'client-message': {
-        const [name, choice] = message.args ?? [];
-        if (name === upNextMessages.choice && (choice === 'play' || choice === 'cancel')) {
-          for (const listener of this.upNextListeners) listener(choice);
-        } else if (name === episodeMessages.choice && (choice === 'previous' || choice === 'next')) {
-          for (const listener of this.episodeListeners) listener(choice);
-        }
-        break;
-      }
       case 'file-loaded':
         for (const sub of item.opts.subtitles) {
           send(session.connection, ['sub-add', sub.url, sub.isDefault ? 'select' : 'auto', sub.title ?? sub.language ?? 'External', sub.language ?? '']);
-        }
-        if (item.opts.episodes) {
-          send(session.connection, ['script-message', episodeMessages.show, item.opts.episodes.previous ?? '', item.opts.episodes.next ?? '']);
         }
         break;
       case 'seek':

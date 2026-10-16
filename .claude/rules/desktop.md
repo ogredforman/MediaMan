@@ -9,5 +9,5 @@ paths:
 - The renderer is the shared web UI; desktop-only features are exposed through a narrow preload bridge with `contextIsolation` on and `nodeIntegration` off.
 - MPV runs as a separate process controlled over JSON IPC, drawing inside the main window with `--wid` on Windows and Linux; macOS uses libmpv only through its player addon (Stage 8). Player controls are React in a transparent overlay window owned by the main window and kept on its content bounds. On Windows the app runs with Chromium's `disable-direct-composition` switch, or MPV's surface is covered (SPEC §10.1, ADR 0011).
 - Tokens are stored with Electron `safeStorage`, never in plain files or localStorage (SPEC §8 accounts [M], §9).
-- Until 2.5.14 retires it, `mpv/osc.lua` follows the purple theme of SPEC §11 and talks to the main process only through MPV script messages and properties.
+- `mpv/osc.lua` is retired: nothing loads it, and 2.5.14b deletes it. Player controls, Up next and notices live in the React overlay.
 - Report playback progress every 10 s and on pause, seek and quit (SPEC §7.4).

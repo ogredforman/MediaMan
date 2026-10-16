@@ -566,8 +566,8 @@ interface IPlayer {
   onEnded(cb: (reason: 'eof' | 'quit' | 'error', detail?: string) => void): void;
   onCredits(cb: () => void): void;                      // the final credits started (7.4 step 5); once per launch
   onEndReached(cb: () => void): void;                   // the file ended; MPV holds the last frame
-  showUpNext(offer: { title: string; seconds: number }): void;
-  onUpNextChoice(cb: (choice: 'play' | 'cancel') => void): void;
+  onEpisodeChoice(cb: (choice: 'previous' | 'next') => void): void;   // from the episode command, for a neighbour it has
+  // Up next and notices are drawn by the overlay, not the player: the main process keeps them and adds them to the state.
   // What the overlay draws: position (about 4 Hz), duration, buffered end, paused, buffering, volume, mute,
   // audio and subtitle tracks, chapters, title, episode neighbours; only while a file plays.
   onState(cb: (state: PlayerState) => void): void;

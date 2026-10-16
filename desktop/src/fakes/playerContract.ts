@@ -1,6 +1,6 @@
 // IPlayer contract tests (SPEC §12): the same behaviour from FakePlayer and the real MpvPlayer driven by a fake MPV.
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayerProgress, PlayerState, PlayOptions, UpNextChoice, UpNextOffer } from '../main/player.js';
+import type { IPlayer, PlayerEndReason, PlayerProgress, PlayerState, PlayOptions } from '../main/player.js';
 
 /** The parts of the state a harness can make the player report. */
 export type PlayerStateChange = Partial<Pick<PlayerState, 'positionSeconds' | 'durationSeconds' | 'bufferedSeconds' | 'paused' | 'buffering' | 'volume' | 'muted'>>;
@@ -20,14 +20,6 @@ export interface PlayerHarness {
   reachCredits(): Promise<void>;
   /** Makes playback reach the end of the file, holding the last frame. */
   reachEnd(): Promise<void>;
-  /** The "Up next" countdowns the player was shown, in order. */
-  upNexts(): UpNextOffer[];
-  /** The viewer answers the countdown. */
-  chooseUpNext(choice: UpNextChoice): Promise<void>;
-  /** The viewer picks Previous or Next episode. */
-  chooseEpisode(choice: EpisodeChoice): Promise<void>;
-  /** The notices the player was shown, in order. */
-  notices(): string[];
   failNextStart(): void;
   /** How many times a player window was opened. */
   launches(): number;
@@ -57,7 +49,6 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       harness.player.onState((state) => states.push(state));
       harness.player.onCredits(() => marks.push('credits'));
       harness.player.onEndReached(() => marks.push('endReached'));
-      harness.player.onUpNextChoice((choice) => marks.push(choice));
       harness.player.onEpisodeChoice((choice) => marks.push(`episode:${choice}`));
       harness.player.onProgress((p) => progress.push(p));
       harness.player.onEnded((reason, detail) => ended.push([reason, detail]));
@@ -87,33 +78,6 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       expect(marks).toEqual(['credits', 'endReached']);
       expect(reportsAtCredits).toBeGreaterThan(0);
       expect(ended).toEqual([]);
-    });
-
-    it('shows Up next over the current playback and reports the choices', async () => {
-      await harness.player.play(contractPlay);
-      harness.player.showUpNext({ title: 'The Office S01E03 · Health Care', seconds: 10 });
-      await harness.chooseUpNext('cancel');
-      await harness.chooseUpNext('play');
-
-      expect(harness.upNexts()).toEqual([{ title: 'The Office S01E03 · Health Care', seconds: 10 }]);
-      expect(marks).toEqual(['cancel', 'play']);
-    });
-
-    it('reports the Previous and Next episode choices', async () => {
-      await harness.player.play({ ...contractPlay, episodes: { previous: 'Show S01E01 · One', next: 'Show S01E03 · Three' } });
-      await harness.chooseEpisode('next');
-      await harness.chooseEpisode('previous');
-
-      expect(marks).toEqual(['episode:next', 'episode:previous']);
-    });
-
-    it('shows no Up next when nothing plays', async () => {
-      harness.player.showUpNext({ title: 'Next', seconds: 10 });
-      await harness.player.play(contractPlay);
-      await harness.player.stop();
-      harness.player.showUpNext({ title: 'Next', seconds: 10 });
-
-      expect(harness.upNexts()).toEqual([]);
     });
 
     it('ends with an error and its detail when the stream fails', async () => {
@@ -162,16 +126,6 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       await harness.reachCredits();
 
       expect(marks).toEqual(['credits', 'credits']);
-    });
-
-    it('shows a notice over the current playback, and none when nothing plays', async () => {
-      harness.player.showNotice('Before');
-      await harness.player.play(contractPlay);
-      harness.player.showNotice("Can't reach the MediaMan server.");
-      await harness.player.stop();
-      harness.player.showNotice('After');
-
-      expect(harness.notices()).toEqual(["Can't reach the MediaMan server."]);
     });
 
     it('plays again after a playback ended', async () => {
@@ -228,8 +182,10 @@ export function describePlayerContract(name: string, makeHarness: () => PlayerHa
       await harness.player.play({ ...contractPlay, episodes: { next: 'Show S01E03 · Three' } });
       harness.player.command({ type: 'episode', choice: 'previous' });
       harness.player.command({ type: 'episode', choice: 'next' });
+      await harness.player.play({ ...contractPlay, episodes: { previous: 'Show S01E01 · One' } });
+      harness.player.command({ type: 'episode', choice: 'previous' });
 
-      expect(marks).toEqual(['episode:next']);
+      expect(marks).toEqual(['episode:next', 'episode:previous']);
     });
 
     it('ignores commands when nothing plays', async () => {

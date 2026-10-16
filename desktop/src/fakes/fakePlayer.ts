@@ -9,8 +9,6 @@ import type {
   PlayerProgress,
   PlayerState,
   PlayOptions,
-  UpNextChoice,
-  UpNextOffer,
 } from '../main/player.js';
 
 /** The state a file starts with: its title and neighbours, at the start, playing at full volume. */
@@ -33,10 +31,6 @@ export function initialPlayerState(opts: PlayOptions): PlayerState {
 
 export class FakePlayer implements IPlayer {
   readonly plays: PlayOptions[] = [];
-  /** Every "Up next" countdown shown while something played. */
-  readonly upNexts: UpNextOffer[] = [];
-  /** Every notice shown while something played. */
-  readonly notices: string[] = [];
   /** Every command given while something played. */
   readonly commands: PlayerCommand[] = [];
   /** The current file's state; undefined when nothing plays. */
@@ -49,7 +43,6 @@ export class FakePlayer implements IPlayer {
   private readonly endedListeners: ((reason: PlayerEndReason, detail?: string) => void)[] = [];
   private readonly creditsListeners: (() => void)[] = [];
   private readonly endReachedListeners: (() => void)[] = [];
-  private readonly upNextListeners: ((choice: UpNextChoice) => void)[] = [];
   private readonly episodeListeners: ((choice: EpisodeChoice) => void)[] = [];
   private readonly stateListeners: ((state: PlayerState) => void)[] = [];
   private nextFailure: Error | undefined;
@@ -75,10 +68,6 @@ export class FakePlayer implements IPlayer {
     this.endReachedListeners.push(cb);
   }
 
-  onUpNextChoice(cb: (choice: UpNextChoice) => void): void {
-    this.upNextListeners.push(cb);
-  }
-
   onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void {
     this.episodeListeners.push(cb);
   }
@@ -92,14 +81,6 @@ export class FakePlayer implements IPlayer {
     if (!this.playing) return;
     this.commands.push(cmd);
     if (cmd.type === 'episode' && this.plays.at(-1)?.episodes?.[cmd.choice] !== undefined) this.emitEpisodeChoice(cmd.choice);
-  }
-
-  showUpNext(offer: UpNextOffer): void {
-    if (this.playing) this.upNexts.push(offer);
-  }
-
-  showNotice(text: string): void {
-    if (this.playing) this.notices.push(text);
   }
 
   async play(opts: PlayOptions): Promise<void> {
@@ -152,13 +133,7 @@ export class FakePlayer implements IPlayer {
     for (const listener of this.endReachedListeners) listener();
   }
 
-  /** The viewer's answer to the "Up next" countdown. Ignored when nothing plays. */
-  emitUpNextChoice(choice: UpNextChoice): void {
-    if (!this.playing) return;
-    for (const listener of this.upNextListeners) listener(choice);
-  }
-
-  /** The viewer chose Previous or Next episode in the OSC. Ignored when nothing plays. */
+  /** The viewer chose Previous or Next episode. Ignored when nothing plays. */
   emitEpisodeChoice(choice: EpisodeChoice): void {
     if (!this.playing) return;
     for (const listener of this.episodeListeners) listener(choice);

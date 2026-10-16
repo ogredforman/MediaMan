@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FakePlayer } from '../fakes/fakePlayer.js';
-import { bridgeChannels, bridgeEvents, parsePlayerCommand, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type BridgeSender, type IpcMainLike, type MpvChoice } from './bridge.js';
-import { PlayerHost } from './playerHost.js';
+import { bridgeChannels, bridgeEvents, parseOverlayAction, parsePlayerCommand, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type BridgeSender, type IpcMainLike, type MpvChoice } from './bridge.js';
+import { PlayerHost, type HostState } from './playerHost.js';
 import type { MpvSetting } from './desktopSettings.js';
 import type { StoredTokens } from './tokenStore.js';
 
@@ -26,10 +26,17 @@ const playRequest = {
 };
 
 function setUp(serverUrl: string | undefined, overlay?: BridgeSender) {
+  const overlayCalls: string[] = [];
   const handlers = new Map<string, (event: BridgeEvent, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (channel, listener) => handlers.set(channel, listener) };
   const stored = new Map<string, StoredTokens>();
   const player = new FakePlayer();
+  const host = new PlayerHost(
+    () => player,
+    () => Promise.resolve('mpv'),
+  );
+  const states: HostState[] = [];
+  host.onState((state) => states.push(state));
   let chosen: MpvChoice = { outcome: 'picked', path: '/picked/mpv' };
   let mpv: MpvSetting = { path: '/picked/mpv', source: 'picked' };
   registerBridge(ipc, {
@@ -40,24 +47,29 @@ function setUp(serverUrl: string | undefined, overlay?: BridgeSender) {
       set: (baseUrl, value) => Promise.resolve(void stored.set(baseUrl, value)),
       clear: (baseUrl) => Promise.resolve(void stored.delete(baseUrl)),
     },
-    player: new PlayerHost(
-      () => player,
-      () => Promise.resolve('mpv'),
-    ),
+    player: host,
     chooseMpv: () => Promise.resolve(chosen),
     mpvSetting: () => Promise.resolve(mpv),
     useDefaultMpv: () => {
       mpv = { path: 'mpv', source: 'default' };
       return Promise.resolve(mpv);
     },
-    ...(overlay ? { overlay: () => overlay } : {}),
+    ...(overlay
+      ? {
+          overlay: {
+            contents: () => overlay,
+            toggleFullscreen: () => overlayCalls.push('toggleFullscreen'),
+            resend: () => overlayCalls.push('resend'),
+          },
+        }
+      : {}),
   });
   const call = (channel: string, event: BridgeEvent, ...args: unknown[]) =>
     Promise.resolve().then(() => handlers.get(channel)?.(event, ...args));
   const cancelPicker = () => {
     chosen = { outcome: 'cancelled' };
   };
-  return { call, stored, player, cancelPicker };
+  return { call, stored, player, cancelPicker, states, overlayCalls };
 }
 
 /** The UI's window, recording what the main process sends it. */
@@ -153,8 +165,8 @@ describe('registerBridge', () => {
     expect(player.plays).toEqual([]);
   });
 
-  it('shows Up next on the current launch and refuses an invalid offer', async () => {
-    const { call, player } = setUp(serverOrigin);
+  it('offers Up next on the current launch and refuses an invalid offer', async () => {
+    const { call, states } = setUp(serverOrigin);
     const { event } = uiWindow();
     const offer = { title: 'Show S01E02 · Two', seconds: 10 };
     await call(bridgeChannels.playerPlay, event, 'launch-1', playRequest);
@@ -163,11 +175,11 @@ describe('registerBridge', () => {
     await expect(call(bridgeChannels.playerUpNext, event, 'launch-1', { ...offer, seconds: 0 })).rejects.toThrow(/Up next/);
     await expect(call(bridgeChannels.playerUpNext, event, 7, offer)).rejects.toThrow(/Up next/);
 
-    expect(player.upNexts).toEqual([offer]);
+    expect(states.filter((s) => s.upNext !== undefined).map((s) => s.upNext)).toEqual([offer]);
   });
 
   it('shows a notice on the current launch and refuses an empty or oversized one', async () => {
-    const { call, player } = setUp(serverOrigin);
+    const { call, states } = setUp(serverOrigin);
     const { event } = uiWindow();
     await call(bridgeChannels.playerPlay, event, 'launch-1', playRequest);
 
@@ -176,7 +188,7 @@ describe('registerBridge', () => {
     await expect(call(bridgeChannels.playerNotice, event, 'launch-1', 'x'.repeat(501))).rejects.toThrow(/notice/);
     await expect(call(bridgeChannels.playerNotice, event, 7, 'Hi')).rejects.toThrow(/notice/);
 
-    expect(player.notices).toEqual(["Can't reach the MediaMan server."]);
+    expect(states.at(-1)?.notice).toBe("Can't reach the MediaMan server.");
   });
 
   it('answers the picked MPV, or cancelled when the picker is cancelled', async () => {
@@ -196,21 +208,14 @@ describe('registerBridge', () => {
     await expect(call(bridgeChannels.playerUseDefaultMpv, { senderFrame: { url: 'https://evil.example/' } })).rejects.toThrow();
   });
 
-  it('sends the player state only to the overlay, and takes commands only from it', async () => {
+  it('takes player commands only from the overlay', async () => {
     const overlay = uiWindow();
     const main = uiWindow();
     const { call, player } = setUp(serverOrigin, overlay.event.sender);
 
     await call(bridgeChannels.playerPlay, main.event, 'a', playRequest);
-    player.emitState({ positionSeconds: 12 });
     await call(bridgeChannels.playerCommand, overlay.event, { type: 'seekBy', seconds: 30 });
 
-    const states = overlay.sent.filter(([channel]) => channel === bridgeEvents.playerState).map(([, state]) => state);
-    expect(states).toEqual([
-      expect.objectContaining({ title: 'Alien (1979)', positionSeconds: 300 }),
-      expect.objectContaining({ title: 'Alien (1979)', positionSeconds: 12 }),
-    ]);
-    expect(main.sent.some(([channel]) => channel === bridgeEvents.playerState)).toBe(false);
     expect(player.commands).toEqual([{ type: 'seekBy', seconds: 30 }]);
 
     await expect(call(bridgeChannels.playerCommand, main.event, { type: 'togglePause' })).rejects.toThrow(/overlay/);
@@ -219,26 +224,37 @@ describe('registerBridge', () => {
     expect(player.commands).toHaveLength(1);
   });
 
-  it('sends no state and refuses every command while there is no overlay', async () => {
+  it('refuses every command and overlay action while there is no overlay', async () => {
     const main = uiWindow();
     const { call, player } = setUp(serverOrigin);
 
     await call(bridgeChannels.playerPlay, main.event, 'a', playRequest);
-    player.emitState({ positionSeconds: 12 });
 
     expect(main.sent.some(([channel]) => channel === bridgeEvents.playerState)).toBe(false);
     await expect(call(bridgeChannels.playerCommand, main.event, { type: 'togglePause' })).rejects.toThrow(/overlay/);
+    await expect(call(bridgeChannels.playerOverlay, main.event, { type: 'back' })).rejects.toThrow(/overlay/);
     expect(player.commands).toEqual([]);
+    expect(player.playing).toBe(true);
   });
 
-  it('sends nothing to an overlay that was destroyed', async () => {
-    const sent: unknown[] = [];
-    const { call, player } = setUp(serverOrigin, { send: (...args) => void sent.push(args), isDestroyed: () => true });
+  it("takes the overlay's Back, fullscreen, ready and Up next answer only from the overlay", async () => {
+    const overlay = uiWindow();
+    const main = uiWindow();
+    const { call, player, overlayCalls } = setUp(serverOrigin, overlay.event.sender);
+    await call(bridgeChannels.playerPlay, main.event, 'a', playRequest);
+    await call(bridgeChannels.playerUpNext, main.event, 'a', { title: 'Next', seconds: 10 });
 
-    await call(bridgeChannels.playerPlay, uiWindow().event, 'a', playRequest);
-    player.emitState({ positionSeconds: 12 });
+    await expect(call(bridgeChannels.playerOverlay, main.event, { type: 'toggleFullscreen' })).rejects.toThrow(/overlay/);
+    await expect(call(bridgeChannels.playerOverlay, overlay.event, { type: 'upNext', choice: 'later' })).rejects.toThrow(/isn't valid/);
+    await call(bridgeChannels.playerOverlay, overlay.event, { type: 'ready' });
+    await call(bridgeChannels.playerOverlay, overlay.event, { type: 'toggleFullscreen' });
+    await call(bridgeChannels.playerOverlay, overlay.event, { type: 'upNext', choice: 'cancel' });
+    expect(player.playing).toBe(true);
+    await call(bridgeChannels.playerOverlay, overlay.event, { type: 'back' });
 
-    expect(sent).toEqual([]);
+    expect(overlayCalls).toEqual(['resend', 'toggleFullscreen']);
+    expect(main.sent.map(([, event]) => (event as { type: string }).type)).toEqual(['upNext', 'ended']);
+    expect(player.playing).toBe(false);
   });
 
   it('uses the same channel names as the preload', () => {
@@ -247,6 +263,16 @@ describe('registerBridge', () => {
     for (const channel of [...Object.values(bridgeChannels), ...Object.values(bridgeEvents)]) {
       expect(preload).toContain(`'${channel}'`);
     }
+  });
+});
+
+describe('parseOverlayAction', () => {
+  it('keeps the known actions, copying only their own fields, and refuses the rest', () => {
+    expect(parseOverlayAction({ type: 'back', extra: 1 })).toEqual({ type: 'back' });
+    expect(parseOverlayAction({ type: 'ready' })).toEqual({ type: 'ready' });
+    expect(parseOverlayAction({ type: 'toggleFullscreen' })).toEqual({ type: 'toggleFullscreen' });
+    expect(parseOverlayAction({ type: 'upNext', choice: 'play' })).toEqual({ type: 'upNext', choice: 'play' });
+    for (const value of [null, 'back', { type: 'upNext' }, { type: 'quit' }]) expect(parseOverlayAction(value)).toBeUndefined();
   });
 });
 

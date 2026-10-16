@@ -19,7 +19,7 @@ export interface PlayOptions {
   audioLanguages?: string[];
   /** The profile's subtitle language tags in preference order (`--slang`); MPV applies them to embedded tracks. */
   subtitleLanguages?: string[];
-  /** An episode's neighbours with a file, by display title; the OSC offers them as Previous and Next episode. */
+  /** An episode's neighbours with a file, by display title; the overlay offers them as Previous and Next episode. */
   episodes?: EpisodeNeighbours;
   /**
    * The app window's native handle (`getNativeWindowHandle()`) to draw into with `--wid` (ADR 0011); left out, MPV
@@ -33,7 +33,7 @@ export interface EpisodeNeighbours {
   next?: string;
 }
 
-/** The viewer asked for the previous or the next episode from the OSC. */
+/** The viewer asked for the previous or the next episode from the overlay. */
 export type EpisodeChoice = 'previous' | 'next';
 
 export interface PlayerProgress {
@@ -86,7 +86,7 @@ export type PlayerCommand =
 
 export type PlayerEndReason = 'eof' | 'quit' | 'error';
 
-/** The "Up next" countdown shown in the player (SPEC §7.4 step 5). */
+/** The "Up next" countdown the overlay shows over the playback (SPEC §7.4 step 5); `PlayerHost` keeps it, not the player. */
 export interface UpNextOffer {
   /** The next episode's display title. */
   title: string;
@@ -109,12 +109,7 @@ export interface IPlayer {
   onCredits(cb: () => void): void;
   /** Playback reached the end and the player holds the last frame; after a progress report. */
   onEndReached(cb: () => void): void;
-  onUpNextChoice(cb: (choice: UpNextChoice) => void): void;
   onEpisodeChoice(cb: (choice: EpisodeChoice) => void): void;
-  /** Shows the "Up next" countdown over the current playback; does nothing when nothing plays. */
-  showUpNext(offer: UpNextOffer): void;
-  /** Shows a message on screen over the current playback, such as a lost server; does nothing when nothing plays. */
-  showNotice(text: string): void;
   /**
    * The current file's state on every change, the position at most about 4 times a second; never before a file
    * starts, after it ends, or from a file another replaced.

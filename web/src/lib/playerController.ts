@@ -1,17 +1,13 @@
 // What the player OSD (components/player) talks to: the playing file's state in, the viewer's actions out. The desktop
 // app's controller goes over the preload bridge; Stage 5's browser player will provide one over a <video> element.
 import { useSyncExternalStore } from 'react';
-import type { DesktopPlayerBridge, DesktopPlayerCommand, DesktopPlayerState, DesktopUpNextOffer } from './desktop';
+import type { DesktopOverlayState, DesktopPlayerBridge, DesktopPlayerCommand } from './desktop';
 
-/** Everything the OSD draws. */
-export interface PlayerView extends DesktopPlayerState {
-  /** Whether the player fills the screen; Esc leaves fullscreen before it goes Back. */
-  fullscreen: boolean;
-  /** The "Up next" countdown on offer; the controller clears it once answered (SPEC §7.4 step 5). */
-  upNext?: DesktopUpNextOffer;
-  /** A message over the playback, e.g. a lost server. */
-  notice?: string;
-}
+/**
+ * Everything the OSD draws: the player state, whether it fills the screen (Esc leaves fullscreen before it goes Back),
+ * the "Up next" countdown on offer (cleared once answered, SPEC §7.4 step 5) and a message such as a lost server.
+ */
+export type PlayerView = DesktopOverlayState;
 
 /** What the OSD asks for: a player command, leaving the player (Back), toggling fullscreen, or the answer to Up next. */
 export type PlayerAction =
@@ -28,7 +24,10 @@ export interface PlayerController {
   act: (action: PlayerAction) => void;
 }
 
-/** The desktop overlay's controller: state from the bridge's `onState`, commands through its `command`. */
+/**
+ * The desktop overlay's controller: state from the bridge's `onState`, commands through its `command`, and Back,
+ * fullscreen and Up next through its `overlay` to the main process.
+ */
 export function createDesktopPlayerController(player: DesktopPlayerBridge): PlayerController {
   const listeners = new Set<() => void>();
   let view: PlayerView | null = null;
@@ -37,11 +36,14 @@ export function createDesktopPlayerController(player: DesktopPlayerBridge): Play
     getView: () => view,
     subscribe(callback) {
       listeners.add(callback);
-      unsubscribeBridge ??= player.onState((state) => {
-        // The bridge doesn't report fullscreen yet; the overlay window controller does from 2.5.14.
-        view = { ...state, fullscreen: false };
-        for (const listener of listeners) listener();
-      });
+      if (unsubscribeBridge === undefined) {
+        unsubscribeBridge = player.onState((state) => {
+          view = state;
+          for (const listener of listeners) listener();
+        });
+        // The state may have been sent before this page listened; the main process sends the latest again.
+        player.overlay({ type: 'ready' }).catch(logRefused);
+      }
       return () => {
         listeners.delete(callback);
         if (listeners.size === 0 && unsubscribeBridge) {
@@ -55,13 +57,19 @@ export function createDesktopPlayerController(player: DesktopPlayerBridge): Play
         case 'back':
         case 'toggleFullscreen':
         case 'upNext':
-          // The main process's overlay window controller handles these from 2.5.14; nothing opens the overlay before then.
+          player.overlay(action).catch(logRefused);
           return;
         default:
-          void player.command(action);
+          player.command(action).catch(logRefused);
       }
     },
   };
+}
+
+// The main process refuses only what the overlay never sends (a malformed action, or a page that isn't the overlay),
+// so there is nothing for the viewer to do about it; it is logged for whoever debugs the page.
+function logRefused(error: unknown): void {
+  console.error(`The desktop app refused a player request: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 /** The controller's current view, re-rendering on every change. */

@@ -1,5 +1,6 @@
 // Electron main process: one window showing the shared web UI (SPEC §10.1). In Local mode it starts the server first:
-// the packaged app's own server, or `MEDIAMAN_SERVER_PATH` as a dev override.
+// the packaged app's own server, or `MEDIAMAN_SERVER_PATH` as a dev override. Where MPV is embedded it plays inside
+// that window, under the player overlay (ADR 0011).
 import path from 'node:path';
 import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from 'electron';
 import { registerBridge, type MpvChoice } from './bridge.js';
@@ -8,6 +9,7 @@ import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './de
 import { startLocalServer, stopServerOnQuit } from './localServer.js';
 import { checkMpvExecutable } from './mpvCheck.js';
 import { mpvAssetsIn, MpvPlayer } from './mpvPlayer.js';
+import { followedWindow, OverlayWindow } from './overlayWindow.js';
 import { PlayerHost } from './playerHost.js';
 import {
   BUNDLED_SERVER_HINT,
@@ -20,14 +22,21 @@ import {
 import { safeStorageCipher, TokenStore } from './tokenStore.js';
 import {
   applicationMenuTemplate,
+  chromiumSwitches,
   devShortcut,
+  embedsPlayer,
   isExternalWebLink,
   isSameOrigin,
   mainWindowOptions,
+  overlayUrl,
+  overlayWindowOptions,
   resolveUiUrl,
   serverUiUrl,
   windowIconPath,
 } from './window.js';
+
+// Chromium reads its switches at startup, before the app is ready.
+for (const name of chromiumSwitches(process.platform)) app.commandLine.appendSwitch(name);
 
 // Only a packaged app has the server and MPV in its resources folder; unpackaged runs use the dev overrides or PATH.
 const bundled = app.isPackaged ? bundledTools(process.resourcesPath, process.platform) : undefined;
@@ -41,18 +50,18 @@ const uiUrl = resolveUiUrl(process.env, ownServerUi);
 let server: IServerProcess | undefined;
 let serverUrl: string | undefined;
 let player: PlayerHost | undefined;
+let mainWindow: BrowserWindow | undefined;
+let overlay: OverlayWindow | undefined;
+const preloadPath = path.join(import.meta.dirname, '..', 'preload', 'index.cjs');
 
-function createMainWindow(): void {
-  const preloadPath = path.join(import.meta.dirname, '..', 'preload', 'index.cjs');
-  const win = new BrowserWindow(mainWindowOptions(preloadPath, windowIconPath(app.getAppPath(), process.platform)));
-
-  // Keep the window on the UI origin; other web links open in the system browser.
-  win.webContents.on('will-navigate', (event, target) => {
+/** Keeps a window on the UI origin (other web links open in the system browser) and adds the dev shortcuts. */
+function guardContents(contents: Electron.WebContents): void {
+  contents.on('will-navigate', (event, target) => {
     if (isSameOrigin(target, uiUrl)) return;
     event.preventDefault();
     if (isExternalWebLink(target)) void shell.openExternal(target);
   });
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  contents.setWindowOpenHandler(({ url }) => {
     if (isExternalWebLink(url)) void shell.openExternal(url);
     return { action: 'deny' };
   });
@@ -60,14 +69,36 @@ function createMainWindow(): void {
   // Without the default menu, DevTools and reload stay for unpackaged runs only. A runtime gate, not Debug-only code:
   // a packaged build never registers the handler.
   if (!app.isPackaged) {
-    win.webContents.on('before-input-event', (event, input) => {
+    contents.on('before-input-event', (event, input) => {
       const action = devShortcut(input);
       if (action === undefined) return;
       event.preventDefault();
-      if (action === 'devtools') win.webContents.toggleDevTools();
-      else win.webContents.reload();
+      if (action === 'devtools') contents.toggleDevTools();
+      else contents.reload();
     });
   }
+}
+
+/** The player overlay over `main` (ADR 0011), on the web UI's `/player` page. */
+function createOverlayWindow(main: BrowserWindow): BrowserWindow {
+  const win = new BrowserWindow({ ...overlayWindowOptions(preloadPath), parent: main });
+  guardContents(win.webContents);
+  const page = overlayUrl(uiUrl);
+  win.loadURL(page.toString()).catch((err: unknown) => {
+    console.error(`Could not load the player overlay at ${page.toString()}: ${err instanceof Error ? err.message : String(err)}.`);
+  });
+  return win;
+}
+
+function createMainWindow(): void {
+  const win = new BrowserWindow(mainWindowOptions(preloadPath, windowIconPath(app.getAppPath(), process.platform)));
+  mainWindow = win;
+  guardContents(win.webContents);
+  if (embedsPlayer(process.platform)) overlay = new OverlayWindow(followedWindow(win), () => createOverlayWindow(win));
+  win.on('closed', () => {
+    mainWindow = undefined;
+    overlay = undefined;
+  });
 
   win.once('ready-to-show', () => {
     win.show();
@@ -111,12 +142,28 @@ void app.whenReady().then(async () => {
   player = new PlayerHost(
     (mpvPath) => new MpvPlayer({ mpvPath, assets: bundled?.mpvAssets ?? mpvAssetsIn(app.getAppPath()) }),
     async () => mpvPathFrom(await settings.get(), process.env, bundled?.mpvPath),
+    {
+      // Only with an overlay to draw the controls; never taken from the UI.
+      embedIn: () => (overlay && mainWindow && !mainWindow.isDestroyed() ? mainWindow.getNativeWindowHandle() : undefined),
+    },
   );
+  player.onState((state) => {
+    overlay?.setState(state);
+  });
+  player.onActive((active) => {
+    if (active) overlay?.show();
+    else overlay?.hide();
+  });
   registerBridge(ipcMain, {
     uiOrigin: uiUrl.origin,
     serverUrl: () => serverUrl,
     tokens,
     player,
+    overlay: {
+      contents: () => overlay?.contents(),
+      toggleFullscreen: () => overlay?.toggleFullscreen(),
+      resend: () => overlay?.resend(),
+    },
     chooseMpv: () => chooseMpv(settings),
     mpvSetting: async () => mpvSettingFrom(await settings.get(), process.env, bundled?.mpvPath),
     useDefaultMpv: async () => {

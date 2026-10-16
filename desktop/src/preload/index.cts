@@ -16,6 +16,7 @@ const channels = {
   playerMpvSetting: 'mediaman:player-mpv-setting',
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
   playerCommand: 'mediaman:player-command',
+  playerOverlay: 'mediaman:player-overlay',
   playerEvent: 'mediaman:player-event',
   playerState: 'mediaman:player-state',
 } as const;
@@ -37,9 +38,9 @@ contextBridge.exposeInMainWorld('mediamanDesktop', {
   player: {
     play: (launchId: string, options: unknown): Promise<unknown> => ipcRenderer.invoke(channels.playerPlay, launchId, options),
     stop: (): Promise<void> => ipcRenderer.invoke(channels.playerStop) as Promise<void>,
-    /** Shows the "Up next" countdown in MPV, if `launchId` is still what plays. */
+    /** Offers the "Up next" countdown in the player overlay, if `launchId` is still what plays. */
     upNext: (launchId: string, offer: unknown): Promise<void> => ipcRenderer.invoke(channels.playerUpNext, launchId, offer) as Promise<void>,
-    /** Shows a message over the playback in MPV (e.g. a lost server), if `launchId` is still what plays. */
+    /** Shows a message over the playback (e.g. a lost server), if `launchId` is still what plays. */
     notice: (launchId: string, text: string): Promise<void> => ipcRenderer.invoke(channels.playerNotice, launchId, text) as Promise<void>,
     /** The native picker for the MPV executable: `{ outcome: 'picked', path }`, `'cancelled'`, or `'refused'` with a message when the file isn't MPV. */
     chooseMpv: (): Promise<unknown> => ipcRenderer.invoke(channels.playerChooseMpv),
@@ -58,7 +59,9 @@ contextBridge.exposeInMainWorld('mediamanDesktop', {
     },
     /** Overlay window only (refused from any other): acts on the file that plays, e.g. `{ type: 'togglePause' }`. */
     command: (command: unknown): Promise<void> => ipcRenderer.invoke(channels.playerCommand, command) as Promise<void>,
-    /** Overlay window only (no other receives it): the whole player state on every change. */
+    /** Overlay window only (refused from any other): `ready`, `back`, `toggleFullscreen`, or `upNext` with a choice. */
+    overlay: (action: unknown): Promise<void> => ipcRenderer.invoke(channels.playerOverlay, action) as Promise<void>,
+    /** Overlay window only (no other receives it): the whole overlay state on every change. */
     onState: (callback: (state: unknown) => void): (() => void) => {
       const listener = (_: unknown, state: unknown) => {
         callback(state);

@@ -552,13 +552,14 @@ describe('/player', () => {
     expect(await screen.findByText('Starting playback…')).toBeInTheDocument();
     expect(document.documentElement).toHaveClass('player-page');
 
-    const { fullscreen: _fullscreen, ...state } = playerView();
     act(() => {
-      player.emitState(state);
+      player.emitState(playerView());
     });
     const header = await screen.findByRole('banner');
     expect(within(header).getByRole('heading', { name: 'Alien (1979)' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Pause' }));
     expect(player.commands).toEqual([{ type: 'togglePause' }]);
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+    expect(player.overlayActions).toEqual([{ type: 'ready' }, { type: 'back' }]);
   });
 });

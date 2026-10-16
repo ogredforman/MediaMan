@@ -3,11 +3,15 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   applicationMenuTemplate,
+  chromiumSwitches,
   DEFAULT_UI_URL,
   devShortcut,
+  embedsPlayer,
   isExternalWebLink,
   isSameOrigin,
   mainWindowOptions,
+  overlayUrl,
+  overlayWindowOptions,
   resolveUiUrl,
   serverUiUrl,
   windowIconPath,
@@ -55,6 +59,29 @@ describe('mainWindowOptions', () => {
   it('sets the window icon only when given one', () => {
     expect(mainWindowOptions('preload.cjs', 'icon.ico').icon).toBe('icon.ico');
     expect(mainWindowOptions('preload.cjs')).not.toHaveProperty('icon');
+  });
+});
+
+describe('in-window playback', () => {
+  it('embeds MPV and turns off DirectComposition only on Windows', () => {
+    expect(embedsPlayer('win32')).toBe(true);
+    expect(chromiumSwitches('win32')).toEqual(['disable-direct-composition']);
+    for (const platform of ['linux', 'darwin'] as const) {
+      expect(embedsPlayer(platform)).toBe(false);
+      expect(chromiumSwitches(platform)).toEqual([]);
+    }
+  });
+
+  it('opens the overlay on the /player route under the UI base path', () => {
+    expect(overlayUrl(new URL('http://localhost:5173')).toString()).toBe('http://localhost:5173/player');
+    expect(overlayUrl(new URL('http://127.0.0.1:8420/app/')).toString()).toBe('http://127.0.0.1:8420/app/player');
+    expect(overlayUrl(new URL('http://127.0.0.1:8420/app')).toString()).toBe('http://127.0.0.1:8420/app/player');
+  });
+
+  it('makes the overlay a transparent, frameless, sandboxed window out of the taskbar', () => {
+    const options = overlayWindowOptions('/app/preload.cjs');
+    expect(options).toMatchObject({ show: false, frame: false, transparent: true, skipTaskbar: true, fullscreenable: false });
+    expect(options.webPreferences).toMatchObject({ preload: '/app/preload.cjs', contextIsolation: true, nodeIntegration: false, sandbox: true });
   });
 });
 
