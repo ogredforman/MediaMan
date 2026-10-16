@@ -1,6 +1,6 @@
 // A stand-in for the desktop bridge's `player` (desktop/src/preload/index.cts): records launches and lets tests
 // send MPV's events. Never starts MPV.
-import type { DesktopMpvChoice, DesktopMpvSetting, DesktopPlayerBridge, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
+import type { DesktopMpvChoice, DesktopMpvSetting, DesktopPlayerBridge, DesktopPlayerCommand, DesktopPlayerState, DesktopPlayerEvent, DesktopPlayOptions, DesktopPlayResult, DesktopUpNextOffer } from '../lib/desktop';
 
 export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   readonly plays: { launchId: string; options: DesktopPlayOptions }[];
@@ -19,11 +19,16 @@ export interface FakeDesktopPlayer extends DesktopPlayerBridge {
   /** What `mpvSetting` answers until a pick or Use default changes it. */
   setMpvSetting(setting: DesktopMpvSetting): void;
   emit(event: DesktopPlayerEvent): void;
+  /** Every command the overlay sent, in order. */
+  readonly commands: DesktopPlayerCommand[];
+  /** Sends a player state to `onState` listeners, as the desktop does to the overlay. */
+  emitState(state: DesktopPlayerState): void;
   stopCalls: number;
 }
 
 export function createFakeDesktopPlayer(): FakeDesktopPlayer {
   const listeners = new Set<(event: DesktopPlayerEvent) => void>();
+  const stateListeners = new Set<(state: DesktopPlayerState) => void>();
   let failure: string | undefined;
   let picked: string | null = null;
   let refusal: string | undefined;
@@ -32,6 +37,7 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     plays: [],
     upNexts: [],
     notices: [],
+    commands: [],
     stopCalls: 0,
     play(launchId, options): Promise<DesktopPlayResult> {
       if (failure !== undefined) {
@@ -75,6 +81,16 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
         listeners.delete(callback);
       };
     },
+    command(command) {
+      fake.commands.push(command);
+      return Promise.resolve();
+    },
+    onState(callback) {
+      stateListeners.add(callback);
+      return () => {
+        stateListeners.delete(callback);
+      };
+    },
     lastLaunchId() {
       const last = fake.plays.at(-1);
       if (!last) throw new Error('Nothing was played.');
@@ -94,6 +110,9 @@ export function createFakeDesktopPlayer(): FakeDesktopPlayer {
     },
     emit(event) {
       for (const listener of listeners) listener(event);
+    },
+    emitState(state) {
+      for (const listener of stateListeners) listener(state);
     },
   };
   return fake;

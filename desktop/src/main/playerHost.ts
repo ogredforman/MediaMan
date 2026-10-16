@@ -1,6 +1,6 @@
 // Runs MPV for the web UI's Play button (SPEC §7.4 steps 3–6) and forwards its events, tagged with the launch id the
 // UI chose, so the UI can ignore events from a launch it has replaced. One MPV window plays launch after launch.
-import type { EpisodeChoice, IPlayer, PlayerEndReason, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
+import type { EpisodeChoice, IPlayer, PlayerCommand, PlayerEndReason, PlayerState, PlayOptions, UpNextChoice, UpNextOffer } from './player.js';
 
 export type PlayerEvent =
   | { launchId: string; type: 'progress'; positionSeconds: number; durationSeconds: number; paused: boolean }
@@ -24,6 +24,7 @@ export class PlayerHost {
   private current: Binding | undefined;
   // Plays and stops run one at a time, so overlapping plays (a re-query racing a click) never leave an MPV behind.
   private queue: Promise<unknown> = Promise.resolve();
+  private readonly stateListeners: ((state: PlayerState) => void)[] = [];
 
   /**
    * @param createPlayer makes a player for an MPV path, so a newly picked MPV is used on the next Play.
@@ -50,6 +51,16 @@ export class PlayerHost {
   /** Shows a message over the playback in MPV, if `launchId` is still what plays. */
   notice(launchId: string, text: string): void {
     this.playing(launchId)?.showNotice(text);
+  }
+
+  /** Acts on the file that plays now, whichever launch it is; does nothing when nothing plays. For the overlay. */
+  command(cmd: PlayerCommand): void {
+    this.current?.player.command(cmd);
+  }
+
+  /** The current file's state on every change, for the overlay; whichever player plays it. */
+  onState(cb: (state: PlayerState) => void): void {
+    this.stateListeners.push(cb);
   }
 
   stop(): Promise<void> {
@@ -107,6 +118,10 @@ export class PlayerHost {
     });
     player.onEpisodeChoice((choice) => {
       forward({ type: 'episode', choice });
+    });
+    player.onState((state) => {
+      if (this.current !== binding) return;
+      for (const listener of this.stateListeners) listener(state);
     });
     return binding;
   }

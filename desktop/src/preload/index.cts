@@ -15,7 +15,9 @@ const channels = {
   playerChooseMpv: 'mediaman:player-choose-mpv',
   playerMpvSetting: 'mediaman:player-mpv-setting',
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
+  playerCommand: 'mediaman:player-command',
   playerEvent: 'mediaman:player-event',
+  playerState: 'mediaman:player-state',
 } as const;
 
 contextBridge.exposeInMainWorld('mediamanDesktop', {
@@ -52,6 +54,18 @@ contextBridge.exposeInMainWorld('mediamanDesktop', {
       ipcRenderer.on(channels.playerEvent, listener);
       return () => {
         ipcRenderer.removeListener(channels.playerEvent, listener);
+      };
+    },
+    /** Overlay window only (refused from any other): acts on the file that plays, e.g. `{ type: 'togglePause' }`. */
+    command: (command: unknown): Promise<void> => ipcRenderer.invoke(channels.playerCommand, command) as Promise<void>,
+    /** Overlay window only (no other receives it): the whole player state on every change. */
+    onState: (callback: (state: unknown) => void): (() => void) => {
+      const listener = (_: unknown, state: unknown) => {
+        callback(state);
+      };
+      ipcRenderer.on(channels.playerState, listener);
+      return () => {
+        ipcRenderer.removeListener(channels.playerState, listener);
       };
     },
   },

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { FakePlayer } from '../fakes/fakePlayer.js';
-import { bridgeChannels, bridgeEvents, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type IpcMainLike, type MpvChoice } from './bridge.js';
+import { bridgeChannels, bridgeEvents, parsePlayerCommand, parsePlayOptions, parseUpNextOffer, registerBridge, type BridgeEvent, type BridgeSender, type IpcMainLike, type MpvChoice } from './bridge.js';
 import { PlayerHost } from './playerHost.js';
 import type { MpvSetting } from './desktopSettings.js';
 import type { StoredTokens } from './tokenStore.js';
@@ -25,7 +25,7 @@ const playRequest = {
   subtitles: [{ url: `${serverOrigin}/media-files/f1/subtitles/ab?sid=s&exp=1&sig=x`, language: 'en', title: 'Alien.en.srt' }],
 };
 
-function setUp(serverUrl: string | undefined) {
+function setUp(serverUrl: string | undefined, overlay?: BridgeSender) {
   const handlers = new Map<string, (event: BridgeEvent, ...args: unknown[]) => unknown>();
   const ipc: IpcMainLike = { handle: (channel, listener) => handlers.set(channel, listener) };
   const stored = new Map<string, StoredTokens>();
@@ -50,6 +50,7 @@ function setUp(serverUrl: string | undefined) {
       mpv = { path: 'mpv', source: 'default' };
       return Promise.resolve(mpv);
     },
+    ...(overlay ? { overlay: () => overlay } : {}),
   });
   const call = (channel: string, event: BridgeEvent, ...args: unknown[]) =>
     Promise.resolve().then(() => handlers.get(channel)?.(event, ...args));
@@ -195,6 +196,51 @@ describe('registerBridge', () => {
     await expect(call(bridgeChannels.playerUseDefaultMpv, { senderFrame: { url: 'https://evil.example/' } })).rejects.toThrow();
   });
 
+  it('sends the player state only to the overlay, and takes commands only from it', async () => {
+    const overlay = uiWindow();
+    const main = uiWindow();
+    const { call, player } = setUp(serverOrigin, overlay.event.sender);
+
+    await call(bridgeChannels.playerPlay, main.event, 'a', playRequest);
+    player.emitState({ positionSeconds: 12 });
+    await call(bridgeChannels.playerCommand, overlay.event, { type: 'seekBy', seconds: 30 });
+
+    const states = overlay.sent.filter(([channel]) => channel === bridgeEvents.playerState).map(([, state]) => state);
+    expect(states).toEqual([
+      expect.objectContaining({ title: 'Alien (1979)', positionSeconds: 300 }),
+      expect.objectContaining({ title: 'Alien (1979)', positionSeconds: 12 }),
+    ]);
+    expect(main.sent.some(([channel]) => channel === bridgeEvents.playerState)).toBe(false);
+    expect(player.commands).toEqual([{ type: 'seekBy', seconds: 30 }]);
+
+    await expect(call(bridgeChannels.playerCommand, main.event, { type: 'togglePause' })).rejects.toThrow(/overlay/);
+    await expect(call(bridgeChannels.playerCommand, { ...overlay.event, senderFrame: { url: 'https://evil.example/' } }, { type: 'togglePause' })).rejects.toThrow();
+    await expect(call(bridgeChannels.playerCommand, overlay.event, { type: 'setVolume', volume: 101 })).rejects.toThrow(/isn't valid/);
+    expect(player.commands).toHaveLength(1);
+  });
+
+  it('sends no state and refuses every command while there is no overlay', async () => {
+    const main = uiWindow();
+    const { call, player } = setUp(serverOrigin);
+
+    await call(bridgeChannels.playerPlay, main.event, 'a', playRequest);
+    player.emitState({ positionSeconds: 12 });
+
+    expect(main.sent.some(([channel]) => channel === bridgeEvents.playerState)).toBe(false);
+    await expect(call(bridgeChannels.playerCommand, main.event, { type: 'togglePause' })).rejects.toThrow(/overlay/);
+    expect(player.commands).toEqual([]);
+  });
+
+  it('sends nothing to an overlay that was destroyed', async () => {
+    const sent: unknown[] = [];
+    const { call, player } = setUp(serverOrigin, { send: (...args) => void sent.push(args), isDestroyed: () => true });
+
+    await call(bridgeChannels.playerPlay, uiWindow().event, 'a', playRequest);
+    player.emitState({ positionSeconds: 12 });
+
+    expect(sent).toEqual([]);
+  });
+
   it('uses the same channel names as the preload', () => {
     const preload = readFileSync(path.join(import.meta.dirname, '..', 'preload', 'index.cts'), 'utf8');
 
@@ -250,5 +296,50 @@ describe('parsePlayOptions', () => {
     ['no object', 'play'],
   ])('refuses %s', (_, value) => {
     expect(parsePlayOptions(value, serverOrigin)).toBeUndefined();
+  });
+});
+
+describe('parsePlayerCommand', () => {
+  it('keeps every valid command, copying only its own fields', () => {
+    const valid = [
+      { type: 'togglePause' },
+      { type: 'toggleMute' },
+      { type: 'seekTo', seconds: 0 },
+      { type: 'seekTo', seconds: 125.5 },
+      { type: 'seekBy', seconds: -10 },
+      { type: 'setVolume', volume: 0 },
+      { type: 'setVolume', volume: 100 },
+      { type: 'selectAudio', trackId: 2 },
+      { type: 'selectSubtitle', trackId: 3 },
+      { type: 'selectSubtitle', trackId: null },
+      { type: 'episode', choice: 'previous' },
+      { type: 'episode', choice: 'next' },
+    ];
+    for (const cmd of valid) expect(parsePlayerCommand(cmd)).toEqual(cmd);
+    expect(parsePlayerCommand({ type: 'togglePause', extra: 'loadfile x' })).toEqual({ type: 'togglePause' });
+  });
+
+  it('refuses anything else', () => {
+    const invalid: unknown[] = [
+      null,
+      'togglePause',
+      {},
+      { type: 'quit' },
+      { type: 'seekTo', seconds: -1 },
+      { type: 'seekTo', seconds: Number.POSITIVE_INFINITY },
+      { type: 'seekTo', seconds: '10' },
+      { type: 'seekBy', seconds: Number.NaN },
+      { type: 'seekBy' },
+      { type: 'setVolume', volume: -1 },
+      { type: 'setVolume', volume: 100.5 },
+      { type: 'setVolume', volume: Number.NaN },
+      { type: 'selectAudio', trackId: 0 },
+      { type: 'selectAudio', trackId: 1.5 },
+      { type: 'selectAudio', trackId: null },
+      { type: 'selectSubtitle', trackId: '2' },
+      { type: 'selectSubtitle' },
+      { type: 'episode', choice: 'first' },
+    ];
+    for (const value of invalid) expect(parsePlayerCommand(value)).toBeUndefined();
   });
 });

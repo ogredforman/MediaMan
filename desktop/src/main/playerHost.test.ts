@@ -141,6 +141,25 @@ describe('PlayerHost', () => {
     ]);
   });
 
+  it("sends the current file's state to its listeners and its commands to the player, across a newly picked MPV", async () => {
+    const { host, players, send, pick } = setUp('/opt/mpv');
+    const states: number[] = [];
+    host.onState((state) => states.push(state.positionSeconds));
+
+    host.command({ type: 'togglePause' });
+    await host.play('a', { ...opts, startSeconds: 5 }, send);
+    players[0]?.emitState({ positionSeconds: 6 });
+    host.command({ type: 'seekBy', seconds: 30 });
+    pick('/usr/bin/mpv');
+    await host.play('b', { ...opts, startSeconds: 50 }, send);
+    players[0]?.emitState({ positionSeconds: 7 });
+    host.command({ type: 'togglePause' });
+
+    expect(states).toEqual([5, 6, 50]);
+    expect(players[0]?.commands).toEqual([{ type: 'seekBy', seconds: 30 }]);
+    expect(players[1]?.commands).toEqual([{ type: 'togglePause' }]);
+  });
+
   it('stop ends the current launch, and a second stop does nothing', async () => {
     const { host, events, send } = setUp();
 

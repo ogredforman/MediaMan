@@ -1,7 +1,7 @@
 // The main-process side of the preload bridge (src/preload/index.cts): the current server, its tokens and the player.
 // Only the web UI's origin may call it, and it only ever acts on the current server.
 import type { MpvSetting } from './desktopSettings.js';
-import type { EpisodeNeighbours, PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
+import type { EpisodeNeighbours, PlayerCommand, PlayerState, PlayOptions, SubtitleTrack, UpNextOffer } from './player.js';
 import type { PlayerEvent, PlayerHost, PlayResult } from './playerHost.js';
 import { parseStoredTokens, type StoredTokens, type TokenStore } from './tokenStore.js';
 
@@ -18,17 +18,27 @@ export const bridgeChannels = {
   playerChooseMpv: 'mediaman:player-choose-mpv',
   playerMpvSetting: 'mediaman:player-mpv-setting',
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
+  /** Overlay only: a `PlayerCommand` for the file that plays. */
+  playerCommand: 'mediaman:player-command',
 } as const;
 
 /** Channels the main process sends on; the preload repeats these too. */
 export const bridgeEvents = {
   player: 'mediaman:player-event',
+  /** Overlay only: the whole `PlayerState` on every change. */
+  playerState: 'mediaman:player-state',
 } as const;
 
 /** The parts of an `IpcMainInvokeEvent` the bridge reads. */
 export interface BridgeEvent {
   senderFrame: { url: string } | null;
-  sender?: { send(channel: string, ...args: unknown[]): void; isDestroyed(): boolean };
+  sender?: BridgeSender;
+}
+
+/** The parts of a `WebContents` the bridge sends to. */
+export interface BridgeSender {
+  send(channel: string, ...args: unknown[]): void;
+  isDestroyed(): boolean;
 }
 
 export interface IpcMainLike {
@@ -43,7 +53,12 @@ export interface BridgeOptions {
   /** The server the desktop app started or connected to; undefined when the UI reaches the API on its own origin. */
   serverUrl: () => string | undefined;
   tokens: Pick<TokenStore, 'get' | 'set' | 'clear'>;
-  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext' | 'notice'>;
+  player: Pick<PlayerHost, 'play' | 'stop' | 'upNext' | 'notice' | 'command' | 'onState'>;
+  /**
+   * The player overlay window's contents (ADR 0011), the only sender whose commands are taken and the only receiver
+   * of the player state; undefined while there is none.
+   */
+  overlay?: () => BridgeSender | undefined;
   /** Shows the native picker for the MPV executable and saves the choice if it is MPV. */
   chooseMpv: () => Promise<MpvChoice>;
   /** The MPV the next Play uses and where it comes from. */
@@ -102,6 +117,20 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
     guard((_, launchId: unknown, text: unknown) => {
       if (typeof launchId !== 'string' || !isNoticeText(text)) throw new Error("This notice request isn't valid.");
       options.player.notice(launchId, text);
+    }),
+  );
+  options.player.onState((state: PlayerState) => {
+    const overlay = options.overlay?.();
+    if (overlay && !overlay.isDestroyed()) overlay.send(bridgeEvents.playerState, state);
+  });
+  ipc.handle(
+    bridgeChannels.playerCommand,
+    guard((event, value: unknown) => {
+      const overlay = options.overlay?.();
+      if (!overlay || event.sender !== overlay) throw new Error('Only the player overlay can control playback.');
+      const cmd = parsePlayerCommand(value);
+      if (!cmd) throw new Error("This player command isn't valid.");
+      options.player.command(cmd);
     }),
   );
   ipc.handle(bridgeChannels.playerChooseMpv, guard(() => options.chooseMpv()));
@@ -170,6 +199,42 @@ function parseLanguageTags(value: unknown): string[] | null | undefined {
 
 // Five preferences of up to six tags each (`no` has the most: `no,nor,nb,nob,nn,nno`).
 const maxLanguageTags = 30;
+
+/**
+ * The overlay's command, checked and copied field by field: finite numbers only, a volume of 0–100, a seek target
+ * from 0, track ids that are positive whole numbers (or null to turn subtitles off).
+ */
+export function parsePlayerCommand(value: unknown): PlayerCommand | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  switch (v.type) {
+    case 'togglePause':
+    case 'toggleMute':
+      return { type: v.type };
+    case 'seekTo':
+      return isFiniteNumber(v.seconds) && v.seconds >= 0 ? { type: 'seekTo', seconds: v.seconds } : undefined;
+    case 'seekBy':
+      return isFiniteNumber(v.seconds) ? { type: 'seekBy', seconds: v.seconds } : undefined;
+    case 'setVolume':
+      return isFiniteNumber(v.volume) && v.volume >= 0 && v.volume <= 100 ? { type: 'setVolume', volume: v.volume } : undefined;
+    case 'selectAudio':
+      return isTrackId(v.trackId) ? { type: 'selectAudio', trackId: v.trackId } : undefined;
+    case 'selectSubtitle':
+      return v.trackId === null || isTrackId(v.trackId) ? { type: 'selectSubtitle', trackId: v.trackId } : undefined;
+    case 'episode':
+      return v.choice === 'previous' || v.choice === 'next' ? { type: 'episode', choice: v.choice } : undefined;
+    default:
+      return undefined;
+  }
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isTrackId(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
 
 /** The renderer's "Up next" countdown, checked: a display title and a whole number of seconds up to a minute. */
 export function parseUpNextOffer(value: unknown): UpNextOffer | undefined {

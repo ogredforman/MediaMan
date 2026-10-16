@@ -48,6 +48,47 @@ export interface DesktopMpvSetting {
 /** What Choose MPV did; a refused file isn't MPV and was neither run nor saved. Mirrors the desktop's `MpvChoice`. */
 export type DesktopMpvChoice = { outcome: 'picked'; path: string } | { outcome: 'cancelled' } | { outcome: 'refused'; message: string };
 
+/** An audio or subtitle track of the playing file; `id` is what the select commands take. Mirrors the desktop's `PlayerTrack`. */
+export interface DesktopPlayerTrack {
+  id: number;
+  language?: string;
+  title?: string;
+  selected: boolean;
+}
+
+/** Everything the player overlay draws, whole on every change. Mirrors the desktop's `PlayerState`. */
+export interface DesktopPlayerState {
+  positionSeconds: number;
+  /** 0 until known. */
+  durationSeconds: number;
+  /** Where the cached part of the stream ends; 0 until known. */
+  bufferedSeconds: number;
+  paused: boolean;
+  /** Stalled waiting for the network. */
+  buffering: boolean;
+  /** 0–100. */
+  volume: number;
+  muted: boolean;
+  audioTracks: DesktopPlayerTrack[];
+  /** None selected means subtitles are off. */
+  subtitleTracks: DesktopPlayerTrack[];
+  chapters: { title?: string; time: number }[];
+  title: string;
+  episodes?: { previous?: string; next?: string };
+}
+
+/** What the overlay asks of the player. Mirrors the desktop's `PlayerCommand`. */
+export type DesktopPlayerCommand =
+  | { type: 'togglePause' }
+  | { type: 'seekTo'; seconds: number }
+  | { type: 'seekBy'; seconds: number }
+  | { type: 'setVolume'; volume: number }
+  | { type: 'toggleMute' }
+  | { type: 'selectAudio'; trackId: number }
+  // A null trackId turns subtitles off.
+  | { type: 'selectSubtitle'; trackId: number | null }
+  | { type: 'episode'; choice: 'previous' | 'next' };
+
 export type DesktopPlayResult = { ok: true } | { ok: false; error: 'mpvStart'; message: string };
 
 /** MPV, one launch at a time, run by the desktop app's main process. */
@@ -66,6 +107,10 @@ export interface DesktopPlayerBridge {
   useDefaultMpv(): Promise<DesktopMpvSetting>;
   /** Returns the unsubscribe. */
   onEvent(callback: (event: DesktopPlayerEvent) => void): () => void;
+  /** Overlay window only (refused from any other): acts on the file that plays. */
+  command(command: DesktopPlayerCommand): Promise<void>;
+  /** Overlay window only (no other receives it): the whole player state on every change. Returns the unsubscribe. */
+  onState(callback: (state: DesktopPlayerState) => void): () => void;
 }
 
 /** `window.mediamanDesktop`; keep in step with the preload. */
