@@ -98,3 +98,25 @@ export function FullscreenIcon({ exit }: { exit: boolean }) {
     </Icon>
   );
 }
+
+export function AudioIcon() {
+  return (
+    <Icon>
+      <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 13a7 7 0 0 1 14 0" />
+        <path d="M5 13v3a2 2 0 0 0 2 2h1v-5H5M19 13v3a2 2 0 0 1-2 2h-1v-5h3" />
+      </g>
+    </Icon>
+  );
+}
+
+export function SubtitlesIcon() {
+  return (
+    <Icon>
+      <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2.5" />
+        <path d="M7 12.5h3M13 12.5h4M7 15.5h6M16 15.5h1" />
+      </g>
+    </Icon>
+  );
+}

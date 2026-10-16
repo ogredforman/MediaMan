@@ -5,7 +5,7 @@ import type { MediamanDesktop } from '../../lib/desktop';
 import { createFakeDesktopPlayer } from '../../test/fakeDesktopPlayer';
 import { createFakePlayerController, playerView, type FakePlayerController } from '../../test/fakePlayerController';
 import { renderApp } from '../../test/renderApp';
-import { idleMs } from './controls';
+import { idleMs, noticeMs } from './controls';
 import { PlayerOverlay } from './PlayerOverlay';
 
 const episodes = { previous: 'The Office S01E01 · Pilot', next: 'The Office S01E03 · Health Care' };
@@ -288,6 +288,239 @@ describe('PlayerOverlay', () => {
       });
       expect(root).toHaveAttribute('data-controls', 'hidden');
     });
+  });
+});
+
+describe('PlayerOverlay track menus', () => {
+  const tracks = {
+    audioTracks: [
+      { id: 1, language: 'eng', title: 'Surround 5.1', selected: true },
+      { id: 2, language: 'jpn', selected: false },
+      { id: 3, title: 'Commentary', selected: false },
+    ],
+    subtitleTracks: [
+      { id: 1, language: 'eng', selected: false },
+      { id: 2, language: 'fre', title: 'French', selected: true },
+    ],
+  };
+
+  it('shows no menu button for a file without tracks, and A and C do nothing then', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay();
+    expect(screen.queryByRole('button', { name: 'Audio' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Subtitles' })).not.toBeInTheDocument();
+    await user.keyboard('ac');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(controller.actions).toEqual([]);
+  });
+
+  it('lists the audio tracks by title and language, marks the playing one and switches on a pick', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay(createFakePlayerController(playerView(tracks)));
+    const button = screen.getByRole('button', { name: 'Audio' });
+    await user.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    const menu = screen.getByRole('menu', { name: 'Audio' });
+    const items = within(menu).getAllByRole('menuitemradio');
+    expect(items.map((item) => item.textContent)).toEqual(['✓Surround 5.1 · English', 'Japanese', 'Commentary']);
+    expect(items[0]).toHaveAttribute('aria-checked', 'true');
+    expect(items[0]).toHaveFocus();
+
+    await user.click(within(menu).getByRole('menuitemradio', { name: 'Japanese' }));
+    expect(controller.actions).toEqual([{ type: 'selectAudio', trackId: 2 }]);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(button).toHaveFocus();
+  });
+
+  it('offers subtitles Off first, and Off when no track is on', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay(createFakePlayerController(playerView(tracks)));
+    await user.click(screen.getByRole('button', { name: 'Subtitles' }));
+    const items = within(screen.getByRole('menu', { name: 'Subtitles' })).getAllByRole('menuitemradio');
+    expect(items.map((item) => item.textContent.replace('✓', ''))).toEqual(['Off', 'English', 'French']);
+    expect(items[2]).toHaveAttribute('aria-checked', 'true');
+    await user.click(screen.getByRole('menuitemradio', { name: 'Off' }));
+    expect(controller.actions).toEqual([{ type: 'selectSubtitle', trackId: null }]);
+
+    act(() => {
+      controller.update({ subtitleTracks: tracks.subtitleTracks.map((track) => ({ ...track, selected: false })) });
+    });
+    await user.click(screen.getByRole('button', { name: 'Subtitles' }));
+    expect(screen.getByRole('menuitemradio', { name: 'Off' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('opens on A and C, moves with the arrows without touching the volume, picks on Enter and closes on Esc without going Back', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay(createFakePlayerController(playerView(tracks)));
+    await user.keyboard('a');
+    expect(screen.getByRole('menu', { name: 'Audio' })).toBeInTheDocument();
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowUp}{End}{Home}{ArrowUp}');
+    expect(screen.getByRole('menuitemradio', { name: 'Commentary' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(controller.actions).toEqual([{ type: 'selectAudio', trackId: 3 }]);
+    expect(screen.getByRole('button', { name: 'Audio' })).toHaveFocus();
+
+    await user.keyboard('c');
+    expect(screen.getByRole('menu', { name: 'Subtitles' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Subtitles' })).toHaveFocus();
+    expect(controller.actions).toEqual([{ type: 'selectAudio', trackId: 3 }]);
+  });
+
+  it('closes on a click outside, and keeps the controls up while open', () => {
+    vi.useFakeTimers();
+    const { root } = renderOverlay(createFakePlayerController(playerView(tracks)));
+    fireEvent.click(screen.getByRole('button', { name: 'Audio' }));
+    act(() => {
+      vi.advanceTimersByTime(idleMs * 2);
+    });
+    expect(root).toHaveAttribute('data-controls', 'shown');
+    fireEvent.click(screen.getByRole('heading', { name: 'Alien (1979)' }));
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(idleMs);
+    });
+    expect(root).toHaveAttribute('data-controls', 'hidden');
+  });
+});
+
+describe('PlayerOverlay Up next', () => {
+  const upNext = { title: 'The Office S01E03 · Health Care', seconds: 10 };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function offer(controller: FakePlayerController, positionSeconds = 1300) {
+    act(() => {
+      controller.update({ positionSeconds, upNext });
+    });
+  }
+
+  it('counts down and plays the next episode when it runs out, once, and stays up while the controls hide', () => {
+    vi.useFakeTimers();
+    const { controller, root } = renderOverlay();
+    offer(controller);
+    const card = screen.getByRole('region', { name: 'Up next' });
+    expect(card).toHaveTextContent('The Office S01E03 · Health Care');
+    expect(card).toHaveTextContent('Starting in 10 s');
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(card).toHaveTextContent('Starting in 6 s');
+    expect(root).toHaveAttribute('data-controls', 'hidden');
+    expect(card).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(controller.actions).toEqual([{ type: 'upNext', choice: 'play' }]);
+    expect(screen.queryByRole('region', { name: 'Up next' })).not.toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(20000);
+    });
+    expect(controller.actions).toHaveLength(1);
+  });
+
+  it('answers Play now and Cancel from the buttons', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay();
+    offer(controller);
+    await user.click(screen.getByRole('button', { name: 'Play now' }));
+    expect(screen.queryByRole('region', { name: 'Up next' })).not.toBeInTheDocument();
+
+    act(() => {
+      controller.update({ upNext: undefined });
+    });
+    offer(controller);
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(controller.actions).toEqual([
+      { type: 'upNext', choice: 'play' },
+      { type: 'upNext', choice: 'cancel' },
+    ]);
+  });
+
+  it('plays on Enter and cancels on Esc before Esc goes Back', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay();
+    offer(controller);
+    await user.keyboard('{Enter}');
+    act(() => {
+      controller.update({ upNext: undefined });
+    });
+    offer(controller);
+    await user.keyboard('{Escape}');
+    await user.keyboard('{Escape}');
+    expect(controller.actions).toEqual([
+      { type: 'upNext', choice: 'play' },
+      { type: 'upNext', choice: 'cancel' },
+      { type: 'back' },
+    ]);
+  });
+
+  it('cancels on a seek back before the card, not on a seek forward or the playback moving on', () => {
+    const { controller } = renderOverlay();
+    offer(controller, 1300);
+    act(() => {
+      controller.update({ positionSeconds: 1299.5 });
+    });
+    act(() => {
+      controller.update({ positionSeconds: 1330 });
+    });
+    expect(controller.actions).toEqual([]);
+    act(() => {
+      controller.update({ positionSeconds: 1290 });
+    });
+    expect(controller.actions).toEqual([{ type: 'upNext', choice: 'cancel' }]);
+    expect(screen.queryByRole('region', { name: 'Up next' })).not.toBeInTheDocument();
+  });
+});
+
+describe('PlayerOverlay notices', () => {
+  const notice = "Can't reach the MediaMan server.";
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shows a notice as an alert until dismissed, and again once it comes back', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    act(() => {
+      controller.update({ notice });
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(notice);
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    act(() => {
+      controller.update({ paused: true });
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    act(() => {
+      controller.update({ notice: undefined });
+    });
+    act(() => {
+      controller.update({ notice });
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent(notice);
+  });
+
+  it('goes away on its own after a while, and a different notice shows at once', () => {
+    vi.useFakeTimers();
+    const { controller } = renderOverlay();
+    act(() => {
+      controller.update({ notice });
+    });
+    act(() => {
+      vi.advanceTimersByTime(noticeMs);
+    });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    act(() => {
+      controller.update({ notice: 'Something else.' });
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('Something else.');
   });
 });
 

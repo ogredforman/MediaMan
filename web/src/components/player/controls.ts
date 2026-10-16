@@ -15,3 +15,6 @@ export function clampVolume(volume: number): number {
 
 export const iconButtonClass =
   'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-fg transition-colors duration-(--motion-fast) hover:bg-fg/15';
+
+/** How long a notice (e.g. a lost server) stays up unless dismissed. */
+export const noticeMs = 8000;

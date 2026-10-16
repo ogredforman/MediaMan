@@ -1,21 +1,32 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { formatPosition } from '../../lib/mediaFormat';
 import { usePlayerView, type PlayerAction, type PlayerController, type PlayerView } from '../../lib/playerController';
 import { clampVolume, iconButtonClass, idleMs, skipBackSeconds, skipForwardSeconds, volumeStep } from './controls';
+import { NoticeToast } from './NoticeToast';
 import { BackIcon, FullscreenIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, SkipIcon } from './playerIcons';
 import { SeekBar } from './SeekBar';
+import { TrackMenu, type TrackMenuKind } from './TrackMenu';
+import { UpNextCard } from './UpNextCard';
 import { VolumeControl } from './VolumeControl';
 
 /**
  * The player's on-screen controls (SPEC §11), drawn over the video: a top bar with Back and the title, and a bottom
- * panel with the seek bar, transport, time, volume and fullscreen. Controls and the cursor hide after `idleMs` without
- * input while playing. Keys: Space/K play or pause, ←/→ skip, ↑/↓ volume, M mute, F fullscreen, Esc leaves fullscreen
- * and then goes Back, N/P next and previous episode; a double-click toggles fullscreen.
+ * panel with the seek bar, transport, time, audio and subtitle menus, volume and fullscreen; the Up next card and
+ * notices sit above it and stay up when the controls hide. Controls and the cursor hide after `idleMs` without input
+ * while playing and no menu is open. Keys: Space/K play or pause, ←/→ skip, ↑/↓ volume, M mute, F fullscreen, A and C
+ * the audio and subtitle menus, N/P next and previous episode, Enter Play now; Esc closes a menu, then cancels Up next,
+ * then leaves fullscreen, then goes Back. A double-click toggles fullscreen.
  */
 export function PlayerOverlay({ controller }: { controller: PlayerController }) {
   const view = usePlayerView(controller);
   const [idle, setIdle] = useState(false);
   const idleTimer = useRef<number | undefined>(undefined);
+  const [menu, setMenu] = useState<TrackMenuKind | null>(null);
+  const upNext = useUpNextAnswer(controller, view);
+  const [dismissedNotice, setDismissedNotice] = useState<string | undefined>(undefined);
+  // A notice that goes away and comes back shows again.
+  if (view?.notice === undefined && dismissedNotice !== undefined) setDismissedNotice(undefined);
+  const notice = view?.notice !== undefined && view.notice !== dismissedNotice ? view.notice : undefined;
 
   const armIdle = useCallback(() => {
     window.clearTimeout(idleTimer.current);
@@ -30,36 +41,84 @@ export function PlayerOverlay({ controller }: { controller: PlayerController }) 
       setIdle(false);
       armIdle();
     };
-    const onKey = (event: KeyboardEvent) => {
-      wake();
-      const action = keyAction(event, controller.getView());
-      if (action === undefined) return;
-      event.preventDefault();
-      controller.act(action);
-    };
     const onDoubleClick = (event: MouseEvent) => {
       if (event.target instanceof Element && event.target.closest('button, input, [role="slider"]')) return;
       controller.act({ type: 'toggleFullscreen' });
     };
     armIdle();
-    window.addEventListener('keydown', onKey);
     window.addEventListener('mousemove', wake);
     window.addEventListener('mousedown', wake);
     window.addEventListener('dblclick', onDoubleClick);
     return () => {
       window.clearTimeout(idleTimer.current);
-      window.removeEventListener('keydown', onKey);
       window.removeEventListener('mousemove', wake);
       window.removeEventListener('mousedown', wake);
       window.removeEventListener('dblclick', onDoubleClick);
     };
   }, [controller, armIdle]);
 
+  /** A key for the open menu, the Up next card or the menu shortcuts; false leaves it to `keyAction`. */
+  const overlayKey = (event: KeyboardEvent): boolean => {
+    if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return false;
+    const target = event.target;
+    const toggleMenu = (kind: TrackMenuKind, tracks: number) => {
+      if (tracks === 0) return false;
+      setMenu(menu === kind ? null : kind);
+      return true;
+    };
+    switch (event.key) {
+      case 'Escape':
+        if (menu !== null) {
+          setMenu(null);
+          return true;
+        }
+        if (upNext.offer !== undefined) {
+          upNext.answer('cancel');
+          return true;
+        }
+        return false;
+      case 'Enter':
+        if (upNext.offer === undefined || target instanceof HTMLButtonElement || target instanceof HTMLInputElement) return false;
+        upNext.answer('play');
+        return true;
+      case 'a':
+      case 'A':
+        return toggleMenu('audio', view?.audioTracks.length ?? 0);
+      case 'c':
+      case 'C':
+        return toggleMenu('subtitle', view?.subtitleTracks.length ?? 0);
+      default:
+        return false;
+    }
+  };
+
+  const onKey = useEffectEvent((event: KeyboardEvent) => {
+    setIdle(false);
+    armIdle();
+    if (overlayKey(event)) {
+      event.preventDefault();
+      return;
+    }
+    const action = keyAction(event, controller.getView());
+    if (action === undefined) return;
+    event.preventDefault();
+    controller.act(action);
+  });
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => {
+      onKey(event);
+    };
+    window.addEventListener('keydown', listener);
+    return () => {
+      window.removeEventListener('keydown', listener);
+    };
+  }, []);
+
   const act = (action: PlayerAction) => {
     controller.act(action);
   };
-  // Paused, the controls stay up so the viewer sees where they are.
-  const hidden = idle && view !== null && !view.paused;
+  // Paused, or with a menu open, the controls stay up so the viewer sees where they are.
+  const hidden = idle && view !== null && !view.paused && menu === null;
   const fade = `transition-opacity duration-(--motion-normal) ${hidden ? 'pointer-events-none opacity-0' : 'opacity-100'}`;
 
   return (
@@ -80,13 +139,56 @@ export function PlayerOverlay({ controller }: { controller: PlayerController }) 
         </p>
       )}
 
-      {view && <BottomPanel view={view} act={act} className={fade} />}
+      {notice !== undefined && <NoticeToast key={notice} text={notice} onDismiss={() => { setDismissedNotice(notice); }} />}
+      {view && upNext.offer !== undefined && <UpNextCard offer={upNext.offer} positionSeconds={view.positionSeconds} onAnswer={upNext.answer} />}
+
+      {view && <BottomPanel view={view} act={act} menu={menu} onMenuChange={setMenu} className={fade} />}
     </div>
   );
 }
 
-function BottomPanel({ view, act, className }: { view: PlayerView; act: (action: PlayerAction) => void; className: string }) {
+/**
+ * The Up next offer still waiting for an answer, and the one way to answer it: the first answer (countdown, button,
+ * key or seek) goes to the controller and hides the card until the controller takes the offer away and makes another.
+ */
+function useUpNextAnswer(controller: PlayerController, view: PlayerView | null) {
+  const offered = view?.upNext !== undefined;
+  const [answered, setAnswered] = useState(false);
+  const [wasOffered, setWasOffered] = useState(offered);
+  // The countdown and a click can both answer before the next render; only the first counts.
+  const answeredNow = useRef(false);
+  if (offered !== wasOffered) {
+    setWasOffered(offered);
+    if (!offered) setAnswered(false);
+  }
+  useEffect(() => {
+    if (!offered) answeredNow.current = false;
+  }, [offered]);
+  const answer = useCallback(
+    (choice: 'play' | 'cancel') => {
+      if (answeredNow.current) return;
+      answeredNow.current = true;
+      setAnswered(true);
+      controller.act({ type: 'upNext', choice });
+    },
+    [controller],
+  );
+  return { offer: answered ? undefined : view?.upNext, answer };
+}
+
+interface BottomPanelProps {
+  view: PlayerView;
+  act: (action: PlayerAction) => void;
+  menu: TrackMenuKind | null;
+  onMenuChange: (menu: TrackMenuKind | null) => void;
+  className: string;
+}
+
+function BottomPanel({ view, act, menu, onMenuChange, className }: BottomPanelProps) {
   const { previous, next } = view.episodes ?? {};
+  const menuOpenChange = (kind: TrackMenuKind) => (open: boolean) => {
+    onMenuChange(open ? kind : null);
+  };
   return (
     <div className={`bg-linear-to-t from-bg/95 via-bg/70 to-bg/0 px-6 pt-20 pb-4 ${className}`}>
       <SeekBar
@@ -121,6 +223,24 @@ function BottomPanel({ view, act, className }: { view: PlayerView; act: (action:
           {view.durationSeconds > 0 && <span className="text-fg-muted"> / {formatPosition(view.durationSeconds)}</span>}
         </span>
         <div className="ml-auto flex items-center gap-1">
+          {view.audioTracks.length > 0 && (
+            <TrackMenu
+              kind="audio"
+              tracks={view.audioTracks}
+              open={menu === 'audio'}
+              onOpenChange={menuOpenChange('audio')}
+              onSelect={(trackId) => { if (trackId !== null) act({ type: 'selectAudio', trackId }); }}
+            />
+          )}
+          {view.subtitleTracks.length > 0 && (
+            <TrackMenu
+              kind="subtitle"
+              tracks={view.subtitleTracks}
+              open={menu === 'subtitle'}
+              onOpenChange={menuOpenChange('subtitle')}
+              onSelect={(trackId) => { act({ type: 'selectSubtitle', trackId }); }}
+            />
+          )}
           <VolumeControl
             volume={view.volume}
             muted={view.muted}

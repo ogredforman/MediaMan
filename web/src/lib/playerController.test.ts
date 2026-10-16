@@ -23,13 +23,14 @@ describe('createDesktopPlayerController', () => {
     expect(changes).toBe(2);
   });
 
-  it('sends player commands over the bridge, and keeps Back and fullscreen off it until the overlay window exists', () => {
+  it('sends player commands over the bridge, and keeps Back, fullscreen and Up next off it until the overlay window exists', () => {
     const player = createFakeDesktopPlayer();
     const controller = createDesktopPlayerController(player);
     controller.act({ type: 'seekBy', seconds: 30 });
     controller.act({ type: 'setVolume', volume: 40 });
     controller.act({ type: 'back' });
     controller.act({ type: 'toggleFullscreen' });
+    controller.act({ type: 'upNext', choice: 'play' });
     expect(player.commands).toEqual([
       { type: 'seekBy', seconds: 30 },
       { type: 'setVolume', volume: 40 },
