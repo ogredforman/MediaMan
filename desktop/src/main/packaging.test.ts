@@ -39,15 +39,15 @@ function shipped(): string[] {
 }
 
 describe('Windows installer config', () => {
-  it('ships the server, MPV and its config and OSC where the packaged app looks for them', () => {
+  it('ships the server, MPV and its config where the packaged app looks for them', () => {
     expect(shipped()).toEqual(
       expect.arrayContaining([tools.serverPath, tools.mpvPath, tools.mpvAssets.config]),
     );
   });
 
-  it('ships the bundled MPV config and OSC from the desktop sources', () => {
+  it('ships the bundled MPV config from the desktop sources', () => {
     const mpvSet = config.extraResources.find((set) => set.filter !== undefined);
-    expect(mpvSet?.filter).toEqual(['mpv.conf', 'osc.lua']);
+    expect(mpvSet?.filter).toEqual(['mpv.conf']);
     for (const file of mpvSet?.filter ?? []) expect(existsSync(path.join(desktop, mpvSet?.from ?? '', file))).toBe(true);
   });
 

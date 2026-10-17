@@ -5,7 +5,7 @@ engine with a streaming-service UI. It scans media folders, matches every file a
 presents a Netflix-style library; titles not in the library can be downloaded through built-in
 torrent search and a VPN-gated torrent client. Stack: .NET 10 / ASP.NET Core minimal APIs with EF Core
 + SQLite (`server/`), React + Vite + TypeScript web UI shared by every client (`web/`), and an
-Electron desktop app that plays through MPV with a custom Lua OSC (`desktop/`). The API contract is
+Electron desktop app that plays through MPV inside the app window under a React overlay (`desktop/`). The API contract is
 `contracts/openapi.yaml`. Licence: AGPL-3.0.
 
 - Product and architecture: `docs/SPEC.md` (source of truth for *what* and *why*)

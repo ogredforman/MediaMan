@@ -327,7 +327,7 @@ User 1─* SavedQualityProfile
 **Playback**
 - [P] Pressing Play launches MPV on the local file. Prototype only: the server launched MPV on its own host through a dev-only endpoint, removed once the desktop app played (PLAN 2.14c); in a plain browser Play now says to use the desktop app until browser playback (Stage 5).
 - [M] The Electron desktop app launches MPV via `IPlayer` with the stream URL, resume position and subtitles (7.4).
-- [M] Custom purple player controls over MPV: a Lua OSC until 2.5.14, then the React OSD in the overlay window (ADR 0011).
+- [M] Custom purple player controls over MPV: the React OSD in the overlay window (ADR 0011).
 - [M] Resume after 2 minutes; watched at 90%; "Up next" with a 10 s countdown.
 - [M] Per-profile audio and subtitle language preferences applied at playback.
 - [M] Browser playback with direct play, remux and transcode decision (7.5), including hardware encoders (NVENC, QSV, VAAPI, AMF, VideoToolbox) with software fallback.
@@ -479,7 +479,7 @@ server/
 web/
   src/ (routes/, components/, api/ (generated), theme/)
 desktop/
-  src/ (main/, preload/), mpv/ (osc.lua, mpv.conf)
+  src/ (main/, preload/), mpv/ (mpv.conf)
 docker/
 docs/ (BRIEF.md, SPEC.md, PLAN.md)
 ```
@@ -690,7 +690,7 @@ rules in `.claude/rules/`. If a rule there contradicts this spec, the spec wins 
 - **Torznab:** a standard torrent search API exposed by Jackett and Prowlarr.
 - **FlareSolverr:** an optional proxy that solves Cloudflare challenges for indexers.
 - **VPN gate / kill switch:** the rule that torrents run only while the VPN path is healthy.
-- **OSC:** the player's on-screen controls: MPV's Lua controller until 2.5.14, then the React OSD in an overlay window (ADR 0011).
+- **OSC:** the player's on-screen controls: the React OSD in an overlay window (ADR 0011).
 - **Superadmin:** the single protected owner account.
 - **Local mode / Server mode:** server bound to localhost for one PC / bound to the LAN for other devices.
 - **Local network:** loopback, private LAN addresses and the Tailscale tailnet (7.12).

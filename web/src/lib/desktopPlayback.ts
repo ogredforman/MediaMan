@@ -1,6 +1,6 @@
 // Play on desktop (SPEC §7.4): a playback session from the server, MPV through the desktop bridge, every progress
 // event reported back, "Up next" from the credits (or the end of the file) when the server names a next episode, and
-// the OSC's Previous and Next episode buttons, and a lost server shown in MPV. It lives outside React so leaving the page
+// the player's Previous and Next episode buttons, and a lost server shown in the player. It lives outside React so leaving the page
 // doesn't stop the reports.
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
@@ -44,7 +44,7 @@ interface Launch {
   next?: NextEpisode | undefined;
   /** Up next is shown at most once per launch; after a cancel, MPV closes at the end of the file. */
   upNext: 'none' | 'offered' | 'cancelled';
-  /** The episodes before and after this one, from the session, for the OSC's Previous and Next episode. */
+  /** The episodes before and after this one, from the session, for the player's Previous and Next episode. */
   previousEpisode?: NextEpisode | undefined;
   nextEpisode?: NextEpisode | undefined;
 }

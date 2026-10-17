@@ -7,7 +7,7 @@
 ## Context
 
 Stage 2.5 needs one Windows installer that installs the desktop app, the single-file server with ffprobe and the
-web UI (PLAN 2.5.1, 2.5.2b), and MPV with our config and OSC, with no manual dependency installs (SPEC §9 bundled
+web UI (PLAN 2.5.1, 2.5.2b), and MPV with our config (the Lua OSC it first shipped was retired by ADR 0011), with no manual dependency installs (SPEC §9 bundled
 tools). Installing a newer build over an older one must keep the user's data. MPV and jellyfin-ffprobe are GPL
 builds we redistribute, so the distribution must carry their licences and make their corresponding source available
 (SPEC §9 licensing). Tests never touch the network (SPEC §10.4); packaging may.

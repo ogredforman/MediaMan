@@ -59,7 +59,7 @@ describe('playOptions', () => {
     expect(playOptions(session, 1234).startSeconds).toBe(1234);
   });
 
-  it("names an episode's neighbours for the OSC, and none for a movie", () => {
+  it("names an episode's neighbours for the player, and none for a movie", () => {
     const previousEpisode: NextEpisode = { playableId: 'e0', seasonNumber: 1, episodeNumber: 1, title: 'Show S01E01 · One' };
     expect(playOptions({ ...session, previousEpisode }).episodes).toEqual({ previous: 'Show S01E01 · One' });
     expect(playOptions(session)).not.toHaveProperty('episodes');

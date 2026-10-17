@@ -46,7 +46,7 @@ Titles it isn't sure about wait in **Needs attention** for you to confirm.
 MediaMan only reads your library folder. It never renames, moves or deletes your files, and never writes anything
 into it, not even artwork or subtitle files.
 
-Press **Play** on a title and it plays in MPV, in its own window. Closing the MediaMan window quits MediaMan.
+Press **Play** on a title and it plays inside the MediaMan window. Closing the MediaMan window quits MediaMan.
 
 ## 5. Where your data lives
 

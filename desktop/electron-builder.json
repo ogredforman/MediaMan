@@ -29,8 +29,7 @@
       "from": "mpv",
       "to": "mpv",
       "filter": [
-        "mpv.conf",
-        "osc.lua"
+        "mpv.conf"
       ]
     }
   ],

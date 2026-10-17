@@ -53,7 +53,7 @@ described in option 2, kept on `mainWindow.getContentBounds()` on `move`, `resiz
 - **Subtitles:** an external `.srt` rendered by MPV in the embedded surface, under the overlay.
 - **HDR:** a PQ/BT.2020 clip is decoded as PQ and the swapchain follows the display MPV's child is on (flip model,
   `Queried output … colorspace` in MPV's log), the same code path as MPV's own window. Only an SDR display was
-  available, where MPV tone-mapped it correctly; passthrough on an HDR display is checked in 2.5.14.
+  available, where MPV tone-mapped it correctly; passthrough on an HDR display (Windows HDR on) was checked in PLAN 2.5.14b and works in the app window.
 
 ## Decision
 
