@@ -525,3 +525,33 @@ function must<T>(value: T | null | undefined): T {
   if (value === null || value === undefined) throw new Error('Expected a value.');
   return value;
 }
+
+describe("a title's Back button", () => {
+  it('returns to the previous page with its query', async () => {
+    const user = userEvent.setup();
+    const { router } = renderApp('/search?q=ar');
+    await user.click(await screen.findByRole('link', { name: /Arrival/ }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Arrival' })).toBeInTheDocument();
+
+    const back = screen.getByRole('button', { name: 'Back' });
+    back.blur();
+    for (let i = 0; i < 50 && document.activeElement !== back; i++) await user.tab();
+    expect(back).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Search' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/search');
+    // jsdom has no layout to scroll; the router restores the page's scroll position when it goes back.
+    expect(router.options.scrollRestoration).toBe(true);
+    expect(router.state.location.search).toEqual({ q: 'ar' });
+  });
+
+  it('goes Home when the title was opened directly', async () => {
+    const user = userEvent.setup();
+    const { router } = renderApp(`/titles/${arrival}`);
+    await user.click(await screen.findByRole('button', { name: 'Back' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  });
+});

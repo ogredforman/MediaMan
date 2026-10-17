@@ -13,7 +13,8 @@ export interface RouterContext {
 export const appBasepath: string = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
 
 export function createAppRouter(queryClient: QueryClient, history?: RouterHistory, basepath = appBasepath) {
-  return createRouter({ routeTree, context: { queryClient }, history, basepath });
+  // The window scrolls; going back (Back on a title, the browser or mouse back, Alt+←) puts each page where it was.
+  return createRouter({ routeTree, context: { queryClient }, history, basepath, scrollRestoration: true });
 }
 
 export type AppRouter = ReturnType<typeof createAppRouter>;
