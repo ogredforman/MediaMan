@@ -10,6 +10,9 @@ const mediaDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 // queues, then the new session picks the default profile. The other specs start from the session saved here, which
 // the server remembers the pick for.
 setup('runs first-run setup, picks a profile and lands on Home with the first scan', async ({ page }) => {
+  // The first page load compiles the UI through Vite and the first scan follows it; on a slow CI runner the two
+  // outlast the default 30 s test timeout, which would also cut short the 30 s wait for the scan below.
+  setup.setTimeout(120_000);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Create the owner account' })).toBeVisible();
   await expect(page.getByText('Step 1 of 3')).toBeVisible();
