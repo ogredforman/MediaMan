@@ -58,13 +58,103 @@ public sealed class HomeRulesTests
         HomeRules.Watching(_playables, [Watch(_s1e1, 1450, 1500, true, 1)]).NextUp
             .Should().Equal(new WatchPick(_show, _s1e2.Id));
 
-        // A rewatch of _s1e1 after _s1e2 was seen: nothing new is next.
+        // A rewatch of _s1e1 after _s1e2 was seen: the first unwatched episode after it.
         HomeRules.Watching(_playables, [Watch(_s1e2, 1450, 1500, true, 1), Watch(_s1e1, 1450, 1500, true, 2)]).NextUp
-            .Should().BeEmpty();
+            .Should().Equal(new WatchPick(_show, _s2e1.Id));
 
-        // The last episode has no next one, and a finished movie isn't Next Up.
+        // After the last episode, the earliest unwatched one; a finished movie isn't Next Up.
         HomeRules.Watching(_playables, [Watch(_s2e1, 1450, 1500, true, 1), Watch(_moviePlayable, 5900, 6000, true, 2)])
-            .Should().BeEquivalentTo(new WatchRows([], []));
+            .Should().BeEquivalentTo(new WatchRows([], [new WatchPick(_show, _s1e1.Id)]));
+
+        // Every regular episode watched: nothing is next, whatever the specials.
+        HomeRules.Watching(_playables, [Watch(_s1e1, 1450, 1500, true, 1), Watch(_s1e2, 1450, 1500, true, 2), Watch(_s2e1, 1450, 1500, true, 3)])
+            .NextUp.Should().BeEmpty();
+    }
+
+    // A long show: seasons 1–4 with 3 episodes each, season 5 with 4, and one special.
+    private static readonly Guid _long = Guid.CreateVersion7();
+    private static readonly HomePlayable _longSpecial = new(Guid.CreateVersion7(), _long, new EpisodeSlot(0, 1));
+    private static readonly HomePlayable[] _longEpisodes =
+    [
+        .. Enumerable.Range(1, 5).SelectMany(season => Enumerable.Range(1, season == 5 ? 4 : 3)
+            .Select(number => new HomePlayable(Guid.CreateVersion7(), _long, new EpisodeSlot(season, number)))),
+    ];
+    private static readonly HomePlayable[] _longShow = [_longSpecial, .. _longEpisodes];
+
+    private static HomePlayable Long(int season, int number) =>
+        _longEpisodes.Single(p => p.Slot == new EpisodeSlot(season, number));
+
+    private static IEnumerable<WatchState> MarkSeason(int season, int minutes) =>
+        _longEpisodes.Where(p => p.Slot!.Value.SeasonNumber == season).Select(p => Watch(p, 0, 0, true, minutes));
+
+    private static IReadOnlyList<WatchPick> LongNextUp(IEnumerable<WatchState> watches) =>
+        HomeRules.Watching(_longShow, [.. watches]).NextUp;
+
+    [Fact]
+    public void Next_up_after_seasons_marked_watched_is_the_next_unwatched_episode()
+    {
+        LongNextUp([.. MarkSeason(1, 1), .. MarkSeason(2, 2), .. MarkSeason(3, 3), .. MarkSeason(4, 4)])
+            .Should().Equal(new WatchPick(_long, Long(5, 1).Id));
+
+        LongNextUp([.. MarkSeason(1, 1), .. MarkSeason(2, 2), .. MarkSeason(3, 3), .. MarkSeason(4, 4), Watch(Long(5, 1), 0, 0, true, 5)])
+            .Should().Equal(new WatchPick(_long, Long(5, 2).Id));
+    }
+
+    [Fact]
+    public void Next_up_after_episodes_marked_one_by_one()
+    {
+        var marked = _longEpisodes.Where(p => p.Slot!.Value.SeasonNumber < 5).Append(Long(5, 1)).ToList();
+
+        LongNextUp(marked.Select((p, i) => Watch(p, 0, 0, true, i)))
+            .Should().Equal(new WatchPick(_long, Long(5, 2).Id));
+    }
+
+    [Fact]
+    public void Next_up_skips_episodes_marked_out_of_order()
+    {
+        // The reported case: the start of season 5 marked first, then seasons 1–4, so the latest stamp is S4's finale.
+        var early = new[] { Long(5, 1), Long(5, 2), Long(5, 3) }.Select((p, i) => Watch(p, 0, 0, true, i));
+
+        LongNextUp([.. early, .. MarkSeason(1, 10), .. MarkSeason(2, 11), .. MarkSeason(3, 12), .. MarkSeason(4, 13)])
+            .Should().Equal(new WatchPick(_long, Long(5, 4).Id));
+
+        // With everything after the latest watched one seen, the earliest unwatched episode, not a special.
+        LongNextUp([.. MarkSeason(5, 1), .. MarkSeason(2, 2), .. MarkSeason(3, 3), .. MarkSeason(4, 4)])
+            .Should().Equal(new WatchPick(_long, Long(1, 1).Id));
+    }
+
+    [Fact]
+    public void Next_up_crosses_a_season_boundary_when_watched_naturally()
+    {
+        LongNextUp([Watch(Long(1, 3), 1450, 1500, true, 1)]).Should().Equal(new WatchPick(_long, Long(2, 1).Id));
+
+        // A short start of the next episode doesn't hide it.
+        LongNextUp([Watch(Long(1, 3), 1450, 1500, true, 1), Watch(Long(2, 1), 60, 1500, false, 2)])
+            .Should().Equal(new WatchPick(_long, Long(2, 1).Id));
+
+        // From a special: the later specials, then the regular seasons.
+        LongNextUp([Watch(_longSpecial, 1450, 1500, true, 1)]).Should().Equal(new WatchPick(_long, Long(1, 1).Id));
+    }
+
+    [Fact]
+    public void Next_up_skips_an_episode_without_a_file()
+    {
+        var withGap = _longShow.Where(p => p != Long(2, 2)).ToList();
+
+        HomeRules.Watching(withGap, [Watch(Long(2, 1), 1450, 1500, true, 1)]).NextUp
+            .Should().Equal(new WatchPick(_long, Long(2, 3).Id));
+    }
+
+    [Fact]
+    public void A_fully_watched_show_has_no_next_up_and_plays_from_the_start()
+    {
+        var all = HomeRules.Watching(_longShow, [.. Enumerable.Range(1, 5).SelectMany(s => MarkSeason(s, s))]);
+
+        all.NextUp.Should().BeEmpty();
+        HomeRules.HeroPlay(_long, _longShow, all).Should().Be(new WatchPick(_long, Long(1, 1).Id));
+
+        var partly = HomeRules.Watching(_longShow, [.. Enumerable.Range(1, 4).SelectMany(s => MarkSeason(s, s))]);
+        HomeRules.HeroPlay(_long, _longShow, partly).Should().Be(new WatchPick(_long, Long(5, 1).Id));
     }
 
     [Fact]

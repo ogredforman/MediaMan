@@ -28,14 +28,16 @@ public static class HomeRules
 
     /// <summary>
     /// Each title counts once, by the profile's most recent watch state on it: part-way through (resume offered) goes
-    /// to Continue Watching; a finished episode puts the show's next episode with a file in Next Up, unless the profile
-    /// already watched that one. Watch states on Playables without a matched file are ignored.
+    /// to Continue Watching. Otherwise a show with a watched episode is Next Up with the first unwatched episode after
+    /// its latest watched one (see <see cref="NextUnwatched"/>); a fully watched show isn't. Watch states on Playables
+    /// without a matched file are ignored.
     /// </summary>
     public static WatchRows Watching(IReadOnlyList<HomePlayable> playables, IEnumerable<WatchState> watches)
     {
         var byId = playables.ToDictionary(p => p.Id);
         var watched = new HashSet<Guid>();
         var latest = new Dictionary<Guid, (HomePlayable Playable, WatchState State)>();
+        var latestWatchedEpisode = new Dictionary<Guid, (EpisodeSlot Slot, DateTimeOffset At)>();
         foreach (var w in watches)
         {
             if (!byId.TryGetValue(w.PlayableId, out var playable))
@@ -43,9 +45,17 @@ public static class HomeRules
                 continue;
             }
 
+            // Marking a season stamps its episodes alike: of those, the last in episode order counts as the latest.
             if (w.Watched)
             {
                 watched.Add(w.PlayableId);
+                if (playable.Slot is { } slot
+                    && (!latestWatchedEpisode.TryGetValue(playable.TitleId, out var anchor)
+                        || w.LastWatchedAt > anchor.At
+                        || (w.LastWatchedAt == anchor.At && EpisodeOrder(slot).CompareTo(EpisodeOrder(anchor.Slot)) > 0)))
+                {
+                    latestWatchedEpisode[playable.TitleId] = (slot, w.LastWatchedAt);
+                }
             }
 
             if (!latest.TryGetValue(playable.TitleId, out var current)
@@ -66,18 +76,40 @@ public static class HomeRules
                 continueWatching.Add(new WatchPick(
                     titleId, playable.Id, resume, state.DurationSeconds > 0 ? state.DurationSeconds : null));
             }
-            else if (state.Watched && playable.Slot is { } slot)
+            else if (latestWatchedEpisode.TryGetValue(titleId, out var anchor)
+                && NextUnwatched(anchor.Slot, episodesByTitle[titleId], watched) is { } next)
             {
-                var episodes = episodesByTitle[titleId].GroupBy(p => p.Slot!.Value).ToDictionary(g => g.Key, g => g.First());
-                if (WatchRules.NextEpisode(slot, episodes.Keys) is { } next && !watched.Contains(episodes[next].Id))
-                {
-                    nextUp.Add(new WatchPick(titleId, episodes[next].Id));
-                }
+                nextUp.Add(new WatchPick(titleId, next.Id));
             }
         }
 
         return new WatchRows(continueWatching, nextUp);
     }
+
+    /// <summary>
+    /// The first unwatched episode after <paramref name="from"/> in <see cref="WatchRules.NextEpisode"/> order (from a
+    /// regular episode only regular seasons follow; from a special, the later specials, then the regular seasons), else
+    /// the earliest unwatched regular episode. Null when every regular episode is watched.
+    /// </summary>
+    private static HomePlayable? NextUnwatched(EpisodeSlot from, IEnumerable<HomePlayable> episodesOfShow, HashSet<Guid> watched)
+    {
+        var ordered = episodesOfShow
+            .GroupBy(p => p.Slot!.Value)
+            .Select(g => g.First())
+            .OrderBy(p => EpisodeOrder(p.Slot!.Value))
+            .ToList();
+        var regular = ordered.Where(p => p.Slot!.Value.SeasonNumber != WatchRules.SpecialsSeason).ToList();
+        var after = from.SeasonNumber == WatchRules.SpecialsSeason
+            ? ordered.Where(p => p.Slot!.Value.SeasonNumber == WatchRules.SpecialsSeason && p.Slot.Value.EpisodeNumber > from.EpisodeNumber)
+                .Concat(regular)
+            : regular.Where(p => EpisodeOrder(p.Slot!.Value).CompareTo(EpisodeOrder(from)) > 0);
+
+        return after.FirstOrDefault(p => !watched.Contains(p.Id)) ?? regular.FirstOrDefault(p => !watched.Contains(p.Id));
+    }
+
+    /// <summary>Regular seasons first, then specials; by season, then episode.</summary>
+    private static (bool Special, int Season, int Episode) EpisodeOrder(EpisodeSlot slot) =>
+        (slot.SeasonNumber == WatchRules.SpecialsSeason, slot.SeasonNumber, slot.EpisodeNumber);
 
     /// <summary>Titles by when their newest file was found, newest first.</summary>
     public static IReadOnlyList<HomeTitle> RecentlyAdded(IEnumerable<HomeTitle> titles) =>
@@ -117,7 +149,8 @@ public static class HomeRules
 
     /// <summary>
     /// What the hero's Play starts: the title's Continue Watching or Next Up pick, else the movie, else the show's first
-    /// episode (regular seasons before specials). Null when none of its Playables has a file.
+    /// episode (regular seasons before specials), which a show only falls back to unstarted or fully watched. Null when
+    /// none of its Playables has a file.
     /// </summary>
     public static WatchPick? HeroPlay(Guid titleId, IEnumerable<HomePlayable> playablesOfTitle, WatchRows watching) =>
         watching.ContinueWatching.FirstOrDefault(p => p.TitleId == titleId)
