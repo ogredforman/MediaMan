@@ -1,13 +1,15 @@
 // The app version's checks (PLAN 2.5.5). The version lives in the root package.json; web and desktop carry the same
 // one (electron-builder names the installer from desktop/package.json) and server/Directory.Build.props reads it from
-// the root, so /health reports it. Bump every copy, and package-lock.json, at once with:
+// the root, so /health reports it. npm run release -- X.Y.Z (scripts/release.mjs) bumps, commits, tags and pushes; to
+// bump every copy, and package-lock.json, by hand:
 //
 //   npm version X.Y.Z --workspaces --include-workspace-root --no-git-tag-version
 //
 //   node scripts/version.mjs check                  every copy agrees and is X.Y.Z or X.Y.Z-suffix (npm run lint)
 //   node scripts/version.mjs check --tag vX.Y.Z     ...and the tag is v<version> (release workflow)
 //   node scripts/version.mjs check-fixture          a migration fixture database exists for the current schema
-//                                                   (release workflow only: the fixtures come with PLAN 2.5.3)
+//                                                   (release workflow and npm run release only: the fixtures
+//                                                   come with PLAN 2.5.3)
 
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';

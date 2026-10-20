@@ -15,7 +15,8 @@
     "lint": "node scripts/version.mjs check && eslint . && dotnet format server/MediaMan.sln --verify-no-changes",
     "publish:server:win": "node scripts/publish-server.mjs",
     "brand": "node scripts/brand-assets.mjs",
-    "package:win": "node scripts/package-win.mjs"
+    "package:win": "node scripts/package-win.mjs",
+    "release": "node scripts/release.mjs"
   },
   "engines": {
     "node": ">=22"
