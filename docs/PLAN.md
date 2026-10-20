@@ -35,7 +35,7 @@ to the Parked section at the bottom.
   The same library plays in a browser with direct play, remux or transcode (Stage 5), and is reachable
   safely from outside the LAN, including from the desktop app and a phone browser (Stage 6). Multiple
   users and roles, metadata extras, Docker and automation come after the MVP.
-- Licence: AGPL-3.0. The repo stays private until it's "finished".
+- Licence: AGPL-3.0. The repo is public on GitHub from v0.2 (October 2026); issues welcome, outside PRs not accepted yet.
 
 ---
 
