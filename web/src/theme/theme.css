@@ -34,9 +34,19 @@
 }
 
 @layer base {
+  /* The shell header's height (AppShell); it stays at the top while the page scrolls. */
+  :root {
+    --header-height: 4.25rem;
+  }
+
   html,
   body {
     @apply bg-bg text-fg antialiased;
+  }
+
+  /* Focus moves and anchor jumps stop below the sticky shell header instead of under it. */
+  html {
+    scroll-padding-top: var(--header-height);
   }
 
   /* The player page (routes/player.tsx) sits over the video. */

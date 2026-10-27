@@ -19,6 +19,14 @@ describe('AppShell', () => {
     expect(await screen.findByText(`Server ${mockHealth.version}`)).toBeInTheDocument();
   });
 
+  it('keeps the header at the top of the viewport over the scrolling page', async () => {
+    renderApp();
+
+    await screen.findByRole('heading', { name: 'Home' });
+    // jsdom does no layout, so this checks the classes that pin the header (opaque, above the page content).
+    expect(screen.getByRole('banner')).toHaveClass('sticky', 'top-0', 'z-30', 'bg-surface');
+  });
+
   it('opens the profile menu with Switch profile, closes it on Esc and on an outside click', async () => {
     const user = userEvent.setup();
     renderApp('/movies');
