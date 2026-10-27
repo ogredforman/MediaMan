@@ -33,7 +33,7 @@ describe('PlayerOverlay', () => {
     await user.click(screen.getByRole('button', { name: 'Previous episode: The Office S01E01 · Pilot' }));
     await user.click(screen.getByRole('button', { name: 'Back 10 seconds' }));
     await user.click(screen.getByRole('button', { name: 'Pause' }));
-    await user.click(screen.getByRole('button', { name: 'Forward 30 seconds' }));
+    await user.click(screen.getByRole('button', { name: 'Forward 10 seconds' }));
     await user.click(screen.getByRole('button', { name: 'Next episode: The Office S01E03 · Health Care' }));
     await user.click(screen.getByRole('button', { name: 'Fullscreen' }));
     expect(controller.actions).toEqual([
@@ -41,7 +41,7 @@ describe('PlayerOverlay', () => {
       { type: 'episode', choice: 'previous' },
       { type: 'seekBy', seconds: -10 },
       { type: 'togglePause' },
-      { type: 'seekBy', seconds: 30 },
+      { type: 'seekBy', seconds: 10 },
       { type: 'episode', choice: 'next' },
       { type: 'toggleFullscreen' },
     ]);
@@ -161,7 +161,7 @@ describe('PlayerOverlay', () => {
         { type: 'togglePause' },
         { type: 'togglePause' },
         { type: 'seekBy', seconds: -10 },
-        { type: 'seekBy', seconds: 30 },
+        { type: 'seekBy', seconds: 10 },
         { type: 'setVolume', volume: 55 },
         { type: 'setVolume', volume: 45 },
         { type: 'toggleMute' },
@@ -183,7 +183,7 @@ describe('PlayerOverlay', () => {
       fireEvent.keyDown(document.body, { key: 'f', repeat: true });
       fireEvent.keyDown(document.body, { key: 'm', repeat: true });
       fireEvent.keyDown(document.body, { key: 'ArrowRight', repeat: true });
-      expect(controller.actions).toEqual([{ type: 'seekBy', seconds: 30 }]);
+      expect(controller.actions).toEqual([{ type: 'seekBy', seconds: 10 }]);
     });
 
     it('leaves fullscreen on Esc, then goes Back', async () => {
@@ -200,11 +200,11 @@ describe('PlayerOverlay', () => {
     it('lets a focused button take Space and the volume slider take its arrows', async () => {
       const user = userEvent.setup();
       const { controller } = renderOverlay();
-      screen.getByRole('button', { name: 'Forward 30 seconds' }).focus();
+      screen.getByRole('button', { name: 'Forward 10 seconds' }).focus();
       await user.keyboard(' ');
       screen.getByRole('slider', { name: 'Volume' }).focus();
       await user.keyboard('{ArrowLeft}');
-      expect(controller.actions.filter((a) => a.type === 'togglePause' || a.type === 'seekBy')).toEqual([{ type: 'seekBy', seconds: 30 }]);
+      expect(controller.actions.filter((a) => a.type === 'togglePause' || a.type === 'seekBy')).toEqual([{ type: 'seekBy', seconds: 10 }]);
     });
 
     it('toggles fullscreen on a double-click on the video, not on a control', async () => {
@@ -225,7 +225,7 @@ describe('PlayerOverlay', () => {
         screen.getByRole('button', { name: /^Previous episode/ }),
         screen.getByRole('button', { name: 'Back 10 seconds' }),
         screen.getByRole('button', { name: 'Pause' }),
-        screen.getByRole('button', { name: 'Forward 30 seconds' }),
+        screen.getByRole('button', { name: 'Forward 10 seconds' }),
         screen.getByRole('button', { name: /^Next episode/ }),
         screen.getByRole('button', { name: 'Mute' }),
         screen.getByRole('slider', { name: 'Volume' }),

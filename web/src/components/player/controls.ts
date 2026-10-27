@@ -5,7 +5,7 @@ export const idleMs = 3000;
 /** What ← and the skip back button seek. */
 export const skipBackSeconds = 10;
 /** What → and the skip forward button seek. */
-export const skipForwardSeconds = 30;
+export const skipForwardSeconds = 10;
 /** How much one wheel notch or ↑/↓ changes the volume. */
 export const volumeStep = 5;
 
