@@ -9,12 +9,14 @@ const opts: PlayOptions = { url: 'http://127.0.0.1:8420/media-files/1/stream?sig
 
 function fakeMain() {
   let bounds = { x: 100, y: 50, width: 1280, height: 760 };
+  const display = { x: 0, y: 0, width: 2560, height: 1440 };
   let fullscreen = false;
   const boundsListeners: (() => void)[] = [];
   const fullscreenListeners: (() => void)[] = [];
   const log: string[] = [];
   const main: MainWindowLike = {
     getContentBounds: () => bounds,
+    getDisplayBounds: () => display,
     isFullScreen: () => fullscreen,
     setFullScreen: (on) => {
       log.push(on ? 'enterFullscreen' : 'leaveFullscreen');
@@ -81,6 +83,19 @@ describe('OverlayWindow', () => {
     overlay.show();
     expect(overlays).toHaveLength(1);
     expect(overlay.contents()).toBe(overlays[0]?.window.webContents);
+  });
+
+  it('covers the whole display in fullscreen, even when the content bounds come back a pixel short', () => {
+    const { overlay, overlays, move } = setUp();
+    overlay.show();
+    overlay.toggleFullscreen();
+    // Windows after the app is refocused in fullscreen: the content bounds lose the bottom row.
+    move({ x: 0, y: 0, width: 2560, height: 1439 });
+    expect(overlays[0]?.window.bounds).toEqual({ x: 0, y: 0, width: 2560, height: 1440 });
+
+    overlay.toggleFullscreen();
+    move({ x: 100, y: 50, width: 1280, height: 760 });
+    expect(overlays[0]?.window.bounds).toEqual({ x: 100, y: 50, width: 1280, height: 760 });
   });
 
   it('sends the state with the main window fullscreen, again when that changes and when asked', () => {

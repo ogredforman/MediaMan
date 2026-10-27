@@ -2,7 +2,7 @@
 // the packaged app's own server, or `MEDIAMAN_SERVER_PATH` as a dev override. Where MPV is embedded it plays inside
 // that window, under the player overlay (ADR 0011).
 import path from 'node:path';
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, screen, shell } from 'electron';
 import { registerBridge, type MpvChoice } from './bridge.js';
 import { bundledTools } from './bundled.js';
 import { DesktopSettings, executableOf, mpvPathFrom, mpvSettingFrom } from './desktopSettings.js';
@@ -94,7 +94,7 @@ function createMainWindow(): void {
   const win = new BrowserWindow(mainWindowOptions(preloadPath, windowIconPath(app.getAppPath(), process.platform)));
   mainWindow = win;
   guardContents(win.webContents);
-  if (embedsPlayer(process.platform)) overlay = new OverlayWindow(followedWindow(win), () => createOverlayWindow(win));
+  if (embedsPlayer(process.platform)) overlay = new OverlayWindow(followedWindow(win, screen), () => createOverlayWindow(win));
   win.on('closed', () => {
     mainWindow = undefined;
     overlay = undefined;

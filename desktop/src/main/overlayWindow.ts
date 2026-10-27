@@ -1,13 +1,15 @@
 // The player overlay window (ADR 0011): a transparent window owned by the main window, kept on its content bounds,
 // drawing the React OSD over the MPV that plays inside the main window. Shown while something plays; hidden, with the
 // keyboard back on the main window, however playback ends. Kept free of runtime Electron imports so it can be tested.
-import type { BrowserWindow, Rectangle } from 'electron';
+import type { BrowserWindow, Rectangle, Screen } from 'electron';
 import { bridgeEvents, type BridgeSender, type OverlayLink } from './bridge.js';
 import type { HostState } from './playerHost.js';
 
 /** The parts of the main window the overlay follows. */
 export interface MainWindowLike {
   getContentBounds(): Rectangle;
+  /** The bounds of the display the window is on. */
+  getDisplayBounds(): Rectangle;
   isFullScreen(): boolean;
   setFullScreen(on: boolean): void;
   focus(): void;
@@ -97,9 +99,15 @@ export class OverlayWindow implements OverlayLink {
     contents.send(bridgeEvents.playerState, state);
   }
 
+  /**
+   * In fullscreen the overlay covers the whole display, not the content bounds: on Windows those can come back a pixel
+   * short after the app is refocused, and the overlay, the foreground window, then no longer counts as fullscreen, so
+   * the taskbar stays over the video on the next refocus.
+   */
   private fit(): void {
     const overlay = this.live();
-    if (overlay && !this.main.isDestroyed()) overlay.setBounds(this.main.getContentBounds());
+    if (!overlay || this.main.isDestroyed()) return;
+    overlay.setBounds(this.main.isFullScreen() ? this.main.getDisplayBounds() : this.main.getContentBounds());
   }
 
   private live(): OverlayWindowLike | undefined {
@@ -108,9 +116,10 @@ export class OverlayWindow implements OverlayLink {
 }
 
 /** The main window as the overlay follows it. */
-export function followedWindow(win: BrowserWindow): MainWindowLike {
+export function followedWindow(win: BrowserWindow, screen: Screen): MainWindowLike {
   return {
     getContentBounds: () => win.getContentBounds(),
+    getDisplayBounds: () => screen.getDisplayMatching(win.getBounds()).bounds,
     isFullScreen: () => win.isFullScreen(),
     setFullScreen: (on) => {
       win.setFullScreen(on);
