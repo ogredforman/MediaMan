@@ -27,6 +27,17 @@ describe('AppShell', () => {
     expect(screen.getByRole('banner')).toHaveClass('sticky', 'top-0', 'z-30', 'bg-surface');
   });
 
+  it("is the desktop window's title bar, with the profile menu's panel still clickable", async () => {
+    const user = userEvent.setup();
+    renderApp('/movies');
+
+    const header = await screen.findByRole('banner');
+    // theme.css makes .title-bar drag the window and its links, buttons, inputs and .no-drag panels clickable.
+    expect(header).toHaveClass('title-bar');
+    await user.click(await within(header).findByRole('button', { name: /Profile menu/ }));
+    expect(within(header).getByRole('link', { name: 'Switch profile' }).closest('.no-drag')).not.toBeNull();
+  });
+
   it('opens the profile menu with Switch profile, closes it on Esc and on an outside click', async () => {
     const user = userEvent.setup();
     renderApp('/movies');

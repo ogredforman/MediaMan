@@ -6,6 +6,7 @@ import { storeTokens } from '../lib/session';
 import { Field, FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
 import { Logo } from './Logo';
+import { TitleBarStrip } from './TitleBarStrip';
 
 /** Matches the server's rule (SPEC §7.1 step 2); the server checks it again. */
 const minimumPasswordLength = 12;
@@ -129,6 +130,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
+      <TitleBarStrip />
       <form
         aria-labelledby="setup-heading"
         onSubmit={submit}

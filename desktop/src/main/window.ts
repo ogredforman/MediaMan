@@ -11,6 +11,13 @@ export const SERVER_UI_PATH = '/app/';
 /** SPEC §11 background, shown before the UI paints. */
 const BACKGROUND_COLOR = '#0E0B14';
 
+/** The OS-drawn window controls in the title bar (SPEC §11): the shell header's surface and text colours. */
+export const TITLE_BAR_COLOR = '#17121F';
+export const TITLE_BAR_SYMBOL_COLOR = '#F4F1FA';
+
+/** The height of the OS-drawn window controls; the web UI reads it as `env(titlebar-area-height)`. */
+export const TITLE_BAR_HEIGHT = 40;
+
 /** The web UI the server at `serverBaseUrl` serves. */
 export function serverUiUrl(serverBaseUrl: string): URL {
   return new URL(SERVER_UI_PATH, serverBaseUrl);
@@ -47,10 +54,18 @@ export function windowIconPath(appPath: string, platform: NodeJS.Platform): stri
   return path.join(appPath, 'assets', platform === 'win32' ? 'icon.ico' : 'icon.png');
 }
 
-/** The renderer is the shared web UI: isolated, sandboxed, no Node (.claude/rules/desktop.md). */
-export function mainWindowOptions(preloadPath: string, iconPath?: string): BrowserWindowConstructorOptions {
+/**
+ * The renderer is the shared web UI: isolated, sandboxed, no Node (.claude/rules/desktop.md). The OS title bar is
+ * hidden so the app's header is the top of the window (SPEC §11).
+ */
+export function mainWindowOptions(
+  preloadPath: string,
+  platform: NodeJS.Platform,
+  iconPath?: string,
+): BrowserWindowConstructorOptions {
   return {
     ...(iconPath === undefined ? {} : { icon: iconPath }),
+    ...titleBarOptions(platform),
     width: 1280,
     height: 800,
     minWidth: 800,
@@ -65,6 +80,21 @@ export function mainWindowOptions(preloadPath: string, iconPath?: string): Brows
       sandbox: true,
       webSecurity: true,
     },
+  };
+}
+
+/**
+ * No OS title bar: on Windows and Linux the OS still draws its minimize, maximize and close buttons over the top right
+ * of the page (Windows 11 snap layouts included), in the header's colours; on macOS the traffic lights sit inset over
+ * the top left.
+ */
+export function titleBarOptions(
+  platform: NodeJS.Platform,
+): Pick<BrowserWindowConstructorOptions, 'titleBarStyle' | 'titleBarOverlay'> {
+  if (platform === 'darwin') return { titleBarStyle: 'hiddenInset' };
+  return {
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: TITLE_BAR_COLOR, symbolColor: TITLE_BAR_SYMBOL_COLOR, height: TITLE_BAR_HEIGHT },
   };
 }
 

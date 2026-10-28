@@ -14,6 +14,9 @@ import {
   overlayWindowOptions,
   resolveUiUrl,
   serverUiUrl,
+  TITLE_BAR_COLOR,
+  TITLE_BAR_HEIGHT,
+  TITLE_BAR_SYMBOL_COLOR,
   windowIconPath,
 } from './window.js';
 
@@ -47,7 +50,7 @@ describe('resolveUiUrl', () => {
 
 describe('mainWindowOptions', () => {
   it('isolates and sandboxes the renderer', () => {
-    expect(mainWindowOptions('preload.cjs').webPreferences).toMatchObject({
+    expect(mainWindowOptions('preload.cjs', 'win32').webPreferences).toMatchObject({
       preload: 'preload.cjs',
       contextIsolation: true,
       nodeIntegration: false,
@@ -57,8 +60,21 @@ describe('mainWindowOptions', () => {
   });
 
   it('sets the window icon only when given one', () => {
-    expect(mainWindowOptions('preload.cjs', 'icon.ico').icon).toBe('icon.ico');
-    expect(mainWindowOptions('preload.cjs')).not.toHaveProperty('icon');
+    expect(mainWindowOptions('preload.cjs', 'win32', 'icon.ico').icon).toBe('icon.ico');
+    expect(mainWindowOptions('preload.cjs', 'win32')).not.toHaveProperty('icon');
+  });
+
+  it.each(['win32', 'linux'] as const)('hides the title bar but keeps the OS window controls in the theme colours on %s', (platform) => {
+    expect(mainWindowOptions('preload.cjs', platform)).toMatchObject({
+      titleBarStyle: 'hidden',
+      titleBarOverlay: { color: TITLE_BAR_COLOR, symbolColor: TITLE_BAR_SYMBOL_COLOR, height: TITLE_BAR_HEIGHT },
+    });
+  });
+
+  it('insets the traffic lights on macOS', () => {
+    const options = mainWindowOptions('preload.cjs', 'darwin');
+    expect(options.titleBarStyle).toBe('hiddenInset');
+    expect(options).not.toHaveProperty('titleBarOverlay');
   });
 });
 

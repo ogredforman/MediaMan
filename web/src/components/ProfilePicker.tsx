@@ -19,6 +19,7 @@ import type { ApiError } from '../lib/http';
 import { FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
 import { LanguagePreferences } from './LanguagePreferences';
+import { TitleBarStrip } from './TitleBarStrip';
 
 /** Matches the server's rules (SPEC §7.11); the server checks them again. */
 const maximumProfiles = 10;
@@ -184,6 +185,7 @@ function Screen({ heading, children }: { heading: string; children: ReactNode })
   }, [heading]);
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8 text-center">
+      <TitleBarStrip />
       <h1 ref={ref} tabIndex={-1} className="text-3xl font-semibold focus:outline-none">
         {heading}
       </h1>
@@ -276,6 +278,7 @@ function ProfileForm({
   const heading = profile === undefined ? 'Add profile' : 'Edit profile';
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
+      <TitleBarStrip />
       <form
         aria-labelledby="profile-form-heading"
         noValidate

@@ -626,6 +626,7 @@ soft shadows, subtle motion (150–250 ms). Every interactive element is reachab
 - **Downloads:** active, seeding and completed lists; VPN status badge always visible; requests tab for approvers ([L], with multiple users).
 - **Needs attention:** cards with the file name, parsed guess and candidate posters; one-click confirm or search.
 - **Player (desktop):** MPV inside the app window under a React OSD on a dark gradient, in a transparent overlay window (title, progress bar with chapters, skip back 10 s and forward 10 s, previous and next episode, volume, audio and subtitle menus, fullscreen, Up next; ADR 0011). The browser player reuses the OSD.
+- **Desktop window:** no OS title bar; the shell header is the top of the window and drags it (screens without the header get a drag strip), with the OS-drawn minimize, maximize/restore and close buttons at the top right in the header's colours on Windows and Linux (`titleBarOverlay`, so snap layouts keep working) and inset traffic lights on macOS. The same web UI in a browser is unchanged.
 - **Player (browser):** an HTML5 video element under the same OSD.
 - **Settings:** Libraries, Playback, Torrents and VPN, Indexers, Quality (tier table, saved profiles), Users and roles, Remote access (the switch and guided setup, trusted proxies, the ban list), About and licences.
 - **Remote access badge:** while remote access is on, admins see a "Remote access on" badge in the shell (7.12).

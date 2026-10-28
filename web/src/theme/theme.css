@@ -59,3 +59,33 @@
     @apply outline-2 outline-offset-2 outline-highlight;
   }
 }
+
+/*
+ * The desktop app's title bar (SPEC §11): the window has no OS title bar, so the shell header (.title-bar) and the
+ * strip on screens without it (.title-bar-strip) drag the window, while what can be clicked in them doesn't. The header
+ * leaves room on the right for the OS window controls and, on macOS, on the left for the traffic lights. The
+ * titlebar-area-* variables are unset in a browser, so there it adds nothing. Unlayered, so it wins over px-* utilities.
+ */
+.title-bar,
+.title-bar-strip {
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+.title-bar {
+  padding-left: 2rem;
+  padding-right: calc(2rem + 100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+}
+
+html[data-desktop-platform='darwin'] .title-bar {
+  padding-left: 5.5rem;
+}
+
+.title-bar-strip {
+  height: env(titlebar-area-height, 0px);
+}
+
+.title-bar :is(a, button, input, select, textarea, .no-drag) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}

@@ -68,7 +68,7 @@ export function HeaderPopover({
       {open && (
         <div
           id={panelId}
-          className="absolute right-0 top-full z-20 mt-2 w-max max-w-[min(32rem,90vw)] rounded-card bg-surface p-3 text-sm text-fg-muted shadow-soft"
+          className="no-drag absolute right-0 top-full z-20 mt-2 w-max max-w-[min(32rem,90vw)] rounded-card bg-surface p-3 text-sm text-fg-muted shadow-soft"
         >
           {children(() => { setOpen(false); })}
         </div>

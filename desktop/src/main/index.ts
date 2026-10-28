@@ -91,7 +91,7 @@ function createOverlayWindow(main: BrowserWindow): BrowserWindow {
 }
 
 function createMainWindow(): void {
-  const win = new BrowserWindow(mainWindowOptions(preloadPath, windowIconPath(app.getAppPath(), process.platform)));
+  const win = new BrowserWindow(mainWindowOptions(preloadPath, process.platform, windowIconPath(app.getAppPath(), process.platform)));
   mainWindow = win;
   guardContents(win.webContents);
   if (embedsPlayer(process.platform)) overlay = new OverlayWindow(followedWindow(win, screen), () => createOverlayWindow(win));

@@ -161,6 +161,8 @@ export function desktopBridge(): MediamanDesktop | undefined {
 export async function connectDesktop(): Promise<void> {
   const bridge = desktopBridge();
   if (bridge === undefined) return;
+  // The header leaves room for the window controls where the platform puts them (theme.css .title-bar).
+  document.documentElement.dataset.desktopPlatform = bridge.platform;
   const [baseUrl] = await Promise.all([bridge.server.baseUrl(), keepTokensOnDesktop(bridge.tokens)]);
   if (baseUrl !== null) setApiBaseUrl(baseUrl);
 }

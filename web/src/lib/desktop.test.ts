@@ -48,6 +48,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   delete window.mediamanDesktop;
+  delete document.documentElement.dataset.desktopPlatform;
 });
 
 describe('connectDesktop', () => {
@@ -59,6 +60,7 @@ describe('connectDesktop', () => {
     expect(storedTokens()).toEqual(tokensA);
     expect(localStorage.getItem('mediaman.auth')).not.toBeNull();
     expect(apiUrl('/titles')).toBe(`${window.location.origin}/titles`);
+    expect(document.documentElement.dataset.desktopPlatform).toBeUndefined();
   });
 
   it('starts from the tokens the desktop app saved and calls its server', async () => {
@@ -70,6 +72,8 @@ describe('connectDesktop', () => {
     expect(storedTokens()).toEqual(savedTokens);
     expect(isSignedIn()).toBe(true);
     expect(apiUrl('/titles')).toBe('http://127.0.0.1:8420/titles');
+    // The header leaves room for the window controls where this platform puts them.
+    expect(document.documentElement.dataset.desktopPlatform).toBe('linux');
   });
 
   it('starts signed out when the saved tokens are unreadable', async () => {

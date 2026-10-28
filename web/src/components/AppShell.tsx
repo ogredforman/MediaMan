@@ -22,8 +22,9 @@ const menuItemClass =
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Sticky and opaque, so the page scrolls under it; above page content, below modals (z-50). */}
-      <header className="sticky top-0 z-30 flex min-h-(--header-height) items-center gap-6 bg-surface px-8 py-3 shadow-soft">
+      {/* Sticky and opaque, so the page scrolls under it; above page content, below modals (z-50). It is the desktop
+          window's title bar too (.title-bar in theme.css). */}
+      <header className="title-bar sticky top-0 z-30 flex min-h-(--header-height) items-center gap-6 bg-surface py-3 shadow-soft">
         <div className="flex shrink-0 items-center gap-3">
           <Logo size={44} variant="wide" />
           <span className="text-xl font-bold text-highlight">MediaMan</span>

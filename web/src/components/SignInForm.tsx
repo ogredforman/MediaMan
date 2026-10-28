@@ -2,6 +2,7 @@ import { useState, type SubmitEvent } from 'react';
 import { useLogin } from '../api/mediaman';
 import { storeTokens } from '../lib/session';
 import { Logo } from './Logo';
+import { TitleBarStrip } from './TitleBarStrip';
 
 const inputClass = 'rounded-card bg-bg px-3 py-2 text-fg';
 
@@ -32,6 +33,7 @@ export function SignInForm({ onSignedIn, onSetupRequired }: { onSignedIn: () => 
 
   return (
     <main className="flex min-h-screen items-center justify-center p-8">
+      <TitleBarStrip />
       <form
         aria-labelledby="sign-in-heading"
         onSubmit={submit}
