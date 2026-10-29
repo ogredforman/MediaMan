@@ -1,7 +1,7 @@
 // What the player OSD (components/player) talks to: the playing file's state in, the viewer's actions out. The desktop
 // app's controller goes over the preload bridge; Stage 5's browser player will provide one over a <video> element.
 import { useSyncExternalStore } from 'react';
-import type { DesktopOverlayState, DesktopPlayerBridge, DesktopPlayerCommand } from './desktop';
+import type { DesktopOverlayState, DesktopPlayerBridge, DesktopPlayerCommand, DesktopWindowAction } from './desktop';
 
 /**
  * Everything the OSD draws: the player state, whether it fills the screen (Esc leaves fullscreen before it goes Back),
@@ -9,11 +9,15 @@ import type { DesktopOverlayState, DesktopPlayerBridge, DesktopPlayerCommand } f
  */
 export type PlayerView = DesktopOverlayState;
 
-/** What the OSD asks for: a player command, leaving the player (Back), toggling fullscreen, or the answer to Up next. */
+/**
+ * What the OSD asks for: a player command, leaving the player (Back), toggling fullscreen, a window control, or the
+ * answer to Up next.
+ */
 export type PlayerAction =
   | DesktopPlayerCommand
   | { type: 'back' }
   | { type: 'toggleFullscreen' }
+  | DesktopWindowAction
   | { type: 'upNext'; choice: 'play' | 'cancel' };
 
 export interface PlayerController {
@@ -56,6 +60,9 @@ export function createDesktopPlayerController(player: DesktopPlayerBridge): Play
       switch (action.type) {
         case 'back':
         case 'toggleFullscreen':
+        case 'minimize':
+        case 'toggleMaximize':
+        case 'close':
         case 'upNext':
           player.overlay(action).catch(logRefused);
           return;

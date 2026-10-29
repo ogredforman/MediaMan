@@ -11,6 +11,7 @@ function fakeMain() {
   let bounds = { x: 100, y: 50, width: 1280, height: 760 };
   const display = { x: 0, y: 0, width: 2560, height: 1440 };
   let fullscreen = false;
+  let maximized = false;
   const boundsListeners: (() => void)[] = [];
   const fullscreenListeners: (() => void)[] = [];
   const log: string[] = [];
@@ -23,6 +24,19 @@ function fakeMain() {
       fullscreen = on;
       for (const listener of [...boundsListeners, ...fullscreenListeners]) listener();
     },
+    isMaximized: () => maximized,
+    minimize: () => log.push('minimize'),
+    maximize: () => {
+      log.push('maximize');
+      maximized = true;
+      for (const listener of boundsListeners) listener();
+    },
+    unmaximize: () => {
+      log.push('unmaximize');
+      maximized = false;
+      for (const listener of boundsListeners) listener();
+    },
+    close: () => log.push('close'),
     focus: () => log.push('focus'),
     isDestroyed: () => false,
     onBoundsChange: (listener) => boundsListeners.push(listener),
@@ -106,8 +120,27 @@ describe('OverlayWindow', () => {
     overlay.toggleFullscreen();
 
     expect(overlays[0]?.sent).toEqual([
-      [bridgeEvents.playerState, { ...state, fullscreen: false }],
-      [bridgeEvents.playerState, { ...state, fullscreen: true }],
+      [bridgeEvents.playerState, { ...state, fullscreen: false, maximized: false }],
+      [bridgeEvents.playerState, { ...state, fullscreen: true, maximized: false }],
+    ]);
+  });
+
+  it('works the main window controls and sends maximized again only when it changes, not on a move', () => {
+    const { overlay, overlays, move, mainLog } = setUp();
+    overlay.show();
+    overlay.setState(state);
+    move({ x: 10, y: 10, width: 1280, height: 760 });
+    overlay.toggleMaximize();
+    move({ x: 0, y: 0, width: 2560, height: 1400 });
+    overlay.toggleMaximize();
+    overlay.minimize();
+    overlay.close();
+
+    expect(mainLog).toEqual(['maximize', 'unmaximize', 'minimize', 'close']);
+    expect(overlays[0]?.sent).toEqual([
+      [bridgeEvents.playerState, { ...state, fullscreen: false, maximized: false }],
+      [bridgeEvents.playerState, { ...state, fullscreen: false, maximized: true }],
+      [bridgeEvents.playerState, { ...state, fullscreen: false, maximized: false }],
     ]);
   });
 

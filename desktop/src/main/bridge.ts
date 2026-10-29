@@ -20,7 +20,7 @@ export const bridgeChannels = {
   playerUseDefaultMpv: 'mediaman:player-use-default-mpv',
   /** Overlay only: a `PlayerCommand` for the file that plays. */
   playerCommand: 'mediaman:player-command',
-  /** Overlay only: an `OverlayAction` (Back, fullscreen, Up next's answer, ready). */
+  /** Overlay only: an `OverlayAction` (Back, fullscreen, the window controls, Up next's answer, ready). */
   playerOverlay: 'mediaman:player-overlay',
 } as const;
 
@@ -48,12 +48,23 @@ export interface OverlayLink {
   /** The overlay's contents; undefined while there is none. */
   contents(): BridgeSender | undefined;
   toggleFullscreen(): void;
+  /** The main window's controls, which the overlay draws while MPV covers the OS-drawn ones. */
+  minimize(): void;
+  toggleMaximize(): void;
+  close(): void;
   /** Sends the latest state again, for a page that has just started listening. */
   resend(): void;
 }
 
 /** What the overlay asks of the main process besides player commands. */
-export type OverlayAction = { type: 'ready' } | { type: 'back' } | { type: 'toggleFullscreen' } | { type: 'upNext'; choice: UpNextChoice };
+export type OverlayAction =
+  | { type: 'ready' }
+  | { type: 'back' }
+  | { type: 'toggleFullscreen' }
+  | { type: 'minimize' }
+  | { type: 'toggleMaximize' }
+  | { type: 'close' }
+  | { type: 'upNext'; choice: UpNextChoice };
 
 export interface IpcMainLike {
   handle(channel: string, listener: (event: BridgeEvent, ...args: unknown[]) => unknown): void;
@@ -165,6 +176,16 @@ export function registerBridge(ipc: IpcMainLike, options: BridgeOptions): void {
         case 'toggleFullscreen':
           overlay.toggleFullscreen();
           return;
+        case 'minimize':
+          overlay.minimize();
+          return;
+        case 'toggleMaximize':
+          overlay.toggleMaximize();
+          return;
+        case 'close':
+          // Closing the main window quits the app, and quitting stops MPV (`before-quit`).
+          overlay.close();
+          return;
         case 'upNext':
           options.player.answerUpNext(action.choice);
           return;
@@ -274,6 +295,9 @@ export function parseOverlayAction(value: unknown): OverlayAction | undefined {
     case 'ready':
     case 'back':
     case 'toggleFullscreen':
+    case 'minimize':
+    case 'toggleMaximize':
+    case 'close':
       return { type: v.type };
     case 'upNext':
       return v.choice === 'play' || v.choice === 'cancel' ? { type: 'upNext', choice: v.choice } : undefined;

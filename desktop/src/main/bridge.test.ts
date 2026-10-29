@@ -59,6 +59,9 @@ function setUp(serverUrl: string | undefined, overlay?: BridgeSender) {
           overlay: {
             contents: () => overlay,
             toggleFullscreen: () => overlayCalls.push('toggleFullscreen'),
+            minimize: () => overlayCalls.push('minimize'),
+            toggleMaximize: () => overlayCalls.push('toggleMaximize'),
+            close: () => overlayCalls.push('close'),
             resend: () => overlayCalls.push('resend'),
           },
         }
@@ -237,6 +240,19 @@ describe('registerBridge', () => {
     expect(player.playing).toBe(true);
   });
 
+  it("takes the overlay's window controls only from the overlay, for the main window", async () => {
+    const overlay = uiWindow();
+    const main = uiWindow();
+    const { call, overlayCalls } = setUp(serverOrigin, overlay.event.sender);
+
+    for (const type of ['minimize', 'toggleMaximize', 'close']) {
+      await expect(call(bridgeChannels.playerOverlay, main.event, { type })).rejects.toThrow(/overlay/);
+      await call(bridgeChannels.playerOverlay, overlay.event, { type });
+    }
+
+    expect(overlayCalls).toEqual(['minimize', 'toggleMaximize', 'close']);
+  });
+
   it("takes the overlay's Back, fullscreen, ready and Up next answer only from the overlay", async () => {
     const overlay = uiWindow();
     const main = uiWindow();
@@ -271,6 +287,9 @@ describe('parseOverlayAction', () => {
     expect(parseOverlayAction({ type: 'back', extra: 1 })).toEqual({ type: 'back' });
     expect(parseOverlayAction({ type: 'ready' })).toEqual({ type: 'ready' });
     expect(parseOverlayAction({ type: 'toggleFullscreen' })).toEqual({ type: 'toggleFullscreen' });
+    expect(parseOverlayAction({ type: 'minimize', extra: 1 })).toEqual({ type: 'minimize' });
+    expect(parseOverlayAction({ type: 'toggleMaximize' })).toEqual({ type: 'toggleMaximize' });
+    expect(parseOverlayAction({ type: 'close' })).toEqual({ type: 'close' });
     expect(parseOverlayAction({ type: 'upNext', choice: 'play' })).toEqual({ type: 'upNext', choice: 'play' });
     for (const value of [null, 'back', { type: 'upNext' }, { type: 'quit' }]) expect(parseOverlayAction(value)).toBeUndefined();
   });

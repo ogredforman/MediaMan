@@ -162,6 +162,9 @@ void app.whenReady().then(async () => {
     overlay: {
       contents: () => overlay?.contents(),
       toggleFullscreen: () => overlay?.toggleFullscreen(),
+      minimize: () => overlay?.minimize(),
+      toggleMaximize: () => overlay?.toggleMaximize(),
+      close: () => overlay?.close(),
       resend: () => overlay?.resend(),
     },
     chooseMpv: () => chooseMpv(settings),

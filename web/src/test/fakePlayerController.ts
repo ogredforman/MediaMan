@@ -26,6 +26,7 @@ export function playerView(overrides: Partial<PlayerView> = {}): PlayerView {
     ],
     title: 'Alien (1979)',
     fullscreen: false,
+    maximized: false,
     ...overrides,
   };
 }

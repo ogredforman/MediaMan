@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react';
 import { formatPosition } from '../../lib/mediaFormat';
 import { usePlayerView, type PlayerAction, type PlayerController, type PlayerView } from '../../lib/playerController';
-import { clampVolume, iconButtonClass, idleMs, skipBackSeconds, skipForwardSeconds, volumeStep } from './controls';
+import { clampVolume, iconButtonClass, idleMs, skipBackSeconds, skipForwardSeconds, volumeStep, windowButtonClass } from './controls';
 import { NoticeToast } from './NoticeToast';
-import { BackIcon, FullscreenIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, SkipIcon } from './playerIcons';
+import { BackIcon, CloseIcon, FullscreenIcon, MaximizeIcon, MinimizeIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, SkipIcon } from './playerIcons';
 import { SeekBar } from './SeekBar';
 import { TrackMenu, type TrackMenuKind } from './TrackMenu';
 import { UpNextCard } from './UpNextCard';
 import { VolumeControl } from './VolumeControl';
 
 /**
- * The player's on-screen controls (SPEC §11), drawn over the video: a top bar with Back and the title, and a bottom
+ * The player's on-screen controls (SPEC §11), drawn over the video: a top bar with Back, the title and, when the
+ * player covers the window's own controls and isn't fullscreen, minimize, maximize/restore and close; and a bottom
  * panel with the seek bar, transport, time, audio and subtitle menus, volume and fullscreen; the Up next card and
  * notices sit above it and stay up when the controls hide. Controls and the cursor hide after `idleMs` without input
  * while playing and no menu is open. Keys: Space/K play or pause, ←/→ skip, ↑/↓ volume, M mute, F fullscreen, A and C
@@ -131,6 +132,7 @@ export function PlayerOverlay({ controller }: { controller: PlayerController }) 
           <BackIcon />
         </button>
         {view && <h1 className="truncate text-lg font-semibold [text-shadow:0_1px_4px_rgb(0_0_0/0.6)]">{view.title}</h1>}
+        {view?.maximized !== undefined && !view.fullscreen && <WindowControls maximized={view.maximized} act={act} />}
       </header>
 
       {(view === null || view.buffering) && (
@@ -143,6 +145,24 @@ export function PlayerOverlay({ controller }: { controller: PlayerController }) 
       {view && upNext.offer !== undefined && <UpNextCard offer={upNext.offer} positionSeconds={view.positionSeconds} onAnswer={upNext.answer} />}
 
       {view && <BottomPanel view={view} act={act} menu={menu} onMenuChange={setMenu} className={fade} />}
+    </div>
+  );
+}
+
+/** Minimize, maximize/restore and close, flush with the window's top right where the OS draws its own. */
+function WindowControls({ maximized, act }: { maximized: boolean; act: (action: PlayerAction) => void }) {
+  return (
+    // In the header's flow, so a long title truncates before them; pulled out of its padding into the corner.
+    <div className="-mt-4 -mr-4 ml-auto flex shrink-0 self-start">
+      <button type="button" className={windowButtonClass} aria-label="Minimize" title="Minimize" onClick={() => { act({ type: 'minimize' }); }}>
+        <MinimizeIcon />
+      </button>
+      <button type="button" className={windowButtonClass} aria-label={maximized ? 'Restore' : 'Maximize'} title={maximized ? 'Restore' : 'Maximize'} onClick={() => { act({ type: 'toggleMaximize' }); }}>
+        <MaximizeIcon restore={maximized} />
+      </button>
+      <button type="button" className={windowButtonClass} aria-label="Close" title="Close" onClick={() => { act({ type: 'close' }); }}>
+        <CloseIcon />
+      </button>
     </div>
   );
 }

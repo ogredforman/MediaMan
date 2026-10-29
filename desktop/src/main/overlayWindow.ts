@@ -12,6 +12,11 @@ export interface MainWindowLike {
   getDisplayBounds(): Rectangle;
   isFullScreen(): boolean;
   setFullScreen(on: boolean): void;
+  isMaximized(): boolean;
+  minimize(): void;
+  maximize(): void;
+  unmaximize(): void;
+  close(): void;
   focus(): void;
   isDestroyed(): boolean;
   /** Calls back whenever the content bounds may have changed: move, resize, maximize, fullscreen, restore. */
@@ -33,11 +38,14 @@ export interface OverlayWindowLike {
 /** What the overlay page draws (the web UI's `DesktopOverlayState`). */
 export interface OverlayState extends HostState {
   fullscreen: boolean;
+  /** For the window controls the overlay draws: Restore instead of Maximize. */
+  maximized: boolean;
 }
 
 export class OverlayWindow implements OverlayLink {
   private overlay: OverlayWindowLike | undefined;
   private state: HostState | undefined;
+  private maximized: boolean | undefined;
 
   /** @param create makes the overlay window, owned by the main window and loading the `/player` page; called on first show. */
   constructor(
@@ -46,6 +54,8 @@ export class OverlayWindow implements OverlayLink {
   ) {
     main.onBoundsChange(() => {
       this.fit();
+      // Only a change of maximized is news to the overlay, not every move and resize.
+      if (!main.isDestroyed() && main.isMaximized() !== this.maximized) this.send();
     });
     main.onFullscreenChange(() => {
       this.send();
@@ -82,6 +92,22 @@ export class OverlayWindow implements OverlayLink {
     this.main.setFullScreen(!this.main.isFullScreen());
   }
 
+  minimize(): void {
+    if (this.main.isDestroyed()) return;
+    this.main.minimize();
+  }
+
+  toggleMaximize(): void {
+    if (this.main.isDestroyed()) return;
+    if (this.main.isMaximized()) this.main.unmaximize();
+    else this.main.maximize();
+  }
+
+  close(): void {
+    if (this.main.isDestroyed()) return;
+    this.main.close();
+  }
+
   /** The current file's state, sent on with the main window's fullscreen. */
   setState(state: HostState): void {
     this.state = state;
@@ -95,7 +121,8 @@ export class OverlayWindow implements OverlayLink {
   private send(): void {
     const contents = this.contents();
     if (!this.state || !contents || contents.isDestroyed() || this.main.isDestroyed()) return;
-    const state: OverlayState = { ...this.state, fullscreen: this.main.isFullScreen() };
+    this.maximized = this.main.isMaximized();
+    const state: OverlayState = { ...this.state, fullscreen: this.main.isFullScreen(), maximized: this.maximized };
     contents.send(bridgeEvents.playerState, state);
   }
 
@@ -123,6 +150,19 @@ export function followedWindow(win: BrowserWindow, screen: Screen): MainWindowLi
     isFullScreen: () => win.isFullScreen(),
     setFullScreen: (on) => {
       win.setFullScreen(on);
+    },
+    isMaximized: () => win.isMaximized(),
+    minimize: () => {
+      win.minimize();
+    },
+    maximize: () => {
+      win.maximize();
+    },
+    unmaximize: () => {
+      win.unmaximize();
+    },
+    close: () => {
+      win.close();
     },
     focus: () => {
       win.focus();

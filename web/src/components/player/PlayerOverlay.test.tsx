@@ -47,6 +47,29 @@ describe('PlayerOverlay', () => {
     ]);
   });
 
+  it('draws the window controls, Restore while maximized, and none in fullscreen or without window state', async () => {
+    const user = userEvent.setup();
+    const { controller } = renderOverlay();
+    await user.click(screen.getByRole('button', { name: 'Minimize' }));
+    await user.click(screen.getByRole('button', { name: 'Maximize' }));
+    act(() => {
+      controller.update({ maximized: true });
+    });
+    await user.click(screen.getByRole('button', { name: 'Restore' }));
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+    expect(controller.actions).toEqual([{ type: 'minimize' }, { type: 'toggleMaximize' }, { type: 'toggleMaximize' }, { type: 'close' }]);
+
+    act(() => {
+      controller.update({ fullscreen: true });
+    });
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    act(() => {
+      controller.update({ fullscreen: false, maximized: undefined });
+    });
+    expect(screen.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
+  });
+
   it('follows the state: Play while paused, Exit fullscreen, buffering, and no episode buttons for a movie', () => {
     const { controller } = renderOverlay();
     expect(screen.queryByRole('button', { name: /episode/ })).not.toBeInTheDocument();
@@ -221,6 +244,9 @@ describe('PlayerOverlay', () => {
       renderOverlay(createFakePlayerController(playerView({ episodes })));
       const order = [
         screen.getByRole('button', { name: 'Back' }),
+        screen.getByRole('button', { name: 'Minimize' }),
+        screen.getByRole('button', { name: 'Maximize' }),
+        screen.getByRole('button', { name: 'Close' }),
         screen.getByRole('slider', { name: 'Seek' }),
         screen.getByRole('button', { name: /^Previous episode/ }),
         screen.getByRole('button', { name: 'Back 10 seconds' }),

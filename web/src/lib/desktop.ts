@@ -77,22 +77,32 @@ export interface DesktopPlayerState {
   episodes?: { previous?: string; next?: string };
 }
 
-/** What the overlay draws: the player state, the main window's fullscreen, the Up next on offer and a notice. */
+/**
+ * What the overlay draws: the player state, the main window's fullscreen and maximized, the Up next on offer and a
+ * notice.
+ */
 export interface DesktopOverlayState extends DesktopPlayerState {
   fullscreen: boolean;
+  /** Present while the player covers the window's own controls; the OSD then draws them (Restore when maximized). */
+  maximized?: boolean;
   upNext?: DesktopUpNextOffer;
   notice?: string;
 }
 
 /**
  * What the overlay asks of the main process besides player commands: `ready` once it listens (the latest state is
- * sent again), Back (stops playback), fullscreen on the main window, and the answer to Up next.
+ * sent again), Back (stops playback), fullscreen on the main window, the main window's controls, and the answer to
+ * Up next.
  */
 export type DesktopOverlayAction =
   | { type: 'ready' }
   | { type: 'back' }
   | { type: 'toggleFullscreen' }
+  | DesktopWindowAction
   | { type: 'upNext'; choice: 'play' | 'cancel' };
+
+/** The window controls the overlay draws over the main window's own. */
+export type DesktopWindowAction = { type: 'minimize' } | { type: 'toggleMaximize' } | { type: 'close' };
 
 /** What the overlay asks of the player. Mirrors the desktop's `PlayerCommand`. */
 export type DesktopPlayerCommand =

@@ -120,3 +120,43 @@ export function SubtitlesIcon() {
     </Icon>
   );
 }
+
+/** The window controls' glyphs: thin lines on a 16×16 grid, the size of the OS-drawn ones. */
+function WindowGlyph({ children }: { children: ReactNode }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1" className="h-4 w-4">
+      {children}
+    </svg>
+  );
+}
+
+export function MinimizeIcon() {
+  return (
+    <WindowGlyph>
+      <path d="M3 8.5h10" />
+    </WindowGlyph>
+  );
+}
+
+export function MaximizeIcon({ restore }: { restore: boolean }) {
+  return (
+    <WindowGlyph>
+      {restore ? (
+        <>
+          <rect x="3.5" y="5.5" width="7" height="7" />
+          <path d="M5.5 5.5v-2h7v7h-2" />
+        </>
+      ) : (
+        <rect x="3.5" y="3.5" width="9" height="9" />
+      )}
+    </WindowGlyph>
+  );
+}
+
+export function CloseIcon() {
+  return (
+    <WindowGlyph>
+      <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+    </WindowGlyph>
+  );
+}
