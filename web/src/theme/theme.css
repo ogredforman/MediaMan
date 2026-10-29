@@ -44,9 +44,9 @@
     @apply bg-bg text-fg antialiased;
   }
 
-  /* Focus moves and anchor jumps stop below the sticky shell header instead of under it. */
+  /* Focus moves and anchor jumps stop below the sticky shell header (and the desktop title band) instead of under it. */
   html {
-    scroll-padding-top: var(--header-height);
+    scroll-padding-top: calc(var(--header-height) + env(titlebar-area-height, 0px));
   }
 
   /* The player page (routes/player.tsx) sits over the video. */
@@ -61,10 +61,11 @@
 }
 
 /*
- * The desktop app's title bar (SPEC §11): the window has no OS title bar, so the shell header (.title-bar) and the
- * strip on screens without it (.title-bar-strip) drag the window, while what can be clicked in them doesn't. The header
- * leaves room on the right for the OS window controls and, on macOS, on the left for the traffic lights. The
- * titlebar-area-* variables are unset in a browser, so there it adds nothing. Unlayered, so it wins over px-* utilities.
+ * The desktop app's title bar (SPEC §11): the window has no OS title bar, so a band as tall as the OS window controls
+ * (.title-bar-strip, holding them) runs across the top, with the shell header (.title-bar) as its own row below it. Both
+ * drag the window, while what can be clicked in the header doesn't. On macOS the band has no height and the header
+ * leaves room on the left for the traffic lights. The titlebar-area-* variables are unset in a browser, so there the
+ * band has no height. Unlayered, so it wins over px-* utilities.
  */
 .title-bar,
 .title-bar-strip {
@@ -74,7 +75,7 @@
 
 .title-bar {
   padding-left: 2rem;
-  padding-right: calc(2rem + 100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+  padding-right: 2rem;
 }
 
 html[data-desktop-platform='darwin'] .title-bar {

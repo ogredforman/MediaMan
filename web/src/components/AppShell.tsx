@@ -7,6 +7,7 @@ import { HeaderPopover } from './HeaderPopover';
 import { Logo } from './Logo';
 import { AvatarTile } from './ProfilePicker';
 import { LibrariesMenu } from './ScanStatus';
+import { TitleBarStrip } from './TitleBarStrip';
 
 const navLinks = [
   { to: '/', label: 'Home' },
@@ -22,34 +23,37 @@ const menuItemClass =
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Sticky and opaque, so the page scrolls under it; above page content, below modals (z-50). It is the desktop
-          window's title bar too (.title-bar in theme.css). */}
-      <header className="title-bar sticky top-0 z-30 flex min-h-(--header-height) items-center gap-6 bg-surface py-3 shadow-soft">
-        <div className="flex shrink-0 items-center gap-3">
-          <Logo size={44} variant="wide" />
-          <span className="text-xl font-bold text-highlight">MediaMan</span>
-        </div>
-        <nav aria-label="Main">
-          <ul className="flex gap-2">
-            {navLinks.map((link) => (
-              <li key={link.to}>
-                <Link
-                  to={link.to}
-                  activeOptions={{ exact: link.to === '/' }}
-                  className="whitespace-nowrap rounded-card px-3 py-1 text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg [&.active]:text-fg"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <SearchField />
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          <LibrariesMenu />
-          <ProfileMenu />
-        </div>
-      </header>
+      {/* Sticky and opaque, so the page scrolls under it; above page content, below modals (z-50). In the desktop app
+          the title band holding the window controls runs above the header (.title-bar in theme.css). */}
+      <div data-testid="shell-top" className="sticky top-0 z-30 bg-surface shadow-soft">
+        <TitleBarStrip inFlow />
+        <header className="title-bar flex min-h-(--header-height) items-center gap-6 py-3">
+          <div className="flex shrink-0 items-center gap-3">
+            <Logo size={44} variant="wide" />
+            <span className="text-xl font-bold text-highlight">MediaMan</span>
+          </div>
+          <nav aria-label="Main">
+            <ul className="flex gap-2">
+              {navLinks.map((link) => (
+                <li key={link.to}>
+                  <Link
+                    to={link.to}
+                    activeOptions={{ exact: link.to === '/' }}
+                    className="whitespace-nowrap rounded-card px-3 py-1 text-fg-muted transition-colors duration-(--motion-fast) hover:text-fg [&.active]:text-fg"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <SearchField />
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <LibrariesMenu />
+            <ProfileMenu />
+          </div>
+        </header>
+      </div>
       <main className="flex-1">{children}</main>
       <footer className="px-8 py-3 text-sm text-fg-muted">
         <ServerStatus />

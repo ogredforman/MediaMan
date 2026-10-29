@@ -23,8 +23,21 @@ describe('AppShell', () => {
     renderApp();
 
     await screen.findByRole('heading', { name: 'Home' });
-    // jsdom does no layout, so this checks the classes that pin the header (opaque, above the page content).
-    expect(screen.getByRole('banner')).toHaveClass('sticky', 'top-0', 'z-30', 'bg-surface');
+    // jsdom does no layout, so this checks the classes that pin the header (opaque, above the page content), together
+    // with the desktop title band above it.
+    const top = screen.getByTestId('shell-top');
+    expect(top).toHaveClass('sticky', 'top-0', 'z-30', 'bg-surface');
+    expect(top).toContainElement(screen.getByRole('banner'));
+  });
+
+  it('puts the title band for the window controls above the header, in the flow', async () => {
+    renderApp();
+
+    const banner = await screen.findByRole('banner');
+    const band = screen.getByTestId('title-bar-strip');
+    // theme.css gives the band the height of the OS window controls (none in a browser); the header leaves them no room.
+    expect(band.nextElementSibling).toBe(banner);
+    expect(band).not.toHaveClass('fixed');
   });
 
   it("is the desktop window's title bar, with the profile menu's panel still clickable", async () => {

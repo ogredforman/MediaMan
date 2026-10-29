@@ -18,7 +18,7 @@ export const iconButtonClass =
 
 /** A window control: the shape and height of the OS-drawn caption buttons it stands in for (desktop `TITLE_BAR_HEIGHT`). */
 export const windowButtonClass =
-  'flex h-10 w-[46px] items-center justify-center text-fg transition-colors duration-(--motion-fast) hover:bg-fg/15';
+  'flex h-8 w-[46px] items-center justify-center text-fg transition-colors duration-(--motion-fast) hover:bg-fg/15';
 
 /** How long a notice (e.g. a lost server) stays up unless dismissed. */
 export const noticeMs = 8000;

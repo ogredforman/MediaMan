@@ -15,8 +15,11 @@ const BACKGROUND_COLOR = '#0E0B14';
 export const TITLE_BAR_COLOR = '#17121F';
 export const TITLE_BAR_SYMBOL_COLOR = '#F4F1FA';
 
-/** The height of the OS-drawn window controls; the web UI reads it as `env(titlebar-area-height)`. */
-export const TITLE_BAR_HEIGHT = 40;
+/**
+ * The height of the title band holding the OS-drawn window controls (32, so Windows draws them as 46×32 rectangles);
+ * the web UI reads it as `env(titlebar-area-height)`.
+ */
+export const TITLE_BAR_HEIGHT = 32;
 
 /** The web UI the server at `serverBaseUrl` serves. */
 export function serverUiUrl(serverBaseUrl: string): URL {

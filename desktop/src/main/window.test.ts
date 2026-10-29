@@ -69,6 +69,8 @@ describe('mainWindowOptions', () => {
       titleBarStyle: 'hidden',
       titleBarOverlay: { color: TITLE_BAR_COLOR, symbolColor: TITLE_BAR_SYMBOL_COLOR, height: TITLE_BAR_HEIGHT },
     });
+    // A 32 px band: the controls come out as rectangles, the way most apps draw them.
+    expect(TITLE_BAR_HEIGHT).toBe(32);
   });
 
   it('insets the traffic lights on macOS', () => {
