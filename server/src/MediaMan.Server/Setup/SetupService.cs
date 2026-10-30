@@ -9,7 +9,12 @@ using Microsoft.Extensions.Options;
 
 namespace MediaMan.Server.Setup;
 
-public sealed record SetupRequest(string? Username, string? Password, string? Mode, SetupLibraryRequest? Library, string? DeviceName);
+public sealed record SetupRequest(
+    string? Username, string? Password, string? Mode, SetupLibraryRequest? Library, string? DeviceName,
+    SetupPasswordPolicy? PasswordPolicy = null);
+
+/// <summary>The policy chosen in the wizard; an option left out keeps <see cref="Auth.PasswordPolicy.Default"/>'s value.</summary>
+public sealed record SetupPasswordPolicy(bool? RequirePasswords, bool? StrongPasswords);
 
 public sealed record SetupLibraryRequest(string? Path, string? ContentType, string? Name);
 
@@ -47,7 +52,10 @@ public sealed class SetupService(
             return _alreadyComplete;
         }
 
-        var errors = Validate(request, options.Value.DataDirectory, out var mode, out var contentType, out var rootPath);
+        var policy = new PasswordPolicy(
+            request.PasswordPolicy?.RequirePasswords ?? PasswordPolicy.Default.RequirePasswords,
+            request.PasswordPolicy?.StrongPasswords ?? PasswordPolicy.Default.StrongPasswords);
+        var errors = Validate(request, policy, options.Value.DataDirectory, out var mode, out var contentType, out var rootPath);
         if (errors.Count > 0)
         {
             return new SetupOutcome(null, SetupFailure.Invalid, errors);
@@ -65,13 +73,14 @@ public sealed class SetupService(
             User user;
             try
             {
-                user = await accounts.CreateSuperadminAsync(request.Username!, request.Password!, cancellationToken);
+                user = await accounts.CreateSuperadminAsync(request.Username!, request.Password, policy, cancellationToken);
             }
             catch (InvalidOperationException)
             {
                 return _alreadyComplete; // another process set up first; the transaction rolls back on dispose
             }
 
+            await PasswordPolicy.SaveAsync(db, policy, cancellationToken);
             await ServerModes.RecordAsync(db, mode, cancellationToken);
             var name = request.Library!.Name?.Trim();
             var library = new Core.Domain.Library
@@ -105,7 +114,7 @@ public sealed class SetupService(
 
     /// <summary>Every invalid field at once, keyed as the contract names them, so the wizard can show each inline.</summary>
     private static Dictionary<string, string[]> Validate(
-        SetupRequest request, string dataDirectory, out ServerMode mode, out ContentType contentType, out string rootPath)
+        SetupRequest request, PasswordPolicy policy, string dataDirectory, out ServerMode mode, out ContentType contentType, out string rootPath)
     {
         var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
         contentType = default;
@@ -117,14 +126,16 @@ public sealed class SetupService(
             errors["username"] = [$"Enter a username of 1 to {AccountService.MaximumUsernameLength} characters."];
         }
 
-        var password = request.Password ?? "";
-        if (password.Length < AccountService.MinimumPasswordLength)
+        if (string.IsNullOrEmpty(request.Password))
         {
-            errors["password"] = [$"Use a password of at least {AccountService.MinimumPasswordLength} characters."];
+            if (policy.RequirePasswords)
+            {
+                errors["password"] = ["Choose a password, or turn off \"Require passwords\"."];
+            }
         }
-        else if (password.Length > PasswordHasher.MaximumPasswordLength)
+        else if (policy.ProblemWith(request.Password) is { } passwordProblem)
         {
-            errors["password"] = [$"Use a password of at most {PasswordHasher.MaximumPasswordLength} characters."];
+            errors["password"] = [passwordProblem];
         }
 
         if (!Wire.TryParse(request.Mode, out mode))

@@ -11,12 +11,18 @@
  *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
  *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
- *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
+ *   `authenticated` (any signed-in user), `superadmin` (the install's owner only, whatever a role grants) or a
+ *   permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
  * - **Auth errors:** a request without a valid access token gets `401` with code `auth.required` (no token, or
  *   it's malformed, forged or expired: refresh, then sign in if that fails); a token whose session was revoked or
  *   whose user is disabled gets `401` `auth.session_expired` (sign in again); a signed-in user without the
  *   operation's permission gets `403` `auth.forbidden`.
+ * - **Password change required:** a session signed in with a password that doesn't meet the password policy, or
+ *   without a password while passwords are required, gets `403` `auth.password_change_required` from every
+ *   authenticated operation except `GET /account`, `PUT /account/password` and `POST /auth/logout`, until it sets
+ *   a password that does (SPEC §7.11). `AuthTokens.passwordChangeRequired` and `Account.passwordChangeRequired`
+ *   say so up front.
  * - **Local network only:** while remote access is off, every operation (health included) refuses clients
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
@@ -65,10 +71,12 @@ import type {
   LibrarySearchResults,
   MediaFileMatch,
   MetadataSettings,
+  PasswordPolicy,
   PlaybackSession,
   Profile,
   ProfileList,
   ServerModeState,
+  SignInOptions,
   TitleDetail,
   TitlePage,
   WatchProgress
@@ -77,23 +85,29 @@ import type {
 
 export const getGetHealthResponseMock = (overrideResponse: Partial<Extract<Health, object>> = {}): Health => ({status: faker.helpers.arrayElement(['healthy'] as const), version: faker.string.alpha({length: {min: 10, max: 20}}), ...overrideResponse})
 
-export const getCompleteSetupResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+export const getCompleteSetupResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({passwordChangeRequired: faker.datatype.boolean(), accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
 export const getGetServerModeResponseMock = (overrideResponse: Partial<Extract<ServerModeState, object>> = {}): ServerModeState => ({mode: faker.helpers.arrayElement(Object.values(ServerMode)), restartRequired: faker.datatype.boolean(), ...overrideResponse})
 
 export const getSetServerModeResponseMock = (overrideResponse: Partial<Extract<ServerModeState, object>> = {}): ServerModeState => ({mode: faker.helpers.arrayElement(Object.values(ServerMode)), restartRequired: faker.datatype.boolean(), ...overrideResponse})
 
+export const getGetPasswordPolicyResponseMock = (overrideResponse: Partial<Extract<PasswordPolicy, object>> = {}): PasswordPolicy => ({requirePasswords: faker.datatype.boolean(), strongPasswords: faker.datatype.boolean(), ...overrideResponse})
+
+export const getSetPasswordPolicyResponseMock = (overrideResponse: Partial<Extract<PasswordPolicy, object>> = {}): PasswordPolicy => ({requirePasswords: faker.datatype.boolean(), strongPasswords: faker.datatype.boolean(), ...overrideResponse})
+
 export const getGetMetadataSettingsResponseMock = (overrideResponse: Partial<Extract<MetadataSettings, object>> = {}): MetadataSettings => ({tmdbAccessTokenSource: faker.helpers.arrayElement(['shipped','configuration','settings'] as const), ...overrideResponse})
 
 export const getSetMetadataSettingsResponseMock = (overrideResponse: Partial<Extract<MetadataSettings, object>> = {}): MetadataSettings => ({tmdbAccessTokenSource: faker.helpers.arrayElement(['shipped','configuration','settings'] as const), ...overrideResponse})
 
-export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+export const getGetSignInOptionsResponseMock = (overrideResponse: Partial<Extract<SignInOptions, object>> = {}): SignInOptions => ({passwordsRequired: faker.datatype.boolean(), accounts: faker.helpers.arrayElement([Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({username: faker.string.alpha({length: {min: 10, max: 20}})})), undefined]), ...overrideResponse})
 
-export const getRefreshTokensResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({passwordChangeRequired: faker.datatype.boolean(), accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
+
+export const getRefreshTokensResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({passwordChangeRequired: faker.datatype.boolean(), accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 
 export const getSelectSessionProfileResponseMock = (overrideResponse: Partial<Extract<Profile, object>> = {}): Profile => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), audioLanguages: faker.helpers.arrayElements(Object.values(LanguageCode)), subtitleLanguages: faker.helpers.arrayElements(Object.values(LanguageCode)), ...overrideResponse})
 
-export const getGetAccountResponseMock = (overrideResponse: Partial<Extract<Account, object>> = {}): Account => ({id: faker.string.uuid(), username: faker.string.alpha({length: {min: 10, max: 20}}), isSuperadmin: faker.datatype.boolean(), permissions: faker.helpers.arrayElements(Object.values(Permission)), ...overrideResponse})
+export const getGetAccountResponseMock = (overrideResponse: Partial<Extract<Account, object>> = {}): Account => ({id: faker.string.uuid(), username: faker.string.alpha({length: {min: 10, max: 20}}), hasPassword: faker.datatype.boolean(), passwordChangeRequired: faker.datatype.boolean(), isSuperadmin: faker.datatype.boolean(), permissions: faker.helpers.arrayElements(Object.values(Permission)), ...overrideResponse})
 
 export const getListProfilesResponseMock = (overrideResponse: Partial<Extract<ProfileList, object>> = {}): ProfileList => ({items: Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({id: faker.string.uuid(), name: faker.string.alpha({length: {min: 1, max: 32}}), avatar: faker.helpers.arrayElement(Object.values(ProfileAvatar)), audioLanguages: faker.helpers.arrayElements(Object.values(LanguageCode)), subtitleLanguages: faker.helpers.arrayElements(Object.values(LanguageCode))})), activeProfileId: faker.helpers.arrayElement([faker.string.uuid(), undefined]), ...overrideResponse})
 

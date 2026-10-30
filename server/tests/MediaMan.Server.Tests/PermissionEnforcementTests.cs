@@ -17,7 +17,8 @@ namespace MediaMan.Server.Tests;
 /// The table-driven permission test (SPEC §5, §9, §12): every mapped route, in the default and the dev configuration, enforces the
 /// permission it declares. Unauthenticated routes stay open; every other route refuses a missing, forged or expired
 /// token, a revoked session and a disabled user with 401, a user without the permission with 403, and lets a user
-/// holding exactly that permission through.
+/// holding exactly that permission through. Superadmin routes refuse everyone else, even with every permission. A
+/// session that must set a password gets 403 everywhere but the few routes that let it (SPEC §7.11).
 /// </summary>
 public sealed partial class PermissionEnforcementTests : IDisposable
 {
@@ -68,7 +69,11 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         var routes = await ContractCoverageTests.MappedRoutesAsync(factory);
         routes.Should().Contain(r => r.Permission == PermissionMetadata.None)
             .And.Contain(r => r.Permission == PermissionMetadata.Authenticated)
+            .And.Contain(r => r.Permission == PermissionMetadata.Superadmin)
+            .And.Contain(r => r.DuringPasswordChange)
             .And.Contain(r => r.Permission != PermissionMetadata.None && r.Permission != PermissionMetadata.Authenticated);
+        routes.Where(r => r.DuringPasswordChange).Select(r => $"{r.Method} {r.Path}").Should()
+            .BeEquivalentTo("GET /account", "PUT /account/password", "POST /auth/logout");
 
         var outsider = await factory.CreateUserAsync(Ct);
         var revoked = await factory.CreateUserAsync(Ct, [.. MediaMan.Core.Permissions.All]);
@@ -82,6 +87,10 @@ public sealed partial class PermissionEnforcementTests : IDisposable
             await db.SaveChangesAsync(Ct);
         }
 
+        var everything = await factory.CreateUserAsync(Ct, [.. MediaMan.Core.Permissions.All]);
+        var owner = await SignInSuperadminAsync(factory);
+        var mustChange = await CreateMustChangeUserAsync(factory);
+
         var expired = ExpiredToken(factory, outsider);
         var forged = ForgedToken(outsider);
         var holders = new Dictionary<string, TestUser>();
@@ -92,7 +101,7 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         var expiredSigner = new UrlSigner(installKey, new FakeClock(DateTimeOffset.UtcNow - TimeSpan.FromDays(3)));
         var foreignSigner = new UrlSigner(new byte[InstallKey.SizeBytes], new FakeClock(DateTimeOffset.UtcNow));
 
-        foreach (var (method, template, permission, signedUrl, sessionUrl) in routes)
+        foreach (var (method, template, permission, signedUrl, sessionUrl, duringPasswordChange) in routes)
         {
             var path = RouteParameter().Replace(template, _ => Guid.NewGuid().ToString());
             var route = $"{method} {template}";
@@ -134,6 +143,7 @@ public sealed partial class PermissionEnforcementTests : IDisposable
                 await AssertProblemAsync(factory, method, signer.SignForSession(path, disabled.SessionId), null, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} session-signed for a disabled user");
                 await AssertProblemAsync(factory, method, signer.SignForSession(path, Guid.CreateVersion7()), null, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} session-signed for an unknown session");
                 await AssertProblemAsync(factory, method, signer.SignForSession(path, outsider.SessionId), null, HttpStatusCode.Forbidden, "auth.forbidden", $"{route} session-signed for a user without '{permission}'");
+                await AssertProblemAsync(factory, method, signer.SignForSession(path, mustChange.SessionId), null, HttpStatusCode.Forbidden, "auth.password_change_required", $"{route} session-signed for a session that must set a password");
             }
 
             if (permission == PermissionMetadata.None)
@@ -150,6 +160,24 @@ public sealed partial class PermissionEnforcementTests : IDisposable
             await AssertProblemAsync(factory, method, path, expired, HttpStatusCode.Unauthorized, "auth.required", $"{route} with an expired token");
             await AssertProblemAsync(factory, method, path, revoked.AccessToken, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} with a revoked session");
             await AssertProblemAsync(factory, method, path, disabled.AccessToken, HttpStatusCode.Unauthorized, "auth.session_expired", $"{route} as a disabled user");
+
+            if (duringPasswordChange)
+            {
+                // A fresh session each time: one of these routes is sign-out.
+                await AssertAllowedAsync(factory, method, path, (await CreateMustChangeUserAsync(factory)).AccessToken, $"{route} while the password must be set");
+            }
+            else
+            {
+                await AssertProblemAsync(factory, method, path, mustChange.AccessToken, HttpStatusCode.Forbidden, "auth.password_change_required", $"{route} while the password must be set");
+            }
+
+            if (permission == PermissionMetadata.Superadmin)
+            {
+                await AssertProblemAsync(factory, method, path, outsider.AccessToken, HttpStatusCode.Forbidden, "auth.forbidden", $"{route} as a user with no permissions");
+                await AssertProblemAsync(factory, method, path, everything.AccessToken, HttpStatusCode.Forbidden, "auth.forbidden", $"{route} as a non-Superadmin with every permission");
+                await AssertAllowedAsync(factory, method, path, owner.AccessToken, $"{route} as the Superadmin");
+                continue;
+            }
 
             if (permission == PermissionMetadata.Authenticated)
             {
@@ -209,6 +237,27 @@ public sealed partial class PermissionEnforcementTests : IDisposable
         }
 
         return await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, Ct);
+    }
+
+    private static async Task<TestUser> SignInSuperadminAsync(MediaManFactory factory)
+    {
+        await using var scope = factory.Services.CreateAsyncScope();
+        // Whoever the Superadmin is: the dev configuration seeds its own.
+        var superadminId = await scope.ServiceProvider.GetRequiredService<MediaManDbContext>().Users
+            .Where(u => u.IsSuperadmin).Select(u => u.Id).SingleAsync(Ct);
+        var tokens = await scope.ServiceProvider.GetRequiredService<SessionService>().StartAsync(superadminId, "Test", Ct);
+        var claims = (await scope.ServiceProvider.GetRequiredService<AccessTokens>().ValidateAsync(tokens.AccessToken))!;
+        return new TestUser(claims.UserId, claims.SessionId, tokens.AccessToken);
+    }
+
+    /// <summary>A user with every permission whose session must set a password before anything else.</summary>
+    private static async Task<TestUser> CreateMustChangeUserAsync(MediaManFactory factory)
+    {
+        var user = await factory.CreateUserAsync(Ct, [.. MediaMan.Core.Permissions.All]);
+        await using var scope = factory.Services.CreateAsyncScope();
+        await scope.ServiceProvider.GetRequiredService<MediaManDbContext>().Sessions.Where(s => s.Id == user.SessionId)
+            .ExecuteUpdateAsync(u => u.SetProperty(s => s.PasswordChangeRequired, true), Ct);
+        return user;
     }
 
     /// <summary>A token the server signed for a live session, but long expired.</summary>

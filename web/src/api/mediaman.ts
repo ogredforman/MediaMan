@@ -11,12 +11,18 @@
  *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
  *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
- *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
+ *   `authenticated` (any signed-in user), `superadmin` (the install's owner only, whatever a role grants) or a
+ *   permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
  * - **Auth errors:** a request without a valid access token gets `401` with code `auth.required` (no token, or
  *   it's malformed, forged or expired: refresh, then sign in if that fails); a token whose session was revoked or
  *   whose user is disabled gets `401` `auth.session_expired` (sign in again); a signed-in user without the
  *   operation's permission gets `403` `auth.forbidden`.
+ * - **Password change required:** a session signed in with a password that doesn't meet the password policy, or
+ *   without a password while passwords are required, gets `403` `auth.password_change_required` from every
+ *   authenticated operation except `GET /account`, `PUT /account/password` and `POST /auth/logout`, until it sets
+ *   a password that does (SPEC §7.11). `AuthTokens.passwordChangeRequired` and `Account.passwordChangeRequired`
+ *   say so up front.
  * - **Local network only:** while remote access is off, every operation (health included) refuses clients
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
@@ -82,6 +88,7 @@ import type {
   MediaFileMatchRequest,
   MetadataSettings,
   MetadataSettingsRequest,
+  PasswordPolicy,
   PlaybackSession,
   PreferredVersionRequest,
   Problem,
@@ -94,7 +101,9 @@ import type {
   SelectProfileRequest,
   ServerModeRequest,
   ServerModeState,
+  SetPasswordRequest,
   SetupRequest,
+  SignInOptions,
   StreamMediaFileParams,
   TitleDetail,
   TitlePage,
@@ -509,6 +518,199 @@ export const useSetServerMode = <TError = ErrorType<Problem | ProblemResponse>,
       return useMutation(getSetServerModeMutationOptions(options), queryClient);
     }
 
+export const getGetPasswordPolicyUrl = () => {
+
+
+
+
+  return `/settings/password-policy`
+}
+
+/**
+ * @summary Whether accounts need passwords, and how strong they must be (SPEC §7.11, §11 Settings).
+ */
+export const getPasswordPolicy = async ( options?: Parameters<typeof apiFetch>[1]): Promise<PasswordPolicy> => {
+
+  return apiFetch<PasswordPolicy>(getGetPasswordPolicyUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPasswordPolicyQueryKey = () => {
+    return [
+    `/settings/password-policy`
+    ] as const;
+    }
+
+
+export const getGetPasswordPolicyQueryOptions = <TData = Awaited<ReturnType<typeof getPasswordPolicy>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPasswordPolicy>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPasswordPolicyQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPasswordPolicy>>> = ({ signal }) => getPasswordPolicy({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPasswordPolicy>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPasswordPolicyQueryResult = NonNullable<Awaited<ReturnType<typeof getPasswordPolicy>>>
+export type GetPasswordPolicyQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetPasswordPolicy<TData = Awaited<ReturnType<typeof getPasswordPolicy>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPasswordPolicy>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPasswordPolicy>>,
+          TError,
+          Awaited<ReturnType<typeof getPasswordPolicy>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPasswordPolicy<TData = Awaited<ReturnType<typeof getPasswordPolicy>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPasswordPolicy>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPasswordPolicy>>,
+          TError,
+          Awaited<ReturnType<typeof getPasswordPolicy>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPasswordPolicy<TData = Awaited<ReturnType<typeof getPasswordPolicy>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPasswordPolicy>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Whether accounts need passwords, and how strong they must be (SPEC §7.11, §11 Settings).
+ */
+
+export function useGetPasswordPolicy<TData = Awaited<ReturnType<typeof getPasswordPolicy>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPasswordPolicy>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPasswordPolicyQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetPasswordPolicyUrl = () => {
+
+
+
+
+  return `/settings/password-policy`
+}
+
+/**
+ * Only the Superadmin changes it. Existing sessions carry on. When the policy tightens, an account whose password
+ * no longer meets it signs in as usual and is then asked to set one that does; when passwords are turned back on,
+ * an account without one is asked to set one at its next sign-in. Passwords stay stored while they're off, so
+ * turning them back on brings them back.
+ * @summary Changes the password policy; it applies from the next sign-in (SPEC §7.11).
+ */
+export const setPasswordPolicy = async (passwordPolicy: PasswordPolicy, options?: Parameters<typeof apiFetch>[1]): Promise<PasswordPolicy> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<PasswordPolicy>(getSetPasswordPolicyUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(passwordPolicy)
+  }
+);}
+
+
+
+
+
+export const getSetPasswordPolicyMutationKey = () => ['setPasswordPolicy'] as const;
+
+export const getSetPasswordPolicyMutationOptions = <TError = ErrorType<ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPasswordPolicy>>, TError,SetPasswordPolicyMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setPasswordPolicy>>, TError,SetPasswordPolicyMutationVariables, TContext> => {
+
+const mutationKey = getSetPasswordPolicyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setPasswordPolicy>>, SetPasswordPolicyMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  setPasswordPolicy(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetPasswordPolicyMutationResult = NonNullable<Awaited<ReturnType<typeof setPasswordPolicy>>>
+    export type SetPasswordPolicyMutationBody = PasswordPolicy
+    export type SetPasswordPolicyMutationError = ErrorType<ProblemResponse>
+    export type SetPasswordPolicyMutationVariables = {data: PasswordPolicy}
+
+    /**
+ * @summary Changes the password policy; it applies from the next sign-in (SPEC §7.11).
+ */
+export const useSetPasswordPolicy = <TError = ErrorType<ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setPasswordPolicy>>, TError,SetPasswordPolicyMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setPasswordPolicy>>,
+        TError,
+        SetPasswordPolicyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetPasswordPolicyMutationOptions(options), queryClient);
+    }
+
 export const getGetMetadataSettingsUrl = () => {
 
 
@@ -700,6 +902,110 @@ export const useSetMetadataSettings = <TError = ErrorType<Problem | ProblemRespo
       return useMutation(getSetMetadataSettingsMutationOptions(options), queryClient);
     }
 
+export const getGetSignInOptionsUrl = () => {
+
+
+
+
+  return `/auth/sign-in-options`
+}
+
+/**
+ * Part of signing in, so it's unauthenticated. `accounts` lists the enabled accounts only while the password
+ * policy doesn't require passwords; while it does, it's omitted and the sign-in form asks for a username and
+ * password.
+ * @summary How to sign in here, and while passwords are off, the accounts to pick from (SPEC §7.11).
+ */
+export const getSignInOptions = async ( options?: Parameters<typeof apiFetch>[1]): Promise<SignInOptions> => {
+
+  return apiFetch<SignInOptions>(getGetSignInOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSignInOptionsQueryKey = () => {
+    return [
+    `/auth/sign-in-options`
+    ] as const;
+    }
+
+
+export const getGetSignInOptionsQueryOptions = <TData = Awaited<ReturnType<typeof getSignInOptions>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSignInOptions>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSignInOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSignInOptions>>> = ({ signal }) => getSignInOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSignInOptions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetSignInOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getSignInOptions>>>
+export type GetSignInOptionsQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetSignInOptions<TData = Awaited<ReturnType<typeof getSignInOptions>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSignInOptions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSignInOptions>>,
+          TError,
+          Awaited<ReturnType<typeof getSignInOptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSignInOptions<TData = Awaited<ReturnType<typeof getSignInOptions>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSignInOptions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSignInOptions>>,
+          TError,
+          Awaited<ReturnType<typeof getSignInOptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSignInOptions<TData = Awaited<ReturnType<typeof getSignInOptions>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSignInOptions>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary How to sign in here, and while passwords are off, the accounts to pick from (SPEC §7.11).
+ */
+
+export function useGetSignInOptions<TData = Awaited<ReturnType<typeof getSignInOptions>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSignInOptions>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetSignInOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getLoginUrl = () => {
 
 
@@ -710,7 +1016,10 @@ export const getLoginUrl = () => {
 
 /**
  * Returns a short-lived access token for the `Authorization: Bearer` header and a refresh token for
- * `POST /auth/refresh`. Each sign-in is a session the user can later see and revoke.
+ * `POST /auth/refresh`. Each sign-in is a session the user can later see and revoke. While the password policy
+ * doesn't require passwords, the username alone signs in and `password` is ignored. When the password doesn't
+ * meet the policy, or the account has none while passwords are required, the session starts with
+ * `passwordChangeRequired` and must set one through `PUT /account/password` before it can do anything else.
  * @summary Signs in with a username and password and starts a session (SPEC §7.11).
  */
 export const login = async (loginRequest: LoginRequest, options?: Parameters<typeof apiFetch>[1]): Promise<AuthTokens> => {
@@ -1151,6 +1460,97 @@ export function useGetAccount<TData = Awaited<ReturnType<typeof getAccount>>, TE
 
 
 
+
+export const getSetAccountPasswordUrl = () => {
+
+
+
+
+  return `/account/password`
+}
+
+/**
+ * The new password must meet the password policy. `currentPassword` is needed when the account has a password,
+ * except in a session that must change it (`passwordChangeRequired`), which proved it at sign-in. Afterwards
+ * the session can do everything its role allows; other sessions of the account stay signed in.
+ * @summary Sets the signed-in account's password (SPEC §7.11).
+ */
+export const setAccountPassword = async (setPasswordRequest: SetPasswordRequest, options?: Parameters<typeof apiFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return apiFetch<void>(getSetAccountPasswordUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(setPasswordRequest)
+  }
+);}
+
+
+
+
+
+export const getSetAccountPasswordMutationKey = () => ['setAccountPassword'] as const;
+
+export const getSetAccountPasswordMutationOptions = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAccountPassword>>, TError,SetAccountPasswordMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setAccountPassword>>, TError,SetAccountPasswordMutationVariables, TContext> => {
+
+const mutationKey = getSetAccountPasswordMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setAccountPassword>>, SetAccountPasswordMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  setAccountPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetAccountPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof setAccountPassword>>>
+    export type SetAccountPasswordMutationBody = SetPasswordRequest
+    export type SetAccountPasswordMutationError = ErrorType<Problem | ProblemResponse>
+    export type SetAccountPasswordMutationVariables = {data: SetPasswordRequest}
+
+    /**
+ * @summary Sets the signed-in account's password (SPEC §7.11).
+ */
+export const useSetAccountPassword = <TError = ErrorType<Problem | ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAccountPassword>>, TError,SetAccountPasswordMutationVariables, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setAccountPassword>>,
+        TError,
+        SetAccountPasswordMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetAccountPasswordMutationOptions(options), queryClient);
+    }
 
 export const getListProfilesUrl = () => {
 

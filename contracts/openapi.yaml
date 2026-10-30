@@ -13,12 +13,18 @@ info:
       `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
       session's token.
     - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
-      `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
+      `authenticated` (any signed-in user), `superadmin` (the install's owner only, whatever a role grants) or a
+      permission string from SPEC §8 (e.g. `library.view`).
       The server enforces it and a table-driven test covers every route (SPEC §12).
     - **Auth errors:** a request without a valid access token gets `401` with code `auth.required` (no token, or
       it's malformed, forged or expired: refresh, then sign in if that fails); a token whose session was revoked or
       whose user is disabled gets `401` `auth.session_expired` (sign in again); a signed-in user without the
       operation's permission gets `403` `auth.forbidden`.
+    - **Password change required:** a session signed in with a password that doesn't meet the password policy, or
+      without a password while passwords are required, gets `403` `auth.password_change_required` from every
+      authenticated operation except `GET /account`, `PUT /account/password` and `POST /auth/logout`, until it sets
+      a password that does (SPEC §7.11). `AuthTokens.passwordChangeRequired` and `Account.passwordChangeRequired`
+      say so up front.
     - **Local network only:** while remote access is off, every operation (health included) refuses clients
       outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
       forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
@@ -143,6 +149,49 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /settings/password-policy:
+    get:
+      operationId: getPasswordPolicy
+      summary: Whether accounts need passwords, and how strong they must be (SPEC §7.11, §11 Settings).
+      tags: [settings]
+      x-permission: superadmin
+      responses:
+        '200':
+          description: The password policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicy'
+        default:
+          $ref: '#/components/responses/Problem'
+    put:
+      operationId: setPasswordPolicy
+      summary: Changes the password policy; it applies from the next sign-in (SPEC §7.11).
+      description: |
+        Only the Superadmin changes it. Existing sessions carry on. When the policy tightens, an account whose password
+        no longer meets it signs in as usual and is then asked to set one that does; when passwords are turned back on,
+        an account without one is asked to set one at its next sign-in. Passwords stay stored while they're off, so
+        turning them back on brings them back.
+      tags: [settings]
+      x-permission: superadmin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordPolicy'
+      responses:
+        '200':
+          description: The policy is saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PasswordPolicy'
+        '400':
+          $ref: '#/components/responses/Problem'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /settings/metadata:
     get:
       operationId: getMetadataSettings
@@ -190,13 +239,37 @@ paths:
         default:
           $ref: '#/components/responses/Problem'
 
+  /auth/sign-in-options:
+    get:
+      operationId: getSignInOptions
+      summary: How to sign in here, and while passwords are off, the accounts to pick from (SPEC §7.11).
+      description: |
+        Part of signing in, so it's unauthenticated. `accounts` lists the enabled accounts only while the password
+        policy doesn't require passwords; while it does, it's omitted and the sign-in form asks for a username and
+        password.
+      tags: [auth]
+      security: []
+      x-permission: none
+      responses:
+        '200':
+          description: The sign-in options.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignInOptions'
+        default:
+          $ref: '#/components/responses/Problem'
+
   /auth/login:
     post:
       operationId: login
       summary: Signs in with a username and password and starts a session (SPEC §7.11).
       description: |
         Returns a short-lived access token for the `Authorization: Bearer` header and a refresh token for
-        `POST /auth/refresh`. Each sign-in is a session the user can later see and revoke.
+        `POST /auth/refresh`. Each sign-in is a session the user can later see and revoke. While the password policy
+        doesn't require passwords, the username alone signs in and `password` is ignored. When the password doesn't
+        meet the policy, or the account has none while passwords are required, the session starts with
+        `passwordChangeRequired` and must set one through `PUT /account/password` before it can do anything else.
       tags: [auth]
       security: []
       x-permission: none
@@ -329,6 +402,36 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Account'
+        default:
+          $ref: '#/components/responses/Problem'
+
+  /account/password:
+    put:
+      operationId: setAccountPassword
+      summary: Sets the signed-in account's password (SPEC §7.11).
+      description: |
+        The new password must meet the password policy. `currentPassword` is needed when the account has a password,
+        except in a session that must change it (`passwordChangeRequired`), which proved it at sign-in. Afterwards
+        the session can do everything its role allows; other sessions of the account stay signed in.
+      tags: [auth]
+      x-permission: authenticated
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetPasswordRequest'
+      responses:
+        '204':
+          description: The password is set.
+        '400':
+          description: |
+            The new password doesn't meet the policy, or the current password is missing or wrong
+            (`account.password_invalid`); `errors` is keyed by `newPassword` or `currentPassword`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
         default:
           $ref: '#/components/responses/Problem'
 
@@ -1475,7 +1578,7 @@ components:
 
     LoginRequest:
       type: object
-      required: [username, password]
+      required: [username]
       additionalProperties: false
       properties:
         username:
@@ -1483,11 +1586,61 @@ components:
           minLength: 1
         password:
           type: string
-          minLength: 1
+          description: Needed while the password policy requires passwords (`SignInOptions.passwordsRequired`).
         deviceName:
           type: string
           maxLength: 100
           description: How the session is listed, e.g. `Living room PC`. Defaults to the client's User-Agent.
+
+    SignInOptions:
+      type: object
+      required: [passwordsRequired]
+      additionalProperties: false
+      properties:
+        passwordsRequired:
+          type: boolean
+          description: False when accounts sign in by picking their account, with no password (SPEC §7.11).
+        accounts:
+          type: array
+          description: The enabled accounts to pick from, by username; present only while passwords aren't required.
+          items:
+            $ref: '#/components/schemas/SignInAccount'
+
+    SignInAccount:
+      type: object
+      required: [username]
+      additionalProperties: false
+      properties:
+        username:
+          type: string
+
+    PasswordPolicy:
+      type: object
+      description: |
+        The password policy (SPEC §7.11). With `requirePasswords`, a password is at least 8 characters, or with
+        `strongPasswords` at least 12 with at least 3 of an uppercase letter, a lowercase letter, a digit and a
+        symbol. Without it, accounts sign in by picking their account and can have no password; `strongPasswords`
+        still applies to any password that is set.
+      required: [requirePasswords, strongPasswords]
+      additionalProperties: false
+      properties:
+        requirePasswords:
+          type: boolean
+        strongPasswords:
+          type: boolean
+
+    SetPasswordRequest:
+      type: object
+      required: [newPassword]
+      additionalProperties: false
+      properties:
+        currentPassword:
+          type: string
+          description: The account's password now; see `PUT /account/password` for when it's needed.
+        newPassword:
+          type: string
+          minLength: 1
+          description: Must meet the password policy.
 
     RefreshRequest:
       type: object
@@ -1517,7 +1670,7 @@ components:
 
     Account:
       type: object
-      required: [id, username, isSuperadmin, permissions]
+      required: [id, username, isSuperadmin, permissions, hasPassword, passwordChangeRequired]
       additionalProperties: false
       properties:
         id:
@@ -1525,6 +1678,14 @@ components:
           format: uuid
         username:
           type: string
+        hasPassword:
+          type: boolean
+          description: False for an account made while passwords were off that hasn't set one.
+        passwordChangeRequired:
+          type: boolean
+          description: |
+            True while this session must set a password that meets the policy before it can do anything else
+            (`PUT /account/password`).
         isSuperadmin:
           type: boolean
           description: True for the install's owner, who holds every permission (SPEC §7.11).
@@ -1536,9 +1697,14 @@ components:
 
     AuthTokens:
       type: object
-      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt]
+      required: [accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, passwordChangeRequired]
       additionalProperties: false
       properties:
+        passwordChangeRequired:
+          type: boolean
+          description: |
+            True when the session must set a password that meets the policy (`PUT /account/password`) before it can
+            do anything else; every other operation answers `403` `auth.password_change_required` until then.
         accessToken:
           type: string
           description: |
@@ -1563,7 +1729,7 @@ components:
 
     SetupRequest:
       type: object
-      required: [username, password, mode, library]
+      required: [username, mode, library]
       additionalProperties: false
       properties:
         username:
@@ -1572,7 +1738,12 @@ components:
           maxLength: 64
         password:
           type: string
-          minLength: 12
+          description: |
+            The Superadmin's password, checked against `passwordPolicy` on the server (`errors.password`). Needed
+            while passwords are required; may be left out when they aren't.
+        passwordPolicy:
+          $ref: '#/components/schemas/PasswordPolicy'
+          description: Defaults to passwords required, not strong.
         mode:
           $ref: '#/components/schemas/ServerMode'
         library:

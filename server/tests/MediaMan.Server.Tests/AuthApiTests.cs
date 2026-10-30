@@ -98,7 +98,7 @@ public sealed class AuthApiTests : IAsyncLifetime
     }
 
     [Theory]
-    [InlineData("/auth/login", """{"username":"owner"}""")]
+    [InlineData("/auth/login", """{"password":"x"}""")]
     [InlineData("/auth/login", """{"username":" ","password":"x"}""")]
     [InlineData("/auth/refresh", """{"refreshToken":""}""")]
     public async Task Missing_fields_are_a_400_problem(string path, string json)

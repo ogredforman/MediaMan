@@ -48,7 +48,8 @@ public sealed class ContractCoverageTests
         foreach (var operation in ContractDocument.Instance.Operations)
         {
             var permission = operation.Permission;
-            var known = permission is PermissionMetadata.None or PermissionMetadata.Authenticated || Permissions.IsKnown(permission);
+            var known = permission is PermissionMetadata.None or PermissionMetadata.Authenticated or PermissionMetadata.Superadmin
+                || Permissions.IsKnown(permission);
             known.Should().BeTrue($"{operation} declares x-permission '{permission}'");
 
             var security = operation.Node["security"] as JsonArray;
@@ -68,7 +69,7 @@ public sealed class ContractCoverageTests
         }
     }
 
-    internal static async Task<List<(string Method, string Path, string? Permission, bool SignedUrl, bool SessionUrl)>> MappedRoutesAsync(MediaManFactory? factory = null)
+    internal static async Task<List<(string Method, string Path, string? Permission, bool SignedUrl, bool SessionUrl, bool DuringPasswordChange)>> MappedRoutesAsync(MediaManFactory? factory = null)
     {
         await using var owned = factory is null ? new MediaManFactory() : null;
         factory ??= owned!;
@@ -82,6 +83,7 @@ public sealed class ContractCoverageTests
                 Path: "/" + e.RoutePattern.RawText!.TrimStart('/'),
                 e.Metadata.GetMetadata<PermissionMetadata>()?.Permission,
                 SignedUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is { BoundToSession: false },
-                SessionUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is { BoundToSession: true })))];
+                SessionUrl: e.Metadata.GetMetadata<SignedUrlMetadata>() is { BoundToSession: true },
+                DuringPasswordChange: e.Metadata.GetMetadata<AllowedDuringPasswordChangeMetadata>() is not null)))];
     }
 }

@@ -11,12 +11,18 @@
  *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
  *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
- *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
+ *   `authenticated` (any signed-in user), `superadmin` (the install's owner only, whatever a role grants) or a
+ *   permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
  * - **Auth errors:** a request without a valid access token gets `401` with code `auth.required` (no token, or
  *   it's malformed, forged or expired: refresh, then sign in if that fails); a token whose session was revoked or
  *   whose user is disabled gets `401` `auth.session_expired` (sign in again); a signed-in user without the
  *   operation's permission gets `403` `auth.forbidden`.
+ * - **Password change required:** a session signed in with a password that doesn't meet the password policy, or
+ *   without a password while passwords are required, gets `403` `auth.password_change_required` from every
+ *   authenticated operation except `GET /account`, `PUT /account/password` and `POST /auth/logout`, until it sets
+ *   a password that does (SPEC §7.11). `AuthTokens.passwordChangeRequired` and `Account.passwordChangeRequired`
+ *   say so up front.
  * - **Local network only:** while remote access is off, every operation (health included) refuses clients
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
@@ -56,7 +62,9 @@ import {
   getGetHomeResponseMock,
   getGetLibraryResponseMock,
   getGetMetadataSettingsResponseMock,
+  getGetPasswordPolicyResponseMock,
   getGetServerModeResponseMock,
+  getGetSignInOptionsResponseMock,
   getGetSubtitleResponseMock,
   getGetTitleResponseMock,
   getListAttentionFilesResponseMock,
@@ -72,6 +80,7 @@ import {
   getSearchLibraryResponseMock,
   getSelectSessionProfileResponseMock,
   getSetMetadataSettingsResponseMock,
+  getSetPasswordPolicyResponseMock,
   getSetServerModeResponseMock,
   getStartLibraryScanResponseMock,
   getStreamMediaFileResponseMock,
@@ -93,16 +102,18 @@ import type {
   LibrarySearchResults,
   MediaFileMatch,
   MetadataSettings,
+  PasswordPolicy,
   PlaybackSession,
   Profile,
   ProfileList,
   ServerModeState,
+  SignInOptions,
   TitleDetail,
   TitlePage,
   WatchProgress
 } from './mediaman.schemas';
 
-export { getGetHealthResponseMock, getCompleteSetupResponseMock, getGetServerModeResponseMock, getSetServerModeResponseMock, getGetMetadataSettingsResponseMock, getSetMetadataSettingsResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getGetAccountResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListGenresResponseMock, getGetHomeResponseMock, getSearchLibraryResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock } from './mediaman.faker';
+export { getGetHealthResponseMock, getCompleteSetupResponseMock, getGetServerModeResponseMock, getSetServerModeResponseMock, getGetPasswordPolicyResponseMock, getSetPasswordPolicyResponseMock, getGetMetadataSettingsResponseMock, getSetMetadataSettingsResponseMock, getGetSignInOptionsResponseMock, getLoginResponseMock, getRefreshTokensResponseMock, getSelectSessionProfileResponseMock, getGetAccountResponseMock, getListProfilesResponseMock, getCreateProfileResponseMock, getUpdateProfileResponseMock, getGetEventsResponseMock, getListLibrariesResponseMock, getCreateLibraryResponseMock, getGetLibraryResponseMock, getUpdateLibraryResponseMock, getStartLibraryScanResponseMock, getListAttentionFilesResponseMock, getSearchCatalogResponseMock, getRelinkMediaFileResponseMock, getListGenresResponseMock, getGetHomeResponseMock, getSearchLibraryResponseMock, getListTitlesResponseMock, getGetTitleResponseMock, getGetArtworkResponseMock, getCreatePlaybackSessionResponseMock, getStreamMediaFileResponseMock, getGetSubtitleResponseMock, getReportWatchProgressResponseMock } from './mediaman.faker';
 
 
 export const getGetHealthMockHandler = (overrideResponse?: Health | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Health> | Health), options?: RequestHandlerOptions) => {
@@ -153,6 +164,30 @@ export const getSetServerModeMockHandler = (overrideResponse?: ServerModeState |
   }, options)
 }
 
+export const getGetPasswordPolicyMockHandler = (overrideResponse?: PasswordPolicy | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<PasswordPolicy> | PasswordPolicy), options?: RequestHandlerOptions) => {
+  return http.get('*/settings/password-policy', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetPasswordPolicyResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getSetPasswordPolicyMockHandler = (overrideResponse?: PasswordPolicy | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<PasswordPolicy> | PasswordPolicy), options?: RequestHandlerOptions) => {
+  return http.put('*/settings/password-policy', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getSetPasswordPolicyResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
 export const getGetMetadataSettingsMockHandler = (overrideResponse?: MetadataSettings | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<MetadataSettings> | MetadataSettings), options?: RequestHandlerOptions) => {
   return http.get('*/settings/metadata', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
 
@@ -172,6 +207,18 @@ export const getSetMetadataSettingsMockHandler = (overrideResponse?: MetadataSet
     return HttpResponse.json(overrideResponse !== undefined
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getSetMetadataSettingsResponseMock(),
+      { status: 200
+      })
+  }, options)
+}
+
+export const getGetSignInOptionsMockHandler = (overrideResponse?: SignInOptions | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<SignInOptions> | SignInOptions), options?: RequestHandlerOptions) => {
+  return http.get('*/auth/sign-in-options', async (info: Parameters<Parameters<typeof http.get>[1]>[0]) => {
+
+
+    return HttpResponse.json(overrideResponse !== undefined
+    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
+    : getGetSignInOptionsResponseMock(),
       { status: 200
       })
   }, options)
@@ -231,6 +278,16 @@ export const getGetAccountMockHandler = (overrideResponse?: Account | ((info: Pa
     ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
     : getGetAccountResponseMock(),
       { status: 200
+      })
+  }, options)
+}
+
+export const getSetAccountPasswordMockHandler = (overrideResponse?: void | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<void> | void), options?: RequestHandlerOptions) => {
+  return http.put('*/account/password', async (info: Parameters<Parameters<typeof http.put>[1]>[0]) => {
+  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
+
+    return new HttpResponse(null,
+      { status: 204
       })
   }, options)
 }
@@ -566,13 +623,17 @@ export const getMediaManAPIMock = () => [
   getCompleteSetupMockHandler(),
   getGetServerModeMockHandler(),
   getSetServerModeMockHandler(),
+  getGetPasswordPolicyMockHandler(),
+  getSetPasswordPolicyMockHandler(),
   getGetMetadataSettingsMockHandler(),
   getSetMetadataSettingsMockHandler(),
+  getGetSignInOptionsMockHandler(),
   getLoginMockHandler(),
   getRefreshTokensMockHandler(),
   getLogoutMockHandler(),
   getSelectSessionProfileMockHandler(),
   getGetAccountMockHandler(),
+  getSetAccountPasswordMockHandler(),
   getListProfilesMockHandler(),
   getCreateProfileMockHandler(),
   getUpdateProfileMockHandler(),

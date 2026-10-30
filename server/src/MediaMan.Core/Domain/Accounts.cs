@@ -4,7 +4,10 @@ public class User
 {
     public Guid Id { get; set; }
     public required string Username { get; set; }
-    public required string PasswordHash { get; set; }
+
+    /// <summary>The Argon2id hash; null for an account made while passwords were off that hasn't set one (SPEC §7.11).</summary>
+    public string? PasswordHash { get; set; }
+
     public Guid RoleId { get; set; }
     public bool IsSuperadmin { get; set; }
     public string? TotpSecret { get; set; }
@@ -48,6 +51,12 @@ public class Session
 
     /// <summary>The profile picked on this device after sign-in (SPEC §7.11 step 3); null until one is picked.</summary>
     public Guid? ActiveProfileId { get; set; }
+
+    /// <summary>
+    /// Set at sign-in when the password didn't meet the policy, or the account had none while passwords are required:
+    /// the session can only set a password until it does (SPEC §7.11).
+    /// </summary>
+    public bool PasswordChangeRequired { get; set; }
 }
 
 public class Invite

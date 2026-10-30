@@ -11,12 +11,18 @@
  *   `sessionUrl` accepts a URL signed for one session instead, so a player can load it; it counts as that
  *   session's token.
  * - **Permissions:** every operation declares `x-permission`: `none` (unauthenticated),
- *   `authenticated` (any signed-in user) or a permission string from SPEC §8 (e.g. `library.view`).
+ *   `authenticated` (any signed-in user), `superadmin` (the install's owner only, whatever a role grants) or a
+ *   permission string from SPEC §8 (e.g. `library.view`).
  *   The server enforces it and a table-driven test covers every route (SPEC §12).
  * - **Auth errors:** a request without a valid access token gets `401` with code `auth.required` (no token, or
  *   it's malformed, forged or expired: refresh, then sign in if that fails); a token whose session was revoked or
  *   whose user is disabled gets `401` `auth.session_expired` (sign in again); a signed-in user without the
  *   operation's permission gets `403` `auth.forbidden`.
+ * - **Password change required:** a session signed in with a password that doesn't meet the password policy, or
+ *   without a password while passwords are required, gets `403` `auth.password_change_required` from every
+ *   authenticated operation except `GET /account`, `PUT /account/password` and `POST /auth/logout`, until it sets
+ *   a password that does (SPEC §7.11). `AuthTokens.passwordChangeRequired` and `Account.passwordChangeRequired`
+ *   say so up front.
  * - **Local network only:** while remote access is off, every operation (health included) refuses clients
  *   outside the local network (loopback, private LAN, link-local and Tailscale ranges) and any request carrying
  *   forwarding headers (`Forwarded`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP`) with `403` code
@@ -52,13 +58,45 @@ export interface Health {
 export interface LoginRequest {
   /** @minLength 1 */
   username: string;
-  /** @minLength 1 */
-  password: string;
+  /** Needed while the password policy requires passwords (`SignInOptions.passwordsRequired`). */
+  password?: string;
   /**
      * How the session is listed, e.g. `Living room PC`. Defaults to the client's User-Agent.
      * @maxLength 100
      */
   deviceName?: string;
+}
+
+export interface SignInAccount {
+  username: string;
+}
+
+export interface SignInOptions {
+  /** False when accounts sign in by picking their account, with no password (SPEC §7.11). */
+  passwordsRequired: boolean;
+  /** The enabled accounts to pick from, by username; present only while passwords aren't required. */
+  accounts?: SignInAccount[];
+}
+
+/**
+ * The password policy (SPEC §7.11). With `requirePasswords`, a password is at least 8 characters, or with
+ * `strongPasswords` at least 12 with at least 3 of an uppercase letter, a lowercase letter, a digit and a
+ * symbol. Without it, accounts sign in by picking their account and can have no password; `strongPasswords`
+ * still applies to any password that is set.
+ */
+export interface PasswordPolicy {
+  requirePasswords: boolean;
+  strongPasswords: boolean;
+}
+
+export interface SetPasswordRequest {
+  /** The account's password now; see `PUT /account/password` for when it's needed. */
+  currentPassword?: string;
+  /**
+     * Must meet the password policy.
+     * @minLength 1
+     */
+  newPassword: string;
 }
 
 export interface RefreshRequest {
@@ -90,12 +128,24 @@ export const Permission = {
 export interface Account {
   id: string;
   username: string;
+  /** False for an account made while passwords were off that hasn't set one. */
+  hasPassword: boolean;
+  /**
+     * True while this session must set a password that meets the policy before it can do anything else
+     * (`PUT /account/password`).
+     */
+  passwordChangeRequired: boolean;
   /** True for the install's owner, who holds every permission (SPEC §7.11). */
   isSuperadmin: boolean;
   permissions: Permission[];
 }
 
 export interface AuthTokens {
+  /**
+     * True when the session must set a password that meets the policy (`PUT /account/password`) before it can
+     * do anything else; every other operation answers `403` `auth.password_change_required` until then.
+     */
+  passwordChangeRequired: boolean;
   /** A JWT for the `Authorization: Bearer` header, valid for 15 minutes. */
   accessToken: string;
   accessTokenExpiresAt: string;
@@ -146,8 +196,13 @@ export interface SetupRequest {
      * @maxLength 64
      */
   username: string;
-  /** @minLength 12 */
-  password: string;
+  /**
+     * The Superadmin's password, checked against `passwordPolicy` on the server (`errors.password`). Needed
+     * while passwords are required; may be left out when they aren't.
+     */
+  password?: string;
+  /** Defaults to passwords required, not strong. */
+  passwordPolicy?: PasswordPolicy;
   mode: ServerMode;
   library: SetupLibrary;
   /**

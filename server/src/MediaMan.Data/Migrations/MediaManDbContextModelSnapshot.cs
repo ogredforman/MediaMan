@@ -663,6 +663,9 @@ namespace MediaMan.Data.Migrations
                     b.Property<long>("LastSeenAt")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("PasswordChangeRequired")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -748,7 +751,6 @@ namespace MediaMan.Data.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("RoleId")

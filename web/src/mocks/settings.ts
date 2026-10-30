@@ -49,6 +49,8 @@ export const mockAccount: Account = {
   username: 'owner',
   isSuperadmin: true,
   permissions: Object.values(Permissions),
+  hasPassword: true,
+  passwordChangeRequired: false,
 };
 
 /**

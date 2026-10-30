@@ -1,9 +1,13 @@
+using MediaMan.Auth;
 using MediaMan.Core;
+using MediaMan.Data;
 using MediaMan.Server.Endpoints;
 using MediaMan.Server.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace MediaMan.Server.Settings;
+
+public sealed record PasswordPolicyRequest(bool? RequirePasswords, bool? StrongPasswords);
 
 /// <summary>Settings that live on the server (SPEC §11 Settings).</summary>
 public static class SettingsEndpoints
@@ -13,7 +17,41 @@ public static class SettingsEndpoints
         app.MapGet("/settings/metadata", (MetadataSettingsService settings) => TypedResults.Ok(settings.Get()))
             .RequiresPermission(Permissions.SettingsManage);
         app.MapPut("/settings/metadata", SetMetadataAsync).RequiresPermission(Permissions.SettingsManage);
+        app.MapGet("/settings/password-policy", async (MediaManDbContext db, CancellationToken ct) =>
+                TypedResults.Ok(await PasswordPolicy.LoadAsync(db, ct)))
+            .RequiresPermission(PermissionMetadata.Superadmin);
+        app.MapPut("/settings/password-policy", SetPasswordPolicyAsync).RequiresPermission(PermissionMetadata.Superadmin);
         return app;
+    }
+
+    private static async Task<Results<Ok<PasswordPolicy>, ValidationProblem>> SetPasswordPolicyAsync(
+        PasswordPolicyRequest request, MediaManDbContext db, CancellationToken ct)
+    {
+        if (request is not { RequirePasswords: { } required, StrongPasswords: { } strong })
+        {
+            var errors = new Dictionary<string, string[]>(StringComparer.Ordinal);
+            if (request.RequirePasswords is null)
+            {
+                errors["requirePasswords"] = ["Say whether accounts need a password."];
+            }
+
+            if (request.StrongPasswords is null)
+            {
+                errors["strongPasswords"] = ["Say whether passwords must be strong."];
+            }
+
+            return TypedResults.ValidationProblem(errors, "The password policy is incomplete.", title: "Check the password policy.",
+                extensions: new Dictionary<string, object?>
+                {
+                    [Problems.CodeKey] = "bad_request",
+                    [Problems.ActionKey] = "Choose both options, then save.",
+                });
+        }
+
+        // Remote access can't be turned on yet; 6.1 refuses turning passwords off while it is (SPEC §7.12).
+        var policy = new PasswordPolicy(required, strong);
+        await PasswordPolicy.SaveAsync(db, policy, ct);
+        return TypedResults.Ok(policy);
     }
 
     private static async Task<Results<Ok<MetadataSettings>, ValidationProblem>> SetMetadataAsync(

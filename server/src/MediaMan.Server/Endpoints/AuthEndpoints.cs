@@ -1,6 +1,8 @@
 using MediaMan.Auth;
+using MediaMan.Data;
 using MediaMan.Server.Hosting;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
 
 namespace MediaMan.Server.Endpoints;
@@ -9,27 +11,46 @@ public sealed record LoginRequest(string? Username, string? Password, string? De
 
 public sealed record RefreshRequest(string? RefreshToken);
 
+public sealed record SignInAccount(string Username);
+
+public sealed record SignInOptions(bool PasswordsRequired, IReadOnlyList<SignInAccount>? Accounts);
+
 /// <summary>
-/// Sign-in, token refresh and sign-out (SPEC §7.11). Signing in and refreshing are unauthenticated: refreshing is part of
-/// signing in.
+/// Sign-in, token refresh and sign-out (SPEC §7.11). Signing in, its options and refreshing are unauthenticated: they're
+/// part of signing in.
 /// </summary>
 public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
+        app.MapGet("/auth/sign-in-options", SignInOptionsAsync).RequiresPermission(PermissionMetadata.None);
         app.MapPost("/auth/login", LoginAsync).RequiresPermission(PermissionMetadata.None);
         app.MapPost("/auth/refresh", RefreshAsync).RequiresPermission(PermissionMetadata.None);
-        app.MapPost("/auth/logout", LogoutAsync).RequiresPermission(PermissionMetadata.Authenticated);
+        app.MapPost("/auth/logout", LogoutAsync).RequiresPermission(PermissionMetadata.Authenticated).AllowedDuringPasswordChange();
         return app;
+    }
+
+    /// <summary>The accounts to pick from are listed only while passwords are off; never the disabled ones.</summary>
+    private static async Task<Ok<SignInOptions>> SignInOptionsAsync(MediaManDbContext db, CancellationToken ct)
+    {
+        var policy = await PasswordPolicy.LoadAsync(db, ct);
+        if (policy.RequirePasswords)
+        {
+            return TypedResults.Ok(new SignInOptions(true, null));
+        }
+
+        var accounts = await db.Users.AsNoTracking().Where(u => !u.Disabled).Select(u => u.Username).ToListAsync(ct);
+        return TypedResults.Ok(new SignInOptions(false,
+            [.. accounts.Order(StringComparer.CurrentCultureIgnoreCase).Select(name => new SignInAccount(name))]));
     }
 
     private static async Task<Results<Ok<AuthTokens>, ProblemHttpResult>> LoginAsync(
         LoginRequest request, HttpContext http, SessionService sessions, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
+        if (string.IsNullOrWhiteSpace(request.Username))
         {
-            return Problems.Result(StatusCodes.Status400BadRequest, "bad_request", "Username and password are required.",
-                "The sign-in request is missing the username or the password.", "Enter both, then sign in again.");
+            return Problems.Result(StatusCodes.Status400BadRequest, "bad_request", "A username is required.",
+                "The sign-in request is missing the username.", "Enter or pick your account, then sign in again.");
         }
 
         var deviceName = request.DeviceName ?? http.Request.Headers[HeaderNames.UserAgent].ToString();

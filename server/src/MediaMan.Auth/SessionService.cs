@@ -9,9 +9,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MediaMan.Auth;
 
-/// <summary>The tokens a sign-in or refresh hands to the client.</summary>
+/// <summary>
+/// The tokens a sign-in or refresh hands to the client. With <paramref name="PasswordChangeRequired"/> the session must
+/// set a password that meets the policy before it can do anything else (SPEC §7.11).
+/// </summary>
 public sealed record AuthTokens(
-    string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt);
+    string AccessToken, DateTimeOffset AccessTokenExpiresAt, string RefreshToken, DateTimeOffset RefreshTokenExpiresAt,
+    bool PasswordChangeRequired = false);
 
 public enum SignInFailure
 {
@@ -44,28 +48,46 @@ public sealed class SessionService(MediaManDbContext db, PasswordHasher hasher, 
     // A hash to verify against when the username is unknown, so the response time doesn't reveal which names exist.
     private static readonly ConcurrentDictionary<Argon2Parameters, string> _dummyHashes = new();
 
-    public async Task<SignInResult> SignInAsync(string username, string password, string? deviceName, CancellationToken cancellationToken)
+    /// <summary>
+    /// Signs in under the stored password policy (SPEC §7.11). While it doesn't require passwords, the username alone
+    /// does and <paramref name="password"/> is ignored. While it does, the password must match; an account without one
+    /// signs in by username and must set one, and a password that no longer meets the policy signs in and must be
+    /// changed. Both are judged here, while the plain password is in hand: nothing stores whether a password is weak.
+    /// </summary>
+    public async Task<SignInResult> SignInAsync(string username, string? password, string? deviceName, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(username);
-        ArgumentNullException.ThrowIfNull(password);
 
+        var policy = await PasswordPolicy.LoadAsync(db, cancellationToken);
         var name = username.Trim();
         var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Username == name, cancellationToken);
+        if (!policy.RequirePasswords)
+        {
+            return user is null || user.Disabled
+                ? SignInResult.Failed(SignInFailure.InvalidCredentials)
+                : SignInResult.Success(await StartAsync(user.Id, deviceName, passwordChangeRequired: false, cancellationToken));
+        }
+
+        // Verified even when there's nothing to match, so the response time doesn't reveal which names exist.
         var hash = user?.PasswordHash ?? _dummyHashes.GetOrAdd(hasher.Parameters, _ => hasher.Hash(Guid.NewGuid().ToString()));
-        var passwordMatches = PasswordHasher.Verify(password, hash);
-        if (user is null || !passwordMatches || user.Disabled)
+        var passwordMatches = PasswordHasher.Verify(password ?? "", hash);
+        if (user is null || user.Disabled || (user.PasswordHash is not null && !passwordMatches))
         {
             return SignInResult.Failed(SignInFailure.InvalidCredentials);
         }
 
-        return SignInResult.Success(await StartAsync(user.Id, deviceName, cancellationToken));
+        var mustChange = user.PasswordHash is null || policy.ProblemWith(password!) is not null;
+        return SignInResult.Success(await StartAsync(user.Id, deviceName, mustChange, cancellationToken));
     }
 
     /// <summary>
     /// Starts a session for a user whose identity is already established, e.g. the Superadmin setup just created
     /// (SPEC §7.1). Saves through the shared context, so it joins any transaction the caller has open.
     /// </summary>
-    public async Task<AuthTokens> StartAsync(Guid userId, string? deviceName, CancellationToken cancellationToken)
+    public Task<AuthTokens> StartAsync(Guid userId, string? deviceName, CancellationToken cancellationToken) =>
+        StartAsync(userId, deviceName, passwordChangeRequired: false, cancellationToken);
+
+    private async Task<AuthTokens> StartAsync(Guid userId, string? deviceName, bool passwordChangeRequired, CancellationToken cancellationToken)
     {
         var now = clock.UtcNow;
         var session = new Session
@@ -77,6 +99,7 @@ public sealed class SessionService(MediaManDbContext db, PasswordHasher hasher, 
             CreatedAt = now,
             LastSeenAt = now,
             ExpiresAt = now + RefreshTokenLifetime,
+            PasswordChangeRequired = passwordChangeRequired,
         };
         var refreshToken = NewRefreshToken(session.Id);
         session.RefreshTokenHash = HashOf(refreshToken);
@@ -150,7 +173,7 @@ public sealed class SessionService(MediaManDbContext db, PasswordHasher hasher, 
     private AuthTokens TokensFor(Session session, string refreshToken)
     {
         var (accessToken, accessExpiresAt) = accessTokens.Issue(session.UserId, session.Id);
-        return new AuthTokens(accessToken, accessExpiresAt, refreshToken, session.ExpiresAt);
+        return new AuthTokens(accessToken, accessExpiresAt, refreshToken, session.ExpiresAt, session.PasswordChangeRequired);
     }
 
     private static string DeviceNameOf(string? deviceName)

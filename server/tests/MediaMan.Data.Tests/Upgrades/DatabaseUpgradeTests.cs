@@ -71,7 +71,7 @@ public class DatabaseUpgradeTests
 
         var result = await UpgradeAsync(db);
 
-        result.Applied.Should().Equal("20261011224526_AddMediaFileAddedAt");
+        result.Applied.Should().Equal("20261011224526_AddMediaFileAddedAt", "20261030072714_AddPasswordPolicy");
         result.BackupPath.Should().Be(Path.Combine(BackupsOf(db), $"mediaman-20260101-000000Z-before-{VersionPreferences}.db"));
         File.Exists(result.BackupPath + ".partial").Should().BeFalse();
         using (var backup = OpenRaw(result.BackupPath!))

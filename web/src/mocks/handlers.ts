@@ -38,6 +38,7 @@ export function mockTokens(tag = 'mock'): AuthTokens {
     accessTokenExpiresAt: new Date(now + 15 * 60_000).toISOString(),
     refreshToken: `refresh-${tag}`,
     refreshTokenExpiresAt: new Date(now + 30 * 24 * 60 * 60_000).toISOString(),
+    passwordChangeRequired: false,
   };
 }
 

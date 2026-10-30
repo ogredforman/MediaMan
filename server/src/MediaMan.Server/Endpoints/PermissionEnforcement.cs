@@ -14,7 +14,10 @@ namespace MediaMan.Server.Endpoints;
 /// <param name="SessionId">The session the access token belongs to (for the dev configuration's auto sign-in, the dev
 /// account's session); null only if the dev account has none.</param>
 /// <param name="ProfileId">The profile the session has picked (SPEC §7.11 step 3); null until one is picked.</param>
-public sealed record CurrentUser(Guid UserId, Guid? SessionId, IReadOnlySet<string> Permissions, Guid? ProfileId = null);
+/// <param name="PasswordChangeRequired">The session must set a password before anything else (SPEC §7.11).</param>
+public sealed record CurrentUser(
+    Guid UserId, Guid? SessionId, IReadOnlySet<string> Permissions, Guid? ProfileId = null,
+    bool IsSuperadmin = false, bool PasswordChangeRequired = false);
 
 /// <summary>
 /// Enforces the <see cref="PermissionMetadata"/> every route declares (SPEC §5, §9). Routes other than
@@ -48,6 +51,7 @@ public sealed class PermissionEnforcement(RequestDelegate next)
         }
 
         // A signed URL stands in for a token (e.g. artwork in <img>). One that doesn't verify falls through to the token check.
+        // It carries no session, so the password-change gate below doesn't apply: it was issued to a caller already let through.
         var signedUrl = endpoint.Metadata.GetMetadata<SignedUrlMetadata>();
         if (signedUrl is { BoundToSession: false }
             && http.Request.Query.ContainsKey(UrlSigner.SignatureParameter)
@@ -69,7 +73,23 @@ public sealed class PermissionEnforcement(RequestDelegate next)
             return;
         }
 
-        if (permission != PermissionMetadata.Authenticated && !user.Permissions.Contains(permission))
+        if (user.PasswordChangeRequired && endpoint.Metadata.GetMetadata<AllowedDuringPasswordChangeMetadata>() is null)
+        {
+            await Problems.Result(StatusCodes.Status403Forbidden, "auth.password_change_required", "Set a new password first.",
+                "Your password doesn't meet this server's password policy, or your account has none while passwords are required.",
+                "Set a password that meets the policy, then carry on.").ExecuteAsync(http);
+            return;
+        }
+
+        if (permission == PermissionMetadata.Superadmin && !user.IsSuperadmin)
+        {
+            await Problems.Result(StatusCodes.Status403Forbidden, "auth.forbidden", "Only the owner can do this.",
+                "Only the Superadmin, who owns this server, can change this.",
+                "Ask the Superadmin to make the change.").ExecuteAsync(http);
+            return;
+        }
+
+        if (permission is not (PermissionMetadata.Authenticated or PermissionMetadata.Superadmin) && !user.Permissions.Contains(permission))
         {
             await Problems.Result(StatusCodes.Status403Forbidden, "auth.forbidden", "You don't have access to this.",
                 $"Your account doesn't have the '{permission}' permission this needs.",
@@ -131,11 +151,12 @@ public sealed class PermissionEnforcement(RequestDelegate next)
     private static async Task<CurrentUser?> LoadAsync(MediaManDbContext db, Guid userId, Guid? sessionId, CancellationToken ct)
     {
         Guid? profileId = null;
+        var passwordChangeRequired = false;
         if (sessionId is { } sid)
         {
             var session = await db.Sessions.AsNoTracking()
                 .Where(s => s.Id == sid && s.UserId == userId && !s.Revoked)
-                .Select(s => new { s.ActiveProfileId })
+                .Select(s => new { s.ActiveProfileId, s.PasswordChangeRequired })
                 .SingleOrDefaultAsync(ct);
             if (session is null)
             {
@@ -143,6 +164,7 @@ public sealed class PermissionEnforcement(RequestDelegate next)
             }
 
             profileId = session.ActiveProfileId;
+            passwordChangeRequired = session.PasswordChangeRequired;
         }
 
         var row = await db.Users.AsNoTracking()
@@ -151,7 +173,8 @@ public sealed class PermissionEnforcement(RequestDelegate next)
             .SingleOrDefaultAsync(ct);
         return row is null || row.User.Disabled
             ? null
-            : new CurrentUser(userId, sessionId, AccountService.PermissionsOf(row.User, row.Role), profileId);
+            : new CurrentUser(userId, sessionId, AccountService.PermissionsOf(row.User, row.Role), profileId,
+                row.User.IsSuperadmin, passwordChangeRequired);
     }
 
     // A new result each time: problem details are filled in per request.

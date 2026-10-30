@@ -37,7 +37,7 @@ public sealed class SetupApiTests : IDisposable
         var routes = await ContractCoverageTests.MappedRoutesAsync(factory);
         using var client = factory.CreateClient();
 
-        foreach (var (method, template, _, _, _) in routes)
+        foreach (var (method, template, _, _, _, _) in routes)
         {
             var path = template.Replace("{", "", StringComparison.Ordinal).Replace("}", "", StringComparison.Ordinal);
             using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(path, UriKind.Relative));
@@ -102,7 +102,7 @@ public sealed class SetupApiTests : IDisposable
         using var response = await SetupAsync(client, new
         {
             username = "  ",
-            password = "too short",
+            password = "short",
             mode = "cloud",
             library = new { path = Path.Combine("relative", "Movies"), contentType = "music" },
         });

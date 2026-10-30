@@ -11,6 +11,9 @@ public sealed record PermissionMetadata(string Permission)
 
     /// <summary>Any signed-in user.</summary>
     public const string Authenticated = "authenticated";
+
+    /// <summary>The Superadmin only, whatever permissions a role grants (SPEC §7.11).</summary>
+    public const string Superadmin = "superadmin";
 }
 
 public static class PermissionMetadataExtensions
@@ -18,6 +21,14 @@ public static class PermissionMetadataExtensions
     public static TBuilder RequiresPermission<TBuilder>(this TBuilder builder, string permission)
         where TBuilder : IEndpointConventionBuilder =>
         builder.WithMetadata(new PermissionMetadata(permission));
+
+    /// <summary>
+    /// Lets a session that must set a password (SPEC §7.11) through; every other authenticated route refuses it with
+    /// <c>403 auth.password_change_required</c>.
+    /// </summary>
+    public static TBuilder AllowedDuringPasswordChange<TBuilder>(this TBuilder builder)
+        where TBuilder : IEndpointConventionBuilder =>
+        builder.WithMetadata(new AllowedDuringPasswordChangeMetadata());
 
     /// <summary>Accepts a valid, unexpired <c>?exp=…&amp;sig=…</c> from <c>UrlSigner</c> in place of a bearer token.</summary>
     public static TBuilder AllowsSignedUrl<TBuilder>(this TBuilder builder)
@@ -40,3 +51,6 @@ public static class PermissionMetadataExtensions
 /// instead: the URL is signed for one session and counts as that session's token.
 /// </summary>
 public sealed record SignedUrlMetadata(bool BoundToSession = false);
+
+/// <summary>See <see cref="PermissionMetadataExtensions.AllowedDuringPasswordChange"/>.</summary>
+public sealed record AllowedDuringPasswordChangeMetadata;

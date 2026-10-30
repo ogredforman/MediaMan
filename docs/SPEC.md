@@ -108,10 +108,10 @@ The design must not preclude:
 | Artwork | A cached image | id, titleId? / seasonId? / episodeId? (exactly one owner; ADR 0002), type (poster/backdrop/logo/still), url, localPath, dominantColor |
 | MatchReview | A low-confidence or failed match awaiting a user | id, mediaFileId, candidates[] (titleRef, score), reason |
 | MatchOverride | A user's "Fix match" choice for a path, followed on every rescan instead of a search (7.3) | id, libraryId, path, titleRef, kind, season?, episodes[], absoluteEpisode?, createdAt |
-| User | An account | id, username, passwordHash, roleId, isSuperadmin, totpSecret?, disabled, createdAt |
+| User | An account | id, username, passwordHash? (none for an account made while passwords were off that hasn't set one, 7.11), roleId, isSuperadmin, totpSecret?, disabled, createdAt |
 | Role | A named bundle of permissions | id, name, permissions[], isPreset |
 | Profile | A Netflix-style viewer under an account | id, userId, name, avatar, pinHash?, maxRating?, audioLangPrefs[], subtitleLangPrefs[] |
-| Session | A signed-in device | id, userId, deviceName, refreshTokenHash, createdAt, lastSeenAt, expiresAt, revoked, activeProfileId? |
+| Session | A signed-in device | id, userId, deviceName, refreshTokenHash, createdAt, lastSeenAt, expiresAt, revoked, activeProfileId?, passwordChangeRequired (set at sign-in when the password must be changed, 7.11) |
 | Invite | A link to create an account | id, tokenHash, roleId, createdBy, expiresAt, maxUses, uses |
 | WatchState | A profile's progress on a Playable | profileId, playableId, positionSeconds, durationSeconds, watched, lastWatchedAt |
 | VersionPreference | A profile's preferred version of a Title: the file picked and its quality, which picks the matching version of every other episode and outlives the file (7.4) | profileId, titleId, mediaFileId?, resolution?, hdrFormat?, updatedAt |
@@ -124,7 +124,7 @@ The design must not preclude:
 | DownloadFile | A file inside a Download | downloadId, path, sizeBytes, priority, skipped, dangerous |
 | DownloadRequest | A user asking for a download | id, userId, titleRef, release, filter, status (Pending/Approved/Denied), decidedBy |
 | VpnConfig | The torrent network path | mode (Interface/Socks5/None-Accepted), interfaceId?, socksHost/Port/creds?, leakCheckIntervalSeconds |
-| Setting | Server-wide key/value (including the remote access switch and trusted proxies) | key, value |
+| Setting | Server-wide key/value (including the password policy, the remote access switch and trusted proxies) | key, value |
 | IpBan | A client address banned after repeated abuse (7.11) | id, address, reason, strikes, bannedUntil, createdAt |
 | AuditEvent | A security-relevant action | id, userId, action, target, at |
 
@@ -153,7 +153,8 @@ User 1─* SavedQualityProfile
 ### 7.1 First run
 
 1. The server starts with an empty database and serves the setup wizard. Every other API call returns `423 SetupRequired`.
-2. The user creates the Superadmin (username and password, minimum 12 characters).
+2. The user creates the Superadmin (username and password) and picks the password policy (7.11): "Require passwords"
+   (on by default) and "Strong passwords" (off by default). With passwords off the Superadmin can have none.
 3. The user picks a mode. **Local** binds the server to `127.0.0.1` only. **Server** listens on every interface (port 8420 by default) and
    relies on the local-network guard (7.12 step 1), so a changing LAN address needs no reconfiguration.
    Remote access isn't offered here: it starts off, so either mode serves only the local network until it's turned
@@ -253,6 +254,15 @@ User 1─* SavedQualityProfile
 ### 7.11 Sign in and sessions
 
 1. Username and password (plus TOTP if enabled) return a short-lived access token (15 min) and a rotating refresh token (30 days, sliding).
+   The password policy, chosen in setup and changed later in Settings by the Superadmin only, sets what a password must be:
+   at least 8 characters, or with "Strong passwords" at least 12 with at least 3 of an uppercase letter, a lowercase
+   letter, a digit and a symbol. The server enforces it on every password it sets (setup, invites, changes). With
+   "Require passwords" off, the sign-in screen lists the enabled accounts and picking one signs in with no password;
+   accounts can then exist without a password, and stored passwords are kept for when they're turned back on.
+   Whether a password meets the policy is checked at sign-in, while the plain password is in hand; nothing stores
+   whether a password is weak. A sign-in whose password no longer meets the policy, or an account without a password
+   while passwords are required, succeeds, but the session can only set a password (and read the account or sign out)
+   until it sets one that does; this is how the Superadmin, too, gets back in after the policy changes.
 2. Repeated failures are rate-limited per IP and per account (5 failures → 15 min lockout), in every mode. The Superadmin is rate-limited but can't be permanently locked.
 3. The profile picker shows after sign-in. A profile PIN is required if one is set. The pick is recorded on the session (each device watches as its own profile, and it lasts across token refreshes until another pick or sign-out), and profile-scoped data such as watch state follows the session's profile.
 4. Users can see and revoke their own sessions; `users.manage` can revoke anyone's except the Superadmin's.
@@ -283,6 +293,9 @@ User 1─* SavedQualityProfile
    confirms it arrived through the trusted proxy over HTTPS.
 5. While remote access is on, a "Remote access on" badge is visible to admins in the shell, and IP bans are active
    (7.11 step 5). Turning it off takes effect at once: outside clients are refused again.
+6. Passwords can't be turned off (7.11 step 1) while remote access is on, and remote access can't be turned on while
+   they're off or while any account still has no password, so the account list and sign-in by name alone never reach
+   outside clients.
 
 ## 8. Functional requirements
 
@@ -407,7 +420,8 @@ Permissions: `library.view`, `library.manage`, `metadata.edit`, `downloads.reque
   - Passwords are hashed with Argon2id.
   - Tokens are signed with a per-install key.
   - Secrets the server must read back (TOTP secrets, SOCKS5 credentials) are encrypted at rest with the per-install key (ADR 0003).
-  - All endpoints are authenticated except setup, login (including token refresh), invite redemption and health.
+  - All endpoints are authenticated except setup, login (including token refresh and the sign-in options that list the accounts to pick while passwords are off), invite redemption and health.
+  - A few settings (the password policy, remote access) are the Superadmin's alone, whatever a role grants.
   - Rate limiting on authentication, and escalating IP bans while remote access is on (7.11).
   - Clients outside the local network are refused until the Superadmin turns on remote access (7.12).
   - Browsers may call the API cross-origin (CORS) only from the configured UI origins (`MediaMan:AllowedOrigins`, none by default; the desktop app passes its UI's origin to the server it starts), without credentials since tokens are bearer tokens.

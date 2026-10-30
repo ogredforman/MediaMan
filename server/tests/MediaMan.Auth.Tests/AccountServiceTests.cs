@@ -92,7 +92,7 @@ public class AccountServiceTests
     }
 
     [Theory]
-    [InlineData("owner", "elevenchars")]
+    [InlineData("owner", "sevench")]
     [InlineData("   ", "a long password")]
     public async Task Rejects_short_passwords_and_empty_usernames(string username, string password)
     {
