@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
+import { FieldLabelId } from './fieldLabelId';
 
 /** Server validation errors (`*.invalid` problems), keyed by field. */
 export type FieldErrors = Record<string, string[]>;
@@ -17,12 +18,13 @@ export function Field({
   hint?: string;
   children: ReactNode;
 }) {
+  const labelId = useId();
   return (
     <div className="flex flex-col gap-1">
       {/* The label wraps the control, so the control is named by it; an error is announced when it appears. */}
       <label className="flex flex-col gap-1 text-sm text-fg-muted">
-        {label}
-        {children}
+        <span id={labelId}>{label}</span>
+        <FieldLabelId value={labelId}>{children}</FieldLabelId>
       </label>
       {hint !== undefined && <p className="text-xs text-fg-muted">{hint}</p>}
       <FieldError messages={errors[field]} />

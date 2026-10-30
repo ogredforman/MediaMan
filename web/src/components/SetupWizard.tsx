@@ -6,6 +6,7 @@ import { storeTokens } from '../lib/session';
 import { Field, FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
 import { Logo } from './Logo';
+import { PasswordInput } from './PasswordInput';
 import { TitleBarStrip } from './TitleBarStrip';
 
 /** Matches the server's rule (SPEC §7.1 step 2); the server checks it again. */
@@ -174,9 +175,8 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
               />
             </Field>
             <Field label="Password" field="password" errors={errors} hint={`At least ${String(minimumPasswordLength)} characters.`}>
-              <input
+              <PasswordInput
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 value={password}
                 onChange={edit('password', setPassword)}
@@ -184,9 +184,8 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
               />
             </Field>
             <Field label="Confirm password" field="confirmPassword" errors={errors}>
-              <input
+              <PasswordInput
                 name="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={edit('confirmPassword', setConfirmPassword)}

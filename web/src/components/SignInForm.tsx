@@ -1,7 +1,9 @@
 import { useState, type SubmitEvent } from 'react';
 import { useLogin } from '../api/mediaman';
 import { storeTokens } from '../lib/session';
+import { Field } from './FormField';
 import { Logo } from './Logo';
+import { PasswordInput } from './PasswordInput';
 import { TitleBarStrip } from './TitleBarStrip';
 
 const inputClass = 'rounded-card bg-bg px-3 py-2 text-fg';
@@ -54,18 +56,16 @@ export function SignInForm({ onSignedIn, onSetupRequired }: { onSignedIn: () => 
             className={inputClass}
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm text-fg-muted">
-          Password
-          <input
+        <Field label="Password" field="password" errors={{}}>
+          <PasswordInput
             name="password"
-            type="password"
             autoComplete="current-password"
             required
             value={password}
             onChange={(e) => { setPassword(e.target.value); }}
             className={inputClass}
           />
-        </label>
+        </Field>
         {signIn.isError && (
           <p role="alert" className="text-sm">
             {signIn.error.problem.title} {signIn.error.problem.action}
