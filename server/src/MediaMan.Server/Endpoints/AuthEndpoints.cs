@@ -13,7 +13,7 @@ public sealed record RefreshRequest(string? RefreshToken);
 
 public sealed record SignInAccount(string Username);
 
-public sealed record SignInOptions(bool PasswordsRequired, IReadOnlyList<SignInAccount>? Accounts);
+public sealed record SignInOptions(bool PasswordsRequired, bool StrongPasswords, IReadOnlyList<SignInAccount>? Accounts);
 
 /// <summary>
 /// Sign-in, token refresh and sign-out (SPEC §7.11). Signing in, its options and refreshing are unauthenticated: they're
@@ -36,11 +36,11 @@ public static class AuthEndpoints
         var policy = await PasswordPolicy.LoadAsync(db, ct);
         if (policy.RequirePasswords)
         {
-            return TypedResults.Ok(new SignInOptions(true, null));
+            return TypedResults.Ok(new SignInOptions(true, policy.StrongPasswords, null));
         }
 
         var accounts = await db.Users.AsNoTracking().Where(u => !u.Disabled).Select(u => u.Username).ToListAsync(ct);
-        return TypedResults.Ok(new SignInOptions(false,
+        return TypedResults.Ok(new SignInOptions(false, policy.StrongPasswords,
             [.. accounts.Order(StringComparer.CurrentCultureIgnoreCase).Select(name => new SignInAccount(name))]));
     }
 

@@ -74,6 +74,11 @@ export interface SignInAccount {
 export interface SignInOptions {
   /** False when accounts sign in by picking their account, with no password (SPEC §7.11). */
   passwordsRequired: boolean;
+  /**
+     * Whether the policy asks for strong passwords, so a screen setting a password states the rule without
+     * reading the policy: the forced password change and invite redemption (SPEC §7.11).
+     */
+  strongPasswords: boolean;
   /** The enabled accounts to pick from, by username; present only while passwords aren't required. */
   accounts?: SignInAccount[];
 }

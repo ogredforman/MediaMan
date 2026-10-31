@@ -333,7 +333,7 @@ export const handlers = [
   mockEvents.handler,
   getLoginMockHandler(() => {
     mockProfiles.clearPick();
-    return mockTokens('signed-in');
+    return { ...mockTokens('signed-in'), passwordChangeRequired: mockSettings.passwordChangeRequired };
   }),
   getRefreshTokensMockHandler(() => mockTokens('refreshed')),
   getCompleteSetupMockHandler(async ({ request }) => {
@@ -342,6 +342,7 @@ export const handlers = [
     mockProfiles.clearPick();
     return mockTokens('setup');
   }),
+  ...mockSettings.passwordChangeHandlers,
   ...mockProfiles.handlers,
   ...mockSettings.handlers,
   ...mockLibraries.handlers,

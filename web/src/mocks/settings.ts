@@ -9,8 +9,10 @@ import {
   type ServerMode,
   type ServerModeRequest,
   type ServerModeState,
+  type SetPasswordRequest,
   type SignInOptions,
 } from '../api/mediaman.schemas';
+import { passwordProblem } from '../lib/passwordRule';
 
 const problem = (body: Record<string, unknown> & { status: number }) =>
   HttpResponse.json(body, { status: body.status, headers: { 'Content-Type': 'application/problem+json' } });
@@ -22,6 +24,25 @@ const forbidden = (permission: Permission) =>
     code: 'auth.forbidden',
     detail: `Your account doesn't have the '${permission}' permission this needs.`,
     action: 'Ask an admin to give your role this permission.',
+  });
+
+const passwordChangeRequired = () =>
+  problem({
+    title: 'Set a new password first.',
+    status: 403,
+    code: 'auth.password_change_required',
+    detail: "Your password doesn't meet this server's password policy, or your account has none while passwords are required.",
+    action: 'Set a password that meets the policy, then carry on.',
+  });
+
+const passwordInvalid = (field: 'newPassword' | 'currentPassword', message: string) =>
+  problem({
+    title: 'Check the password.',
+    status: 400,
+    code: 'account.password_invalid',
+    detail: "The password wasn't changed.",
+    action: field === 'newPassword' ? 'Choose a password that meets the policy, then save.' : 'Enter your current password, then save.',
+    errors: { [field]: [message] },
   });
 
 const ownerOnly = () =>
@@ -70,7 +91,8 @@ export const defaultPasswordPolicy: PasswordPolicy = { requirePasswords: true, s
 /**
  * The signed-in account, the recorded server mode, the TMDB token source and the password policy, with the server's
  * permission checks and rules. `setPermissions` makes the account an ordinary user; `setPasswordPolicy` is what setup
- * records; `reset` after each test.
+ * records; `requirePasswordChange` makes the session one that must set a new password (login tokens and `/account` say
+ * so, `/profiles` answers `403` until `PUT /account/password` succeeds); `reset` after each test.
  */
 export function createSettingsStore() {
   let account: Account = mockAccount;
@@ -78,6 +100,7 @@ export function createSettingsStore() {
   let recordedMode: ServerMode = 'local';
   let tokenSource: MetadataSettings['tmdbAccessTokenSource'] = 'shipped';
   let passwordPolicy = defaultPasswordPolicy;
+  let mustChangePassword = false;
 
   const modeState = (): ServerModeState => ({ mode: recordedMode, restartRequired: recordedMode !== runningMode });
   const lacks = (permission: Permission) => !account.permissions.includes(permission);
@@ -87,6 +110,7 @@ export function createSettingsStore() {
     runningMode = recordedMode = 'local';
     tokenSource = 'shipped';
     passwordPolicy = defaultPasswordPolicy;
+    mustChangePassword = false;
   };
   reset();
 
@@ -98,14 +122,42 @@ export function createSettingsStore() {
     setPasswordPolicy(policy: PasswordPolicy) {
       passwordPolicy = policy;
     },
+    requirePasswordChange() {
+      mustChangePassword = true;
+    },
+    get passwordChangeRequired() {
+      return mustChangePassword;
+    },
+    /** Ahead of the profile store's handlers: a session that must change its password gets nothing else (SPEC §7.11). */
+    passwordChangeHandlers: [
+      http.all('*/profiles', () => (mustChangePassword ? passwordChangeRequired() : undefined)),
+      http.all('*/profiles/*', () => (mustChangePassword ? passwordChangeRequired() : undefined)),
+      http.put('*/auth/session/profile', () => (mustChangePassword ? passwordChangeRequired() : undefined)),
+    ],
     handlers: [
-      http.get('*/account', () => HttpResponse.json(account)),
+      http.get('*/account', () => HttpResponse.json({ ...account, passwordChangeRequired: mustChangePassword })),
+      // The server's rule; the current password is asked for except in a session that must change it.
+      http.put('*/account/password', async ({ request }) => {
+        const { currentPassword, newPassword } = (await request.json()) as SetPasswordRequest;
+        if (newPassword === '') return passwordInvalid('newPassword', 'Enter a new password.');
+        const failure = passwordProblem(passwordPolicy, newPassword);
+        if (failure !== undefined) return passwordInvalid('newPassword', failure);
+        if (!mustChangePassword && account.hasPassword && (currentPassword ?? '') === '') {
+          return passwordInvalid('currentPassword', 'Enter your current password.');
+        }
+        mustChangePassword = false;
+        return new HttpResponse(null, { status: 204 });
+      }),
       // Accounts to pick from are listed only while passwords are off, like the server.
       http.get('*/auth/sign-in-options', () =>
         HttpResponse.json<SignInOptions>(
           passwordPolicy.requirePasswords
-            ? { passwordsRequired: true }
-            : { passwordsRequired: false, accounts: [{ username: account.username }] },
+            ? { passwordsRequired: true, strongPasswords: passwordPolicy.strongPasswords }
+            : {
+                passwordsRequired: false,
+                strongPasswords: passwordPolicy.strongPasswords,
+                accounts: [{ username: account.username }],
+              },
         ),
       ),
       // The Superadmin's alone, whatever a role grants (SPEC §9).

@@ -244,9 +244,9 @@ paths:
       operationId: getSignInOptions
       summary: How to sign in here, and while passwords are off, the accounts to pick from (SPEC §7.11).
       description: |
-        Part of signing in, so it's unauthenticated. `accounts` lists the enabled accounts only while the password
-        policy doesn't require passwords; while it does, it's omitted and the sign-in form asks for a username and
-        password.
+        Part of signing in, so it's unauthenticated. `strongPasswords` gives the password rule in force. `accounts`
+        lists the enabled accounts only while the password policy doesn't require passwords; while it does, it's
+        omitted and the sign-in form asks for a username and password.
       tags: [auth]
       security: []
       x-permission: none
@@ -1594,12 +1594,17 @@ components:
 
     SignInOptions:
       type: object
-      required: [passwordsRequired]
+      required: [passwordsRequired, strongPasswords]
       additionalProperties: false
       properties:
         passwordsRequired:
           type: boolean
           description: False when accounts sign in by picking their account, with no password (SPEC §7.11).
+        strongPasswords:
+          type: boolean
+          description: |
+            Whether the policy asks for strong passwords, so a screen setting a password states the rule without
+            reading the policy: the forced password change and invite redemption (SPEC §7.11).
         accounts:
           type: array
           description: The enabled accounts to pick from, by username; present only while passwords aren't required.

@@ -24,6 +24,7 @@ function SignInRoute() {
   return (
     <SignInForm
       onSignedIn={() => { void router.navigate({ href: target ?? '/' }); }}
+      onPasswordChangeRequired={() => { void router.navigate({ to: '/change-password', search: { redirect: target } }); }}
       onSetupRequired={() => { void router.navigate({ to: '/setup' }); }}
     />
   );

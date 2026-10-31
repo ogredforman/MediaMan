@@ -12,17 +12,27 @@ const inputClass = 'rounded-card bg-bg px-3 py-2 text-fg';
 
 /**
  * Sign-in (SPEC §7.11 step 1), as `GET /auth/sign-in-options` says: a username and password, or while passwords are
- * off, the accounts to pick from. `onSignedIn` runs once the tokens are stored, and `onSetupRequired` when the server
- * has no account yet (`423 setup.required`).
+ * off, the accounts to pick from. `onSignedIn` runs once the tokens are stored (`onPasswordChangeRequired` instead when
+ * the session must set a new password first), and `onSetupRequired` when the server has no account yet
+ * (`423 setup.required`).
  */
-export function SignInForm({ onSignedIn, onSetupRequired }: { onSignedIn: () => void; onSetupRequired: () => void }) {
+export function SignInForm({
+  onSignedIn,
+  onPasswordChangeRequired,
+  onSetupRequired,
+}: {
+  onSignedIn: () => void;
+  onPasswordChangeRequired: () => void;
+  onSetupRequired: () => void;
+}) {
   // No retries: a 423 goes straight to setup, and anything else offers Try again.
   const options = useGetSignInOptions({ query: { retry: false }, request: { anonymous: true } });
   const signIn = useLogin({
     mutation: {
       onSuccess: (tokens) => {
         storeTokens(tokens);
-        onSignedIn();
+        if (tokens.passwordChangeRequired) onPasswordChangeRequired();
+        else onSignedIn();
       },
       onError: (error) => {
         if (error.problem.code === 'setup.required') onSetupRequired();

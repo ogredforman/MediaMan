@@ -37,6 +37,7 @@ public sealed class PasswordPolicyApiTests : IDisposable
         using var body = await JsonOfAsync(options);
         body.RootElement.GetProperty("passwordsRequired").GetBoolean().Should().BeTrue();
         body.RootElement.TryGetProperty("accounts", out _).Should().BeFalse("accounts are listed only while passwords are off");
+        body.RootElement.GetProperty("strongPasswords").GetBoolean().Should().BeFalse();
 
         (await SetPasswordAsync(owner, MediaManFactory.SuperadminPassword, "seven77")).Should().Be("newPassword");
         (await SetPasswordAsync(owner, MediaManFactory.SuperadminPassword, "eight888")).Should().BeNull();
@@ -59,6 +60,12 @@ public sealed class PasswordPolicyApiTests : IDisposable
 
         await SetPolicyAsync(owner, require: true, strong: true);
         (await PolicyAsync(owner)).Should().Be((true, true));
+
+        // A session that must set a new password can't read the policy, so the sign-in options give the rule too.
+        using var options = await factory.CreateClient().GetAsync(new Uri("/auth/sign-in-options", UriKind.Relative), Ct);
+        await ContractDocument.Instance.AssertConformsAsync(options, Ct);
+        using var body = await JsonOfAsync(options);
+        body.RootElement.GetProperty("strongPasswords").GetBoolean().Should().BeTrue();
     }
 
     [Fact]

@@ -911,9 +911,9 @@ export const getGetSignInOptionsUrl = () => {
 }
 
 /**
- * Part of signing in, so it's unauthenticated. `accounts` lists the enabled accounts only while the password
- * policy doesn't require passwords; while it does, it's omitted and the sign-in form asks for a username and
- * password.
+ * Part of signing in, so it's unauthenticated. `strongPasswords` gives the password rule in force. `accounts`
+ * lists the enabled accounts only while the password policy doesn't require passwords; while it does, it's
+ * omitted and the sign-in form asks for a username and password.
  * @summary How to sign in here, and while passwords are off, the accounts to pick from (SPEC §7.11).
  */
 export const getSignInOptions = async ( options?: Parameters<typeof apiFetch>[1]): Promise<SignInOptions> => {

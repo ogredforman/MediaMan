@@ -99,7 +99,7 @@ export const getGetMetadataSettingsResponseMock = (overrideResponse: Partial<Ext
 
 export const getSetMetadataSettingsResponseMock = (overrideResponse: Partial<Extract<MetadataSettings, object>> = {}): MetadataSettings => ({tmdbAccessTokenSource: faker.helpers.arrayElement(['shipped','configuration','settings'] as const), ...overrideResponse})
 
-export const getGetSignInOptionsResponseMock = (overrideResponse: Partial<Extract<SignInOptions, object>> = {}): SignInOptions => ({passwordsRequired: faker.datatype.boolean(), accounts: faker.helpers.arrayElement([Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({username: faker.string.alpha({length: {min: 10, max: 20}})})), undefined]), ...overrideResponse})
+export const getGetSignInOptionsResponseMock = (overrideResponse: Partial<Extract<SignInOptions, object>> = {}): SignInOptions => ({passwordsRequired: faker.datatype.boolean(), strongPasswords: faker.datatype.boolean(), accounts: faker.helpers.arrayElement([Array.from({ length: faker.number.int({min: 1, max: 10}) }, (_, i) => i + 1).map(() => ({username: faker.string.alpha({length: {min: 10, max: 20}})})), undefined]), ...overrideResponse})
 
 export const getLoginResponseMock = (overrideResponse: Partial<Extract<AuthTokens, object>> = {}): AuthTokens => ({passwordChangeRequired: faker.datatype.boolean(), accessToken: faker.string.alpha({length: {min: 10, max: 20}}), accessTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', refreshToken: faker.string.alpha({length: {min: 10, max: 20}}), refreshTokenExpiresAt: faker.date.past().toISOString().slice(0, 19) + 'Z', ...overrideResponse})
 

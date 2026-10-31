@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as PlayerRouteImport } from './routes/player'
 import { Route as ProfilesRouteImport } from './routes/profiles'
 import { Route as SetupRouteImport } from './routes/setup'
@@ -31,6 +32,11 @@ import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titl
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlayerRoute = PlayerRouteImport.update({
@@ -126,6 +132,7 @@ const AppTitlesTitleIdRoute = AppTitlesTitleIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/player': typeof PlayerRoute
   '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
@@ -145,6 +152,7 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AppSettingsIndexRoute
 }
 export interface FileRoutesByTo {
+  '/change-password': typeof ChangePasswordRoute
   '/player': typeof PlayerRoute
   '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
@@ -166,6 +174,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/change-password': typeof ChangePasswordRoute
   '/player': typeof PlayerRoute
   '/profiles': typeof ProfilesRoute
   '/setup': typeof SetupRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/change-password'
     | '/player'
     | '/profiles'
     | '/setup'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/change-password'
     | '/player'
     | '/profiles'
     | '/setup'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/change-password'
     | '/player'
     | '/profiles'
     | '/setup'
@@ -250,6 +262,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  ChangePasswordRoute: typeof ChangePasswordRoute
   PlayerRoute: typeof PlayerRoute
   ProfilesRoute: typeof ProfilesRoute
   SetupRoute: typeof SetupRoute
@@ -263,6 +276,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/player': {
@@ -442,6 +462,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  ChangePasswordRoute: ChangePasswordRoute,
   PlayerRoute: PlayerRoute,
   ProfilesRoute: ProfilesRoute,
   SetupRoute: SetupRoute,
