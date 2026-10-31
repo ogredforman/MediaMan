@@ -1,9 +1,11 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import type { LoginRequest } from '../api/mediaman.schemas';
 import { mockTokens } from '../mocks/handlers';
 import { server } from '../mocks/node';
+import { mockSettings } from '../mocks/settings';
 import { storedTokens, storeTokens } from '../lib/session';
 import { renderApp } from '../test/renderApp';
 
@@ -32,7 +34,7 @@ describe('sign-in', () => {
     expect(screen.getByRole('img', { name: 'MediaMan logo' })).toHaveAttribute('src', expect.stringContaining('logo'));
     expect(router.state.location.search).toEqual({ redirect: '/movies' });
 
-    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(await screen.findByLabelText('Username'), 'owner');
     await user.type(screen.getByLabelText('Password'), 'correct horse battery');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -55,7 +57,7 @@ describe('sign-in', () => {
     // The redirect is a route path; the router adds /app when it goes back.
     expect(router.state.location.search).toEqual({ redirect: '/movies' });
 
-    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(await screen.findByLabelText('Username'), 'owner');
     await user.type(screen.getByLabelText('Password'), 'correct horse battery');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
     expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
@@ -82,6 +84,62 @@ describe('sign-in', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Wrong username or password. Check them and try again.');
     expect(storedTokens()).toBeUndefined();
+  });
+
+  it('lists the accounts while passwords are off, and signs in with the username alone', async () => {
+    requireSignIn();
+    mockSettings.setPasswordPolicy({ requirePasswords: false, strongPasswords: false });
+    let sent: LoginRequest | undefined;
+    server.use(
+      http.post('*/auth/login', async ({ request }) => {
+        sent = (await request.clone().json()) as LoginRequest;
+        return undefined; // on to the mock login
+      }),
+    );
+    const user = userEvent.setup();
+    renderApp('/sign-in');
+
+    expect(await screen.findByText('Pick your account.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole('list', { name: 'Accounts' })).getByRole('button', { name: 'owner' }));
+
+    expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
+    expect(sent).toEqual({ username: 'owner' });
+    expect(storedTokens()?.accessToken).toBe('access-signed-in');
+  });
+
+  it('reaches the accounts by keyboard', async () => {
+    requireSignIn();
+    mockSettings.setPasswordPolicy({ requirePasswords: false, strongPasswords: true });
+    const user = userEvent.setup();
+    renderApp('/sign-in');
+
+    const account = await screen.findByRole('button', { name: 'owner' });
+    await user.tab();
+    expect(account).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
+  });
+
+  it("says when the sign-in options can't be loaded, and tries again", async () => {
+    requireSignIn();
+    server.use(
+      http.get(
+        '*/auth/sign-in-options',
+        () => problem(503, 'server.unavailable', "MediaMan can't be reached.", 'Check the server is running, then try again.'),
+        { once: true },
+      ),
+    );
+    const user = userEvent.setup();
+    renderApp('/sign-in');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "MediaMan can't be reached. Check the server is running, then try again.",
+    );
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByLabelText('Username')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('signs out and returns to sign-in', async () => {

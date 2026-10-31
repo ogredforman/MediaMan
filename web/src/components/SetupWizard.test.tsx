@@ -6,7 +6,7 @@ import type { SetupRequest } from '../api/mediaman.schemas';
 import { mockTokens } from '../mocks/handlers';
 import { server } from '../mocks/node';
 import { mockProfiles } from '../mocks/profiles';
-import { storedTokens, storeTokens } from '../lib/session';
+import { clearTokens, storedTokens, storeTokens } from '../lib/session';
 import { renderApp } from '../test/renderApp';
 
 const problem = (body: Record<string, unknown> & { status: number }) =>
@@ -112,6 +112,7 @@ describe('setup wizard', () => {
     expect(sent).toEqual({
       username: 'owner',
       password: 'correct horse battery',
+      passwordPolicy: { requirePasswords: true, strongPasswords: false },
       mode: 'local',
       library: { path: '/mnt/media/movies', contentType: 'movies' },
     });
@@ -123,7 +124,13 @@ describe('setup wizard', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Next' }));
     expect(screen.getByText('Enter a username.')).toBeInTheDocument();
-    expect(screen.getByText('Use a password of at least 12 characters.')).toBeInTheDocument();
+    expect(screen.getByText('Enter a password.')).toBeInTheDocument();
+    expect(screen.getByText('At least 8 characters.')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('Password'), 'short');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Use a password of at least 8 characters.')).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('Password'));
 
     await user.type(screen.getByLabelText('Username'), 'owner');
     await user.type(screen.getByLabelText('Password'), 'correct horse battery');
@@ -132,6 +139,68 @@ describe('setup wizard', () => {
 
     expect(screen.getByText("The passwords don't match. Type the same password twice.")).toBeInTheDocument();
     expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
+  });
+
+  it('sends a sign-in on an un-set-up server to the wizard before anything is typed', async () => {
+    server.use(http.get('*/auth/sign-in-options', setupRequired));
+    renderApp('/sign-in');
+
+    expect(await screen.findByRole('heading', { name: 'Create the owner account' })).toBeInTheDocument();
+  });
+
+  it('lets the owner turn passwords off and have none, then sign in by picking the account', async () => {
+    let sent: SetupRequest | undefined;
+    server.use(
+      http.post('*/setup', async ({ request }) => {
+        sent = (await request.clone().json()) as SetupRequest;
+        return undefined; // on to the mock setup, which records the policy
+      }),
+    );
+    const user = userEvent.setup();
+    const { router } = renderApp('/setup');
+
+    await user.type(await screen.findByLabelText('Username'), 'owner');
+    await user.click(screen.getByRole('checkbox', { name: /Require passwords/ }));
+    expect(screen.getByText('Optional. If you set one: at least 8 characters.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await user.type(await screen.findByLabelText('Folder path'), '/mnt/media');
+    await user.click(screen.getByRole('button', { name: 'Finish setup' }));
+
+    expect(await screen.findByRole('heading', { name: "Who's watching?" })).toBeInTheDocument();
+    expect(sent).toEqual({
+      username: 'owner',
+      passwordPolicy: { requirePasswords: false, strongPasswords: false },
+      mode: 'local',
+      library: { path: '/mnt/media', contentType: 'mixed' },
+    });
+
+    clearTokens();
+    await router.navigate({ to: '/sign-in' });
+    expect(await screen.findByText('Pick your account.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'owner' })).toBeInTheDocument();
+  });
+
+  it('states and checks the strong-password rule', async () => {
+    const user = userEvent.setup();
+    renderApp('/setup');
+
+    await user.click(await screen.findByRole('checkbox', { name: /Strong passwords/ }));
+    expect(
+      screen.getByText('At least 12 characters, mixing at least 3 of: uppercase letters, lowercase letters, digits and symbols.'),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Username'), 'owner');
+    await user.type(screen.getByLabelText('Password'), 'correct horse battery');
+    await user.type(screen.getByLabelText('Confirm password'), 'correct horse battery');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText('Mix at least 3 of: uppercase letters, lowercase letters, digits and symbols.')).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText('Password'));
+    await user.clear(screen.getByLabelText('Confirm password'));
+    await user.type(screen.getByLabelText('Password'), 'Correct horse battery');
+    await user.type(screen.getByLabelText('Confirm password'), 'Correct horse battery');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(await screen.findByRole('heading', { name: 'Choose who can connect' })).toBeInTheDocument();
   });
 
   it("shows an unreadable path on the library step, and keeps the user's choices", async () => {

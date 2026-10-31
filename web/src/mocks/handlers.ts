@@ -22,6 +22,7 @@ import type {
   GenreCount,
   Home,
   PlaybackSession,
+  SetupRequest,
   TitleDetail,
   TitleSummary,
   WatchProgress,
@@ -335,7 +336,9 @@ export const handlers = [
     return mockTokens('signed-in');
   }),
   getRefreshTokensMockHandler(() => mockTokens('refreshed')),
-  getCompleteSetupMockHandler(() => {
+  getCompleteSetupMockHandler(async ({ request }) => {
+    const { passwordPolicy } = (await request.json()) as SetupRequest;
+    if (passwordPolicy !== undefined) mockSettings.setPasswordPolicy(passwordPolicy);
     mockProfiles.clearPick();
     return mockTokens('setup');
   }),

@@ -1,16 +1,14 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState, type ChangeEvent, type SubmitEvent } from 'react';
 import { useCompleteSetup } from '../api/mediaman';
-import type { ContentType, ServerMode } from '../api/mediaman.schemas';
+import type { ContentType, PasswordPolicy, ServerMode } from '../api/mediaman.schemas';
+import { passwordHint, passwordProblem } from '../lib/passwordRule';
 import { storeTokens } from '../lib/session';
 import { Field, FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
 import { Logo } from './Logo';
 import { PasswordInput } from './PasswordInput';
 import { TitleBarStrip } from './TitleBarStrip';
-
-/** Matches the server's rule (SPEC §7.1 step 2); the server checks it again. */
-const minimumPasswordLength = 12;
 
 type Step = 'account' | 'mode' | 'library';
 
@@ -20,7 +18,7 @@ const steps: { id: Step; title: string }[] = [
   { id: 'library', title: 'Add your first library' },
 ];
 
-/** The step that owns a `setup.invalid` error field (`username`, `password`, `mode`, `library`, `library.*`). */
+/** The step that owns a `setup.invalid` error field (`username`, `password`, `passwordPolicy`, `mode`, `library`, `library.*`). */
 function stepOf(field: string): Step {
   if (field === 'mode') return 'mode';
   if (field === 'library' || field.startsWith('library.')) return 'library';
@@ -37,6 +35,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [policy, setPolicy] = useState<PasswordPolicy>({ requirePasswords: true, strongPasswords: false });
   const [mode, setMode] = useState<ServerMode>('local');
   const [path, setPath] = useState('');
   const [contentType, setContentType] = useState<ContentType>('mixed');
@@ -78,6 +77,12 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
   const clearError = (field: string) => {
     setErrors((all) => Object.fromEntries(Object.entries(all).filter(([key]) => key !== field)));
   };
+  // The rule the password is checked against changes with the policy, so its error goes too.
+  const choose = (option: keyof PasswordPolicy) => (e: ChangeEvent<HTMLInputElement>) => {
+    setPolicy((current) => ({ ...current, [option]: e.target.checked }));
+    clearError('password');
+    clearError('confirmPassword');
+  };
   const edit =
     (field: string, set: (value: string) => void) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       set(e.target.value);
@@ -89,8 +94,9 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     const found: FieldErrors = {};
     if (step === 'account') {
       if (username.trim() === '') found.username = ['Enter a username.'];
-      if (password.length < minimumPasswordLength) {
-        found.password = [`Use a password of at least ${String(minimumPasswordLength)} characters.`];
+      const problem = passwordProblem(policy, password);
+      if (problem !== undefined) {
+        found.password = [problem];
       } else if (password !== confirmPassword) {
         found.confirmPassword = ["The passwords don't match. Type the same password twice."];
       }
@@ -114,7 +120,9 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
     setup.mutate({
       data: {
         username: username.trim(),
-        password,
+        // Left out, not sent empty, when passwords are off and the owner chose none.
+        ...(password === '' ? {} : { password }),
+        passwordPolicy: policy,
         mode,
         library: { path: path.trim(), contentType, ...(name.trim() === '' ? {} : { name: name.trim() }) },
       },
@@ -174,7 +182,31 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
                 className={inputClass}
               />
             </Field>
-            <Field label="Password" field="password" errors={errors} hint={`At least ${String(minimumPasswordLength)} characters.`}>
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-1 text-sm text-fg-muted">Passwords on this server</legend>
+              <PolicyOption
+                name="requirePasswords"
+                checked={policy.requirePasswords}
+                onChange={choose('requirePasswords')}
+                label="Require passwords"
+                description="Turn this off and anyone who can reach the server signs in by picking an account, with no password."
+              />
+              <PolicyOption
+                name="strongPasswords"
+                checked={policy.strongPasswords}
+                onChange={choose('strongPasswords')}
+                label="Strong passwords"
+                description="Ask for longer passwords that mix kinds of characters."
+              />
+              <FieldError messages={errors.passwordPolicy} />
+              <p className="text-sm text-fg-muted">You can change these later in Settings.</p>
+            </fieldset>
+            <Field
+              label={policy.requirePasswords ? 'Password' : 'Password (optional)'}
+              field="password"
+              errors={errors}
+              hint={passwordHint(policy)}
+            >
               <PasswordInput
                 name="password"
                 autoComplete="new-password"
@@ -183,7 +215,11 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
                 className={inputClass}
               />
             </Field>
-            <Field label="Confirm password" field="confirmPassword" errors={errors}>
+            <Field
+              label={policy.requirePasswords ? 'Confirm password' : 'Confirm password (optional)'}
+              field="confirmPassword"
+              errors={errors}
+            >
               <PasswordInput
                 name="confirmPassword"
                 autoComplete="new-password"
@@ -284,6 +320,28 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         </div>
       </form>
     </main>
+  );
+}
+
+function PolicyOption({
+  name,
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  name: string;
+  checked: boolean;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  label: string;
+  description: string;
+}) {
+  return (
+    <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-3 rounded-card bg-bg p-3">
+      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="row-span-2 mt-1" />
+      <span className="font-medium">{label}</span>
+      <span className="text-sm text-fg-muted">{description}</span>
+    </label>
   );
 }
 

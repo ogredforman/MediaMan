@@ -4,10 +4,12 @@ import {
   type Account,
   type MetadataSettings,
   type MetadataSettingsRequest,
+  type PasswordPolicy,
   type Permission,
   type ServerMode,
   type ServerModeRequest,
   type ServerModeState,
+  type SignInOptions,
 } from '../api/mediaman.schemas';
 
 const problem = (body: Record<string, unknown> & { status: number }) =>
@@ -53,15 +55,20 @@ export const mockAccount: Account = {
   passwordChangeRequired: false,
 };
 
+/** A new install's password policy (SPEC §7.11). */
+export const defaultPasswordPolicy: PasswordPolicy = { requirePasswords: true, strongPasswords: false };
+
 /**
- * The signed-in account, the recorded server mode and the TMDB token source, with the server's permission checks and
- * rules. `setPermissions` makes the account an ordinary user; `reset` after each test.
+ * The signed-in account, the recorded server mode, the TMDB token source and the password policy, with the server's
+ * permission checks and rules. `setPermissions` makes the account an ordinary user; `setPasswordPolicy` is what setup
+ * records; `reset` after each test.
  */
 export function createSettingsStore() {
   let account: Account = mockAccount;
   let runningMode: ServerMode = 'local';
   let recordedMode: ServerMode = 'local';
   let tokenSource: MetadataSettings['tmdbAccessTokenSource'] = 'shipped';
+  let passwordPolicy = defaultPasswordPolicy;
 
   const modeState = (): ServerModeState => ({ mode: recordedMode, restartRequired: recordedMode !== runningMode });
   const lacks = (permission: Permission) => !account.permissions.includes(permission);
@@ -70,6 +77,7 @@ export function createSettingsStore() {
     account = mockAccount;
     runningMode = recordedMode = 'local';
     tokenSource = 'shipped';
+    passwordPolicy = defaultPasswordPolicy;
   };
   reset();
 
@@ -78,8 +86,19 @@ export function createSettingsStore() {
     setPermissions(permissions: Permission[]) {
       account = { ...mockAccount, isSuperadmin: false, permissions };
     },
+    setPasswordPolicy(policy: PasswordPolicy) {
+      passwordPolicy = policy;
+    },
     handlers: [
       http.get('*/account', () => HttpResponse.json(account)),
+      // Accounts to pick from are listed only while passwords are off, like the server.
+      http.get('*/auth/sign-in-options', () =>
+        HttpResponse.json<SignInOptions>(
+          passwordPolicy.requirePasswords
+            ? { passwordsRequired: true }
+            : { passwordsRequired: false, accounts: [{ username: account.username }] },
+        ),
+      ),
       http.get('*/server/mode', () => (lacks('server.control') ? forbidden('server.control') : HttpResponse.json(modeState()))),
       http.put('*/server/mode', async ({ request }) => {
         if (lacks('server.control')) return forbidden('server.control');
