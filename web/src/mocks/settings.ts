@@ -24,6 +24,15 @@ const forbidden = (permission: Permission) =>
     action: 'Ask an admin to give your role this permission.',
   });
 
+const ownerOnly = () =>
+  problem({
+    title: "You don't have access to this.",
+    status: 403,
+    code: 'auth.forbidden',
+    detail: 'Only the Superadmin can do this.',
+    action: 'Ask the server owner.',
+  });
+
 const invalidToken = (message: string) =>
   problem({
     title: 'Check the TMDB access token.',
@@ -99,6 +108,15 @@ export function createSettingsStore() {
             : { passwordsRequired: false, accounts: [{ username: account.username }] },
         ),
       ),
+      // The Superadmin's alone, whatever a role grants (SPEC §9).
+      http.get('*/settings/password-policy', () =>
+        account.isSuperadmin ? HttpResponse.json(passwordPolicy) : ownerOnly(),
+      ),
+      http.put('*/settings/password-policy', async ({ request }) => {
+        if (!account.isSuperadmin) return ownerOnly();
+        passwordPolicy = (await request.json()) as PasswordPolicy;
+        return HttpResponse.json(passwordPolicy);
+      }),
       http.get('*/server/mode', () => (lacks('server.control') ? forbidden('server.control') : HttpResponse.json(modeState()))),
       http.put('*/server/mode', async ({ request }) => {
         if (lacks('server.control')) return forbidden('server.control');

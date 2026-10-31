@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useId, type ChangeEvent, type ReactNode } from 'react';
 import { FieldLabelId } from './fieldLabelId';
 
 /** Server validation errors (`*.invalid` problems), keyed by field. */
@@ -38,5 +38,28 @@ export function FieldError({ messages }: { messages: string[] | undefined }) {
     <p role="alert" className="text-sm text-highlight">
       {messages.join(' ')}
     </p>
+  );
+}
+
+/** A checkbox with its label and a line on what it does, as a card (the password policy in setup and Settings). */
+export function CheckboxOption({
+  name,
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  name: string;
+  checked: boolean;
+  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
+  label: string;
+  description: string;
+}) {
+  return (
+    <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-3 rounded-card bg-bg p-3">
+      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="row-span-2 mt-1" />
+      <span className="font-medium">{label}</span>
+      <span className="text-sm text-fg-muted">{description}</span>
+    </label>
   );
 }

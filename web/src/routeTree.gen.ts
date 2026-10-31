@@ -25,6 +25,7 @@ import { Route as AppSettingsAboutRouteImport } from './routes/_app/settings.abo
 import { Route as AppSettingsLibrariesRouteImport } from './routes/_app/settings.libraries'
 import { Route as AppSettingsMetadataRouteImport } from './routes/_app/settings.metadata'
 import { Route as AppSettingsPlaybackRouteImport } from './routes/_app/settings.playback'
+import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings.security'
 import { Route as AppSettingsServerRouteImport } from './routes/_app/settings.server'
 import { Route as AppTitlesTitleIdRouteImport } from './routes/_app/titles.$titleId'
 
@@ -107,6 +108,11 @@ const AppSettingsPlaybackRoute = AppSettingsPlaybackRouteImport.update({
   path: '/playback',
   getParentRoute: () => AppSettingsRoute,
 } as any)
+const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
+  getParentRoute: () => AppSettingsRoute,
+} as any)
 const AppSettingsServerRoute = AppSettingsServerRouteImport.update({
   id: '/server',
   path: '/server',
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/settings/libraries': typeof AppSettingsLibrariesRoute
   '/settings/metadata': typeof AppSettingsMetadataRoute
   '/settings/playback': typeof AppSettingsPlaybackRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/server': typeof AppSettingsServerRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
   '/settings/': typeof AppSettingsIndexRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByTo {
   '/settings/libraries': typeof AppSettingsLibrariesRoute
   '/settings/metadata': typeof AppSettingsMetadataRoute
   '/settings/playback': typeof AppSettingsPlaybackRoute
+  '/settings/security': typeof AppSettingsSecurityRoute
   '/settings/server': typeof AppSettingsServerRoute
   '/titles/$titleId': typeof AppTitlesTitleIdRoute
   '/settings': typeof AppSettingsIndexRoute
@@ -172,6 +180,7 @@ export interface FileRoutesById {
   '/_app/settings/libraries': typeof AppSettingsLibrariesRoute
   '/_app/settings/metadata': typeof AppSettingsMetadataRoute
   '/_app/settings/playback': typeof AppSettingsPlaybackRoute
+  '/_app/settings/security': typeof AppSettingsSecurityRoute
   '/_app/settings/server': typeof AppSettingsServerRoute
   '/_app/titles/$titleId': typeof AppTitlesTitleIdRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/settings/libraries'
     | '/settings/metadata'
     | '/settings/playback'
+    | '/settings/security'
     | '/settings/server'
     | '/titles/$titleId'
     | '/settings/'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/settings/libraries'
     | '/settings/metadata'
     | '/settings/playback'
+    | '/settings/security'
     | '/settings/server'
     | '/titles/$titleId'
     | '/settings'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/_app/settings/libraries'
     | '/_app/settings/metadata'
     | '/_app/settings/playback'
+    | '/_app/settings/security'
     | '/_app/settings/server'
     | '/_app/titles/$titleId'
     | '/_app/settings/'
@@ -358,6 +370,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsPlaybackRouteImport
       parentRoute: typeof AppSettingsRoute
     }
+    '/_app/settings/security': {
+      id: '/_app/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AppSettingsSecurityRouteImport
+      parentRoute: typeof AppSettingsRoute
+    }
     '/_app/settings/server': {
       id: '/_app/settings/server'
       path: '/server'
@@ -380,6 +399,7 @@ interface AppSettingsRouteChildren {
   AppSettingsLibrariesRoute: typeof AppSettingsLibrariesRoute
   AppSettingsMetadataRoute: typeof AppSettingsMetadataRoute
   AppSettingsPlaybackRoute: typeof AppSettingsPlaybackRoute
+  AppSettingsSecurityRoute: typeof AppSettingsSecurityRoute
   AppSettingsServerRoute: typeof AppSettingsServerRoute
   AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
@@ -389,6 +409,7 @@ const AppSettingsRouteChildren: AppSettingsRouteChildren = {
   AppSettingsLibrariesRoute: AppSettingsLibrariesRoute,
   AppSettingsMetadataRoute: AppSettingsMetadataRoute,
   AppSettingsPlaybackRoute: AppSettingsPlaybackRoute,
+  AppSettingsSecurityRoute: AppSettingsSecurityRoute,
   AppSettingsServerRoute: AppSettingsServerRoute,
   AppSettingsIndexRoute: AppSettingsIndexRoute,
 }

@@ -1,8 +1,8 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { MetadataSettingsRequest } from '../api/mediaman.schemas';
+import { Permission, type MetadataSettingsRequest, type PasswordPolicy } from '../api/mediaman.schemas';
 import type { MediamanDesktop } from '../lib/desktop';
 import { mockHealth } from '../mocks/handlers';
 import { server } from '../mocks/node';
@@ -25,6 +25,7 @@ describe('Settings sections', () => {
       'Playback',
       'Metadata',
       'Server',
+      'Security',
       'About and licences',
     ]);
     expect(await screen.findByRole('heading', { name: 'Libraries' })).toBeInTheDocument();
@@ -37,6 +38,15 @@ describe('Settings sections', () => {
     expect(await screen.findByRole('heading', { name: 'Playback' })).toBeInTheDocument();
     const nav = await settingsNav();
     expect(nav.getAllByRole('link').map((link) => link.textContent)).toEqual(['Playback', 'About and licences']);
+  });
+
+  it("hides Security from an account that isn't the Superadmin, even with every permission", async () => {
+    mockSettings.setPermissions(Object.values(Permission));
+    renderApp('/settings/about');
+
+    const nav = await settingsNav();
+    expect(await nav.findByRole('link', { name: 'Server' })).toBeInTheDocument();
+    expect(nav.queryByRole('link', { name: 'Security' })).not.toBeInTheDocument();
   });
 
   it('says what to do when a hidden section is opened by its address', async () => {
@@ -176,6 +186,95 @@ describe('Settings sections', () => {
       expect(await screen.findByText(/Restart the MediaMan server to use this mode/)).toBeInTheDocument();
       expect(screen.getByRole('radio', { name: /My home network/ })).toBeChecked();
       expect(screen.getByRole('button', { name: 'Save mode' })).toBeDisabled();
+    });
+  });
+
+  describe('Security', () => {
+    function recordPolicies() {
+      const sent: PasswordPolicy[] = [];
+      server.use(
+        http.put('*/settings/password-policy', async ({ request }) => {
+          sent.push((await request.clone().json()) as PasswordPolicy);
+          return undefined; // On to the store's handler.
+        }),
+      );
+      return sent;
+    }
+
+    it('turns on strong passwords and states the new rule', async () => {
+      const user = userEvent.setup();
+      const sent = recordPolicies();
+      renderApp('/settings/security');
+
+      expect(await screen.findByRole('checkbox', { name: /Require passwords/ })).toBeChecked();
+      expect(screen.getByRole('checkbox', { name: /Strong passwords/ })).not.toBeChecked();
+      expect(screen.getByText('At least 8 characters.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+      await user.click(screen.getByRole('checkbox', { name: /Strong passwords/ }));
+      expect(screen.getByText(/At least 12 characters, mixing/)).toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+
+      expect(await screen.findByText("Saved. It applies from each account's next sign-in.")).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+      expect(sent).toEqual([{ requirePasswords: true, strongPasswords: true }]);
+    });
+
+    it('asks before turning passwords off', async () => {
+      const user = userEvent.setup();
+      const sent = recordPolicies();
+      renderApp('/settings/security');
+
+      await user.click(await screen.findByRole('checkbox', { name: /Require passwords/ }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      const confirm = screen.getByRole('alertdialog');
+      expect(confirm).toHaveTextContent('Anyone who can reach this server can then sign in as any account');
+      expect(within(confirm).getByRole('button', { name: 'Keep them on' })).toHaveFocus();
+      await user.click(within(confirm).getByRole('button', { name: 'Keep them on' }));
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+      expect(sent).toEqual([]);
+
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Turn passwords off' }));
+
+      expect(await screen.findByText("Saved. It applies from each account's next sign-in.")).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /Require passwords/ })).not.toBeChecked();
+      expect(sent).toEqual([{ requirePasswords: false, strongPasswords: false }]);
+    });
+
+    it("shows the server's problem when the policy can't be saved", async () => {
+      const user = userEvent.setup();
+      server.use(
+        http.put('*/settings/password-policy', () =>
+          HttpResponse.json(
+            {
+              title: "Passwords can't be turned off while remote access is on.",
+              status: 400,
+              code: 'bad_request',
+              action: 'Turn remote access off first.',
+            },
+            { status: 400, headers: { 'Content-Type': 'application/problem+json' } },
+          ),
+        ),
+      );
+      renderApp('/settings/security');
+
+      await user.click(await screen.findByRole('checkbox', { name: /Require passwords/ }));
+      await user.click(screen.getByRole('button', { name: 'Save' }));
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Turn passwords off' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        "Passwords can't be turned off while remote access is on. Turn remote access off first.",
+      );
+    });
+
+    it("says only the owner can change it when another account opens it by its address", async () => {
+      mockSettings.setPermissions(Object.values(Permission));
+      renderApp('/settings/security');
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent("Only the server's owner can change Security settings.");
+      expect(within(alert).getByRole('link', { name: 'Back to Settings' })).toBeInTheDocument();
     });
   });
 

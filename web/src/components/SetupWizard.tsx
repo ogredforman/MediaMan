@@ -4,7 +4,7 @@ import { useCompleteSetup } from '../api/mediaman';
 import type { ContentType, PasswordPolicy, ServerMode } from '../api/mediaman.schemas';
 import { passwordHint, passwordProblem } from '../lib/passwordRule';
 import { storeTokens } from '../lib/session';
-import { Field, FieldError, type FieldErrors } from './FormField';
+import { CheckboxOption, Field, FieldError, type FieldErrors } from './FormField';
 import { buttonClass, inputClass } from './formClasses';
 import { Logo } from './Logo';
 import { PasswordInput } from './PasswordInput';
@@ -184,14 +184,14 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             </Field>
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm text-fg-muted">Passwords on this server</legend>
-              <PolicyOption
+              <CheckboxOption
                 name="requirePasswords"
                 checked={policy.requirePasswords}
                 onChange={choose('requirePasswords')}
                 label="Require passwords"
                 description="Turn this off and anyone who can reach the server signs in by picking an account, with no password."
               />
-              <PolicyOption
+              <CheckboxOption
                 name="strongPasswords"
                 checked={policy.strongPasswords}
                 onChange={choose('strongPasswords')}
@@ -320,28 +320,6 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
         </div>
       </form>
     </main>
-  );
-}
-
-function PolicyOption({
-  name,
-  checked,
-  onChange,
-  label,
-  description,
-}: {
-  name: string;
-  checked: boolean;
-  onChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  label: string;
-  description: string;
-}) {
-  return (
-    <label className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-3 rounded-card bg-bg p-3">
-      <input type="checkbox" name={name} checked={checked} onChange={onChange} className="row-span-2 mt-1" />
-      <span className="font-medium">{label}</span>
-      <span className="text-sm text-fg-muted">{description}</span>
-    </label>
   );
 }
 
