@@ -355,7 +355,8 @@ export class MpvPlayer implements IPlayer {
    * Loads `opts` into the running MPV instead of opening a new window (SPEC §7.4 step 5). The old file ends here; its
    * own `end-file` is dropped with anything else MPV sends before the new file's `start-file`. The launch options are
    * set as properties first (the `pause` MPV set when holding the last frame included), since `loadfile`'s per-file
-   * options moved position in MPV 0.38.
+   * options moved position in MPV 0.38. The unpause is sent again at the new file's `start-file`, since MPV runs
+   * playback between commands and the old file's keep-open pause can land after the first one.
    */
   private replace(session: Session, connection: MpvConnection, opts: PlayOptions): void {
     this.end(session, 'quit');
@@ -435,9 +436,13 @@ export class MpvPlayer implements IPlayer {
     const item = session.item;
     if (message.event === 'start-file') {
       // Two quick replaces send two loadfiles: only the second start-file is the current file's.
-      if (session.pendingStarts > 0) session.pendingStarts--;
+      const replacing = session.pendingStarts > 0;
+      if (replacing) session.pendingStarts--;
       item.started = session.pendingStarts === 0;
-      if (item.started) this.emitState(session);
+      if (!item.started) return;
+      // The old file can reach its end, and keep-open pause it, after replace's unpause: unpause the new one again.
+      if (replacing) send(session.connection, ['set_property', 'pause', false]);
+      this.emitState(session);
       return;
     }
     // A replaced file's last events (its end-file, its final position) arrive before the new file starts; pause, volume

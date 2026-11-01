@@ -377,7 +377,7 @@ describe('MpvPlayer', () => {
     });
 
     expect(mpv.spawned).toHaveLength(1);
-    expect(mpv.commands.slice(before)).toEqual([
+    expect(mpv.commands.slice(before, before + 6)).toEqual([
       ['set_property', 'pause', false],
       ['set_property', 'start', 'none'],
       ['set_property', 'force-media-title', 'Show S01E02 · Two'],
@@ -391,8 +391,27 @@ describe('MpvPlayer', () => {
     await settle();
     mpv.send({ event: 'file-loaded' });
     expect(mpv.commands.slice(before + 6)).toEqual([
+      ['set_property', 'pause', false],
       ['sub-add', 'http://s/en.srt', 'auto', 'en', 'en'],
     ]);
+  });
+
+  it('starts the next file playing when the old one pauses at its end during the hand-over', async () => {
+    const { mpv, player, states } = setUp();
+    await player.play(contractPlay);
+    mpv.send({ event: 'property-change', id: 1, name: 'time-pos', data: 1379 });
+    const replaced = player.play({ ...contractPlay, title: 'Two' });
+    // MPV ran the unpause, then the old file reached its end and keep-open paused it, all before the new start-file.
+    mpv.send({ event: 'property-change', id: 4, name: 'eof-reached', data: true });
+    mpv.send({ event: 'property-change', id: 3, name: 'pause', data: true });
+    const pausedAt = mpv.commands.length;
+    await replaced;
+    await settle();
+
+    expect(states.at(-1)?.paused).toBe(true);
+    expect(mpv.commands.slice(pausedAt)).toEqual([['set_property', 'pause', false]]);
+    mpv.send({ event: 'property-change', id: 3, name: 'pause', data: false });
+    expect(states.at(-1)).toMatchObject({ paused: false, title: 'Two' });
   });
 
   it('passes a resume point to the replaced file and keeps the new file going past the old one\'s end-file', async () => {
@@ -420,6 +439,8 @@ describe('MpvPlayer', () => {
 
     expect(ended).toEqual([['quit', undefined], ['quit', undefined]]);
     expect(mpv.closed).toBe(false);
+    // One unpause per replace before its loadfile, and one more once the newest file starts.
+    expect(mpv.commands.filter(([name, property]) => name === 'set_property' && property === 'pause')).toHaveLength(3);
     expect(mpv.commands.at(-1)).toEqual(['cycle', 'mute']);
   });
 
