@@ -22,8 +22,7 @@ function fail(message) {
 
 /** Runs git and returns its trimmed output; a failure ends the release with `what` and git's own message. */
 function git(args, what) {
-  // stdin stays the terminal's, so ssh can ask for a key passphrase during the fetch.
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'] });
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
   if (result.error) fail(`couldn't ${what} (${result.error.message}). Is git on PATH?`);
   if (result.status !== 0) fail(`couldn't ${what}: ${result.stderr.trim()}`);
   return result.stdout.trim();
@@ -49,7 +48,10 @@ if (git(['status', '--porcelain'], 'read the working tree status') !== '') {
 }
 if (git(['tag', '--list', tag], 'list the tags') !== '') fail(`${tag} already exists. Pick the next version.`);
 
-git(['fetch', '--quiet', '--tags', 'origin', 'main'], 'fetch origin');
+// The terminal is passed straight through, as for the push below: ssh (Windows OpenSSH in particular) can only ask for a
+// key passphrase when it has the console, and git's own error then shows above.
+const fetch = spawnSync('git', ['fetch', '--quiet', '--tags', 'origin', 'main'], { cwd: root, stdio: 'inherit' });
+if (fetch.error || fetch.status !== 0) fail("couldn't fetch origin (see above). Check that git fetch origin works, then try again.");
 const local = git(['rev-parse', 'refs/heads/main'], 'read main');
 const remote = git(['rev-parse', 'refs/remotes/origin/main'], 'read origin/main');
 if (local !== remote) {
