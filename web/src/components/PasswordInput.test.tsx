@@ -20,7 +20,8 @@ function Form({ onSubmit = () => undefined }: { onSubmit?: () => void }) {
   );
 }
 
-const toggles = () => screen.getAllByRole('button', { name: /password/ });
+// Two password fields, so two toggles; the tuple satisfies noUncheckedIndexedAccess.
+const toggles = () => screen.getAllByRole('button', { name: /password/ }) as [HTMLElement, HTMLElement];
 
 describe('PasswordInput', () => {
   it('starts hidden and the eye button shows and hides what was typed', async () => {
