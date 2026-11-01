@@ -226,3 +226,47 @@ describe('profile picker', () => {
     );
   });
 });
+
+describe("the profiles screen's Back button", () => {
+  const profilesDown = () => {
+    server.use(
+      http.get('*/profiles', () =>
+        HttpResponse.json(
+          { title: 'The server is unavailable.', status: 503, code: 'server.unavailable', action: 'Try again in a moment.' },
+          { status: 503, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    );
+  };
+
+  it('returns to the previous page when the profiles fail to load', async () => {
+    const user = userEvent.setup();
+    const { router } = renderApp('/movies');
+    await user.click(await screen.findByRole('button', { name: 'Profile menu (owner)' }));
+    profilesDown();
+    await user.click(screen.getByRole('link', { name: 'Switch profile' }));
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+
+    const back = screen.getByRole('button', { name: 'Back' });
+    back.blur();
+    for (let i = 0; i < 10 && document.activeElement !== back; i++) await user.tab();
+    expect(back).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Movies' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/movies');
+  });
+
+  it('goes Home when the screen was opened directly and the profiles fail to load', async () => {
+    profilesDown();
+    const user = userEvent.setup();
+    const { router } = renderApp('/profiles');
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    server.resetHandlers();
+
+    await user.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Home' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/');
+  });
+});

@@ -1,4 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router';
+import { BackButton } from '../components/BackButton';
 import { ProfilePicker } from '../components/ProfilePicker';
 import { safeRedirect } from '../lib/redirect';
 import { probeSession } from '../lib/sessionProbe';
@@ -26,5 +27,11 @@ function ProfilesRoute() {
   useRedirectOnSignOut();
   // Back to the picker would only ask again.
   const next = target === undefined || target.startsWith('/profiles') ? '/' : target;
-  return <ProfilePicker onPicked={() => { void router.navigate({ href: next }); }} />;
+  return (
+    <>
+      {/* A way out when the profiles don't load; below the desktop title band, which has no height in a browser. */}
+      <BackButton className="fixed top-[calc(env(titlebar-area-height,0px)+1.5rem)] left-8 z-30" />
+      <ProfilePicker onPicked={() => { void router.navigate({ href: next }); }} />
+    </>
+  );
 }
