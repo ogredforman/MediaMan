@@ -22,7 +22,8 @@ function fail(message) {
 
 /** Runs git and returns its trimmed output; a failure ends the release with `what` and git's own message. */
 function git(args, what) {
-  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8' });
+  // stdin stays the terminal's, so ssh can ask for a key passphrase during the fetch.
+  const result = spawnSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['inherit', 'pipe', 'pipe'] });
   if (result.error) fail(`couldn't ${what} (${result.error.message}). Is git on PATH?`);
   if (result.status !== 0) fail(`couldn't ${what}: ${result.stderr.trim()}`);
   return result.stdout.trim();
