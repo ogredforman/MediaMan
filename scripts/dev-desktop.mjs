@@ -3,9 +3,14 @@
 // Ctrl+C stops everything, so no vite is left holding the port.
 // MPV is whatever the desktop app already uses: the one picked in its settings, else MEDIAMAN_MPV_PATH, else mpv on PATH.
 //
-//   npm run dev:desktop   (MEDIAMAN_UI_PORT picks another Vite port; MEDIAMAN_SERVER_PORT is passed through)
+// The dev server gets its own port (8421) and data directory (MediaMan-dev beside the installed app's MediaMan), so it
+// never uses an installed app's server or migrates its database.
+//
+//   npm run dev:desktop   (MEDIAMAN_UI_PORT picks another Vite port; MEDIAMAN_SERVER_PORT and MediaMan__DataDirectory
+//                          override the dev server's port and data directory)
 
 import { spawn, spawnSync } from 'node:child_process';
+import os from 'node:os';
 import path from 'node:path';
 import { failer, root } from './lib/pinned.mjs';
 
@@ -14,6 +19,14 @@ const uiPort = process.env.MEDIAMAN_UI_PORT?.trim() || '5173';
 const uiUrl = `http://localhost:${uiPort}`;
 const serverDll = path.join(root, 'server', 'src', 'MediaMan.Server', 'bin', 'Debug', 'net10.0', 'MediaMan.Server.dll');
 const isWindows = process.platform === 'win32';
+const serverPort = process.env.MEDIAMAN_SERVER_PORT?.trim() || '8421';
+// Where .NET's LocalApplicationData points on each platform, so MediaMan-dev sits beside the installed app's MediaMan.
+const localAppData = isWindows
+  ? process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local')
+  : process.platform === 'darwin'
+    ? path.join(os.homedir(), 'Library', 'Application Support')
+    : process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share');
+const dataDir = process.env.MediaMan__DataDirectory?.trim() || path.join(localAppData, 'MediaMan-dev');
 
 // Incremental, so it's quick when nothing changed, and the app never runs a stale server.
 const build = spawnSync('dotnet', ['build', path.join(root, 'server', 'src', 'MediaMan.Server'), '-c', 'Debug'], {
@@ -75,8 +88,11 @@ if (!(await waitForUi(60_000))) {
   stopAll(1);
 }
 
+console.log(`dev-desktop: dev server on http://127.0.0.1:${serverPort}, data in ${dataDir}`);
 const desktop = start('npm start -w desktop', {
   MEDIAMAN_SERVER_PATH: serverDll,
+  MEDIAMAN_SERVER_PORT: serverPort,
+  MediaMan__DataDirectory: dataDir,
   MEDIAMAN_UI_URL: uiUrl,
   // Set by Electron-based tools (editors, terminals) for their own children; inherited, it starts the app as plain Node.
   ELECTRON_RUN_AS_NODE: undefined,
