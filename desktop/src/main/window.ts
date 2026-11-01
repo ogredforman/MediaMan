@@ -124,11 +124,14 @@ export function overlayUrl(uiUrl: URL): URL {
 }
 
 /**
- * The player overlay (ADR 0011): frameless and transparent over the video, out of the taskbar and Alt-Tab (it is owned
- * by the main window, set as `parent` by the caller), and sandboxed like the main window.
+ * The player overlay (ADR 0011): frameless and transparent over the video, owned by the main window (`parent`, set by
+ * the caller), out of the taskbar and Alt-Tab, and sandboxed like the main window. On Windows it is a tool window
+ * (`toolbar`, `WS_EX_TOOLWINDOW`): `skipTaskbar` alone only drops the taskbar tab, and each refocus of the overlay
+ * during fullscreen playback added another MediaMan entry to Alt-Tab.
  */
-export function overlayWindowOptions(preloadPath: string): BrowserWindowConstructorOptions {
+export function overlayWindowOptions(preloadPath: string, platform: NodeJS.Platform): BrowserWindowConstructorOptions {
   return {
+    ...(platform === 'win32' ? { type: 'toolbar' } : {}),
     show: false,
     frame: false,
     transparent: true,

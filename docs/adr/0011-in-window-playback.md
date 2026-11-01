@@ -49,7 +49,9 @@ described in option 2, kept on `mainWindow.getContentBounds()` on `move`, `resiz
 - **Input:** real OS clicks (`SendInput` at the button's screen point) and key presses reach the overlay's page and,
   through IPC to MPV, pause and seek; a double-click toggled fullscreen.
 - **One window:** the overlay is an owned window without `WS_EX_APPWINDOW`, so Windows lists only the main window in
-  Alt-Tab and, with `skipTaskbar`, the taskbar.
+  Alt-Tab and, with `skipTaskbar`, the taskbar. Real use later showed that isn't enough during fullscreen playback:
+  each refocus of the overlay added another MediaMan entry to Alt-Tab (PLAN 2.5.23), so on Windows the overlay is
+  also a tool window (`type: 'toolbar'`, `WS_EX_TOOLWINDOW`).
 - **Subtitles:** an external `.srt` rendered by MPV in the embedded surface, under the overlay.
 - **HDR:** a PQ/BT.2020 clip is decoded as PQ and the swapchain follows the display MPV's child is on (flip model,
   `Queried output … colorspace` in MPV's log), the same code path as MPV's own window. Only an SDR display was

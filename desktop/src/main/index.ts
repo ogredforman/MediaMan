@@ -81,7 +81,7 @@ function guardContents(contents: Electron.WebContents): void {
 
 /** The player overlay over `main` (ADR 0011), on the web UI's `/player` page. */
 function createOverlayWindow(main: BrowserWindow): BrowserWindow {
-  const win = new BrowserWindow({ ...overlayWindowOptions(preloadPath), parent: main });
+  const win = new BrowserWindow({ ...overlayWindowOptions(preloadPath, process.platform), parent: main });
   guardContents(win.webContents);
   const page = overlayUrl(uiUrl);
   win.loadURL(page.toString()).catch((err: unknown) => {

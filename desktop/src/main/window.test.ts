@@ -97,9 +97,15 @@ describe('in-window playback', () => {
   });
 
   it('makes the overlay a transparent, frameless, sandboxed window out of the taskbar', () => {
-    const options = overlayWindowOptions('/app/preload.cjs');
+    const options = overlayWindowOptions('/app/preload.cjs', 'win32');
     expect(options).toMatchObject({ show: false, frame: false, transparent: true, skipTaskbar: true, fullscreenable: false });
     expect(options.webPreferences).toMatchObject({ preload: '/app/preload.cjs', contextIsolation: true, nodeIntegration: false, sandbox: true });
+  });
+
+  it('is a tool window on Windows, so refocusing it in fullscreen adds no Alt-Tab entries', () => {
+    expect(overlayWindowOptions('/app/preload.cjs', 'win32').type).toBe('toolbar');
+    expect(overlayWindowOptions('/app/preload.cjs', 'linux').type).toBeUndefined();
+    expect(overlayWindowOptions('/app/preload.cjs', 'darwin').type).toBeUndefined();
   });
 });
 
